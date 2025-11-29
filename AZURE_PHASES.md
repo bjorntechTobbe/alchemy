@@ -2,7 +2,7 @@
 
 This document tracks the implementation progress of the Azure provider for Alchemy, organized into 7 phases following the plan outlined in [AZURE.md](./AZURE.md).
 
-**Overall Progress: 41/88 tasks (46.6%) - Phase 1 Complete ✅ | Phase 1.5 Networking Complete ✅ | Phase 2 Complete ✅ | Phase 3 Complete ✅ | Phase 4 Complete ✅**
+**Overall Progress: 44/91 tasks (48.4%) - Phase 1 Complete ✅ | Phase 1.5 Networking Complete ✅ | Phase 2 Complete ✅ | Phase 3 Complete ✅ | Phase 4 Complete ✅**
 
 ---
 
@@ -1133,16 +1133,16 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 ## Summary Statistics
 
 ### Overall Progress
-- **Total Tasks:** 88
-- **Completed:** 41 (46.6%)
-- **Deferred:** 4 (4.5%)
-- **Cancelled:** 2 (2.3%)
+- **Total Tasks:** 91
+- **Completed:** 44 (48.4%)
+- **Deferred:** 4 (4.4%)
+- **Cancelled:** 2 (2.2%)
 - **In Progress:** 0 (0%)
-- **Pending:** 41 (46.6%)
+- **Pending:** 41 (45.0%)
 
 ### Phase Status
 - ✅ Phase 1: Foundation - **COMPLETE** (11/11 - 100%)
-- ✅ Phase 1.5: Networking - **COMPLETE** (6/6 - 100%)
+- ✅ Phase 1.5: Networking - **COMPLETE** (9/9 - 100%)
 - ✅ Phase 2: Storage - **COMPLETE** (7/8 - 87.5%, 1 cancelled)
 - ✅ Phase 3: Compute - **COMPLETE** (9/12 - 75%, 3 deferred)
 - ✅ Phase 4: Databases - **COMPLETE** (8/8 - 100%, 1 cancelled, 1 deferred)
@@ -1156,6 +1156,7 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 - ✅ UserAssignedIdentity
 - ✅ VirtualNetwork
 - ✅ NetworkSecurityGroup
+- ✅ PublicIPAddress
 - ✅ StorageAccount
 - ✅ BlobContainer
 - ✅ FunctionApp
@@ -1170,7 +1171,7 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 - 📋 CognitiveServices (planned)
 - 📋 CDN (planned)
 
-**Total Planned Resources:** 17 (12 implemented, 5 pending)
+**Total Planned Resources:** 18 (13 implemented, 5 pending)
 
 ### Code Statistics
 **Phase 1:**
@@ -1190,16 +1191,16 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 - Documentation: 1,010 lines across 3 files
 
 **Phase 1.5:**
-- Implementation: 847 lines across 2 files
-- Tests: 881 lines across 2 files (17 test cases)
-- Documentation: 538 lines across 2 files
+- Implementation: 1,303 lines across 3 files
+- Tests: 1,343 lines across 3 files (29 test cases)
+- Documentation: 785 lines across 3 files
 
 **Phase 4:**
 - Implementation: 1,529 lines across 3 files
 - Tests: 1,231 lines across 2 files (22 test cases)
 - Documentation: 996 lines across 3 files
 
-**Combined Total:** 16,351 lines across 46 files
+**Combined Total:** 17,516 lines across 49 files
 
 ---
 
@@ -1365,18 +1366,104 @@ Sections:
 
 **Total:** 6 files, 2,266 lines of production code
 
+#### 1.5.7 ✅ PublicIPAddress Resource
+**File:** `alchemy/src/azure/public-ip-address.ts` (456 lines)
+
+Features:
+- External IP addresses for Azure resources (equivalent to AWS Elastic IP)
+- Static and Dynamic allocation methods
+- Standard and Basic SKU support
+- IPv4 and IPv6 support
+- DNS domain name labels with FQDN generation
+- Zone-redundant deployments (Standard SKU only)
+- Idle timeout configuration (4-30 minutes)
+- Name validation (1-80 chars)
+- Domain name label validation (lowercase, 3-63 chars)
+- Returns allocated IP address and FQDN
+- Adoption support
+- Optional deletion (`delete: false`)
+- Type guard function (`isPublicIPAddress()`)
+
+#### 1.5.8 ✅ PublicIPAddress Tests
+**File:** `alchemy/test/azure/public-ip-address.test.ts` (462 lines)
+
+Test coverage (12 test cases):
+- ✅ Create public IP address
+- ✅ Public IP with DNS label
+- ✅ Update public IP tags
+- ✅ PublicIP with ResourceGroup object reference
+- ✅ PublicIP with ResourceGroup string reference
+- ✅ Zone-redundant public IP
+- ✅ Adopt existing public IP
+- ✅ PublicIP name validation
+- ✅ Domain name label validation
+- ✅ PublicIP with default name
+- ✅ PublicIP with custom idle timeout
+- ✅ Delete: false preserves public IP
+
+#### 1.5.9 ✅ PublicIPAddress Documentation
+**File:** `alchemy-web/src/content/docs/providers/azure/public-ip-address.md` (247 lines)
+
+Sections:
+- Complete property reference (input/output tables)
+- 7 usage examples:
+  - Basic Public IP Address
+  - Public IP with DNS Label
+  - Zone-Redundant Public IP
+  - IPv6 Public IP
+  - Public IP for Load Balancer
+  - Public IP for NAT Gateway
+  - Adopt Existing Public IP
+- SKU comparison table (Basic vs Standard)
+- Allocation methods (Static vs Dynamic)
+- Common use cases (Load Balancer, NAT Gateway, App Gateway)
+- Important notes (immutability, charges, deprecation)
+- Related resources links
+- Official Azure documentation links
+
+### Updated Deliverables
+
+**Implementation:** 3 files, 1,303 lines
+- VirtualNetwork resource (390 lines)
+- NetworkSecurityGroup resource (457 lines)
+- PublicIPAddress resource (456 lines)
+- Updated client.ts with NetworkManagementClient
+- Updated index.ts with exports
+
+**Tests:** 3 files, 1,343 lines
+- 29 comprehensive test cases
+- Full lifecycle coverage (create, update, delete)
+- Adoption scenarios
+- Name and DNS validation
+- Default name generation
+- Zone-redundancy testing
+- Resource group references (object vs string)
+- Assertion helpers
+
+**Documentation:** 3 files, 785 lines
+- User-facing resource documentation
+- 19 practical examples
+- Complete property reference
+- SKU and allocation method comparisons
+- Common patterns and use cases
+- Best practices and important notes
+
+**Total:** 9 files, 3,431 lines of production code
+
 ### Key Achievements
 
 ✅ **Complete networking foundation** for Azure infrastructure  
-✅ **Two production-ready resources** (VirtualNetwork, NetworkSecurityGroup)  
+✅ **Three production-ready resources** (VirtualNetwork, NetworkSecurityGroup, PublicIPAddress)  
 ✅ **VPC equivalent** - Full virtual network isolation and management  
 ✅ **Security Groups equivalent** - Comprehensive firewall rule support  
+✅ **Elastic IP equivalent** - Static and dynamic public IP addresses  
 ✅ **Flexible subnetting** - Multiple subnets with CIDR address planning  
 ✅ **Service tag support** - Simplified rules with Azure service tags  
-✅ **Priority-based rules** - Fine-grained control over traffic flow  
-✅ **17 comprehensive test cases** - Full lifecycle coverage with assertion helpers  
-✅ **Excellent documentation** - 12 practical examples with best practices  
-✅ **Azure-specific patterns** - Hub-and-spoke, three-tier applications  
+✅ **Zone redundancy** - High availability across availability zones  
+✅ **DNS integration** - Custom domain names with FQDN generation  
+✅ **29 comprehensive test cases** - Full lifecycle coverage with assertion helpers  
+✅ **Excellent documentation** - 19 practical examples with best practices  
+✅ **Azure-specific patterns** - Hub-and-spoke, three-tier applications, load balancing  
 ✅ **Type safety** - Type guards, proper interfaces, Azure SDK integration  
 ✅ **Production-ready** - Error handling, validation, immutable property detection  
 
