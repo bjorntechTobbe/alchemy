@@ -91,7 +91,7 @@ describe("Azure Resources", () => {
 
       let rg: ResourceGroup;
       const clients = await createAzureClients();
-      
+
       try {
         // First, create a resource group
         rg = await ResourceGroup("test-adopt-rg-initial", {
@@ -143,11 +143,17 @@ describe("Azure Resources", () => {
       } finally {
         // Ensure cleanup even if test fails
         try {
-          const poller = await clients.resources.resourceGroups.beginDelete(resourceGroupName);
+          const poller =
+            await clients.resources.resourceGroups.beginDelete(
+              resourceGroupName,
+            );
           await poller.pollUntilDone();
         } catch (error: any) {
           // Ignore 404 errors - already deleted
-          if (error?.statusCode !== 404 && error?.code !== "ResourceGroupNotFound") {
+          if (
+            error?.statusCode !== 404 &&
+            error?.code !== "ResourceGroupNotFound"
+          ) {
             throw error;
           }
         }
@@ -216,18 +222,18 @@ describe("Azure Resources", () => {
         // for Resource Groups. The conflict detection works at the Alchemy state level instead.
         // When we try to create a second resource with the same name, Alchemy should detect
         // it's already tracked in state and handle it accordingly.
-        
+
         // For now, we'll skip this test for Azure Resource Groups since Azure's
         // createOrUpdate is inherently idempotent and doesn't throw conflicts
         // This test is valid for other Azure resources that DO throw conflicts (e.g., Storage Accounts)
-        
+
         // Try to create another with same name without adopt flag
         // This will succeed in Azure but should be tracked as separate resource in state
         const rg2 = await ResourceGroup("test-conflict-rg-2", {
           name: resourceGroupName,
           location: "southcentralus",
         });
-        
+
         // Both resources point to the same Azure resource
         expect(rg2.name).toBe(resourceGroupName);
         expect(rg2.resourceGroupId).toBe(rg.resourceGroupId);
@@ -235,11 +241,17 @@ describe("Azure Resources", () => {
         await destroy(scope);
         // Ensure cleanup even if test fails
         try {
-          const poller = await clients.resources.resourceGroups.beginDelete(resourceGroupName);
+          const poller =
+            await clients.resources.resourceGroups.beginDelete(
+              resourceGroupName,
+            );
           await poller.pollUntilDone();
         } catch (error: any) {
           // Ignore 404 errors - already deleted
-          if (error?.statusCode !== 404 && error?.code !== "ResourceGroupNotFound") {
+          if (
+            error?.statusCode !== 404 &&
+            error?.code !== "ResourceGroupNotFound"
+          ) {
             throw error;
           }
         }
@@ -273,11 +285,17 @@ describe("Azure Resources", () => {
       } finally {
         // Ensure cleanup even if test fails
         try {
-          const poller = await clients.resources.resourceGroups.beginDelete(resourceGroupName);
+          const poller =
+            await clients.resources.resourceGroups.beginDelete(
+              resourceGroupName,
+            );
           await poller.pollUntilDone();
         } catch (error: any) {
           // Ignore 404 errors - already deleted
-          if (error?.statusCode !== 404 && error?.code !== "ResourceGroupNotFound") {
+          if (
+            error?.statusCode !== 404 &&
+            error?.code !== "ResourceGroupNotFound"
+          ) {
             throw error;
           }
         }

@@ -129,58 +129,95 @@ const functionApp = await FunctionApp("api", {
 - Survives resource deletion (unlike System-Assigned Identities)
 - Location inheritance from Resource Group when not specified
 
-### Tier 2: Storage (Planned)
+### Tier 2: Storage (Implemented)
 
 #### StorageAccount
 **Purpose**: Foundation for blob storage, file shares, queues, and tables
 **Equivalent**: AWS S3 Account-level settings
 **Priority**: HIGH
-**Status**: 📋 Planned
+**Status**: ✅ Implemented
 
 #### BlobContainer
 **Purpose**: Object storage container
 **Equivalent**: Cloudflare R2 Bucket, AWS S3 Bucket
 **Priority**: HIGH
-**Status**: 📋 Planned
+**Status**: ✅ Implemented
 
-### Tier 3: Compute (Planned)
+### Tier 3: Compute (Implemented)
 
 #### FunctionApp
 **Purpose**: Serverless compute platform
 **Equivalent**: Cloudflare Workers, AWS Lambda
 **Priority**: HIGH
-**Status**: 📋 Planned
+**Status**: ✅ Implemented
 
 #### StaticWebApp
 **Purpose**: Static site hosting with built-in CI/CD
 **Equivalent**: Cloudflare Pages, AWS Amplify
 **Priority**: HIGH
-**Status**: 📋 Planned
+**Status**: ✅ Implemented
 
 #### AppService
 **Purpose**: PaaS web hosting for containers and code
 **Equivalent**: AWS Elastic Beanstalk
 **Priority**: MEDIUM
-**Status**: 📋 Planned
+**Status**: ✅ Implemented
 
-### Tier 4: Databases (Planned)
+### Tier 4: Databases (Implemented)
 
-#### CosmosDB
+#### CosmosDBAccount
 **Purpose**: Multi-model NoSQL database
 **Equivalent**: AWS DynamoDB
 **Priority**: MEDIUM
-**Status**: 📋 Planned
+**Status**: ✅ Implemented
+
+#### SqlServer
+**Purpose**: Managed SQL Server instance
+**Equivalent**: AWS RDS for SQL Server
+**Priority**: MEDIUM
+**Status**: ✅ Implemented
 
 #### SqlDatabase
-**Purpose**: Managed relational database (SQL Server)
-**Equivalent**: AWS RDS
+**Purpose**: SQL databases on SQL Server
+**Equivalent**: AWS RDS Database
 **Priority**: MEDIUM
-**Status**: 📋 Planned
+**Status**: ✅ Implemented
 
-### Tier 5: Security & Advanced (Planned)
+### Tier 5: Security & Advanced
 
-- **KeyVault**: Secrets and key management
-- **ContainerInstance**: Run containers without orchestration
+#### KeyVault
+**Purpose**: Secrets and key management
+**Equivalent**: AWS Secrets Manager + AWS KMS
+**Priority**: HIGH
+**Status**: ✅ Implemented
+
+```typescript
+const vault = await KeyVault("secrets", {
+  resourceGroup: rg,
+  sku: "standard",
+  enableSoftDelete: true,
+  enableRbacAuthorization: true
+});
+
+console.log(`Vault URI: ${vault.vaultUri}`);
+```
+
+**Features**:
+- Name validation (3-24 chars, globally unique, alphanumeric + hyphens)
+- Supports both access policies and RBAC authorization
+- Soft delete and purge protection
+- Network ACLs (IP and VNet rules)
+- Azure resource integration (VMs, Disk Encryption, ARM templates)
+- Adoption of existing vaults
+- Optional deletion (set `delete: false` to preserve secrets)
+
+#### ContainerInstance
+**Purpose**: Run containers without orchestration
+**Equivalent**: AWS ECS Fargate, Cloudflare Container
+**Priority**: MEDIUM
+**Status**: ✅ Implemented
+
+**Planned Resources**:
 - **ServiceBus**: Enterprise messaging service
 - **CognitiveServices**: AI/ML services
 - **CDN**: Content delivery network

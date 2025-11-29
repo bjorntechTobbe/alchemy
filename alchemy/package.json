@@ -215,6 +215,7 @@
     "@aws-sdk/client-dynamodb": "^3.0.0",
     "@azure/arm-containerinstance": "^9.0.0",
     "@azure/arm-cosmosdb": "^16.0.0",
+    "@azure/arm-keyvault": "^4.0.0",
     "@azure/arm-msi": "^2.0.0",
     "@azure/arm-network": "^34.0.0",
     "@azure/arm-resources": "^5.0.0",
@@ -247,6 +248,9 @@
       "optional": true
     },
     "@azure/arm-cosmosdb": {
+      "optional": true
+    },
+    "@azure/arm-keyvault": {
       "optional": true
     },
     "@azure/arm-msi": {
@@ -332,6 +336,7 @@
     "@aws-sdk/client-sts": "^3.0.0",
     "@azure/arm-containerinstance": "^9.0.0",
     "@azure/arm-cosmosdb": "^16.0.0",
+    "@azure/arm-keyvault": "^4.0.0",
     "@azure/arm-msi": "^2.0.0",
     "@azure/arm-network": "^34.0.0",
     "@azure/arm-resources": "^5.0.0",

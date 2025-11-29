@@ -75,6 +75,7 @@ export * from "./container-instance.ts";
 export * from "./cosmosdb-account.ts";
 export * from "./credentials.ts";
 export * from "./function-app.ts";
+export * from "./key-vault.ts";
 export * from "./network-security-group.ts";
 export * from "./public-ip-address.ts";
 export * from "./resource-group.ts";

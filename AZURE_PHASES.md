@@ -2,7 +2,7 @@
 
 This document tracks the implementation progress of the Azure provider for Alchemy, organized into 8 phases following the plan outlined in [AZURE.md](./AZURE.md).
 
-**Overall Progress: 49/91 tasks (53.8%)**
+**Overall Progress: 51/91 tasks (56.0%)**
 
 ## Quick Status Overview
 
@@ -13,12 +13,12 @@ This document tracks the implementation progress of the Azure provider for Alche
 | Phase 2: Storage | ✅ Complete | 7/8 (87.5%) | StorageAccount, BlobContainer |
 | Phase 3: Compute | ✅ Complete | 9/12 (75%) | FunctionApp, StaticWebApp, AppService |
 | Phase 4: Databases | ✅ Complete | 8/8 (100%) | CosmosDBAccount, SqlServer, SqlDatabase |
-| Phase 5: Security & Advanced | 🚧 In Progress | 3/12 (25%) | ContainerInstance ✅, KeyVault 📋, ServiceBus 📋, CognitiveServices 📋, CDN 📋 |
+| Phase 5: Security & Advanced | 🚧 In Progress | 5/13 (38.5%) | KeyVault ✅, ContainerInstance ✅, ServiceBus 📋, CognitiveServices 📋, CDN 📋 |
 | Phase 6: Documentation & Guides | 📋 Pending | 0/6 (0%) | Provider overview, Getting started guides |
 | Phase 7: Polish & Release | 📋 Pending | 0/7 (0%) | Integration tests, Performance, Security audit |
 | Phase 8: Research & Design | 📋 Ongoing | 0/6 (0%) | ARM templates, Cost estimation, Policy compliance |
 
-**14 of 18 resources implemented (77.8%)**
+**15 of 18 resources implemented (83.3%)**
 
 ---
 
@@ -907,10 +907,41 @@ Implement advanced Azure services for security, messaging, AI, and content deliv
 
 ### Completed Tasks
 
-#### 5.1 📋 KeyVault Resource
-Secrets and key management service
+#### 5.1 ✅ KeyVault Resource
+**File:** `alchemy/src/azure/key-vault.ts` (567 lines)
 
-#### 5.2 ✅ ContainerInstance Resource
+Features:
+- Secrets and key management service (equivalent to AWS Secrets Manager + AWS KMS)
+- Globally unique vault names (3-24 chars, alphanumeric + hyphens)
+- SKU support: Standard and Premium
+- Soft delete with configurable retention (7-90 days)
+- Purge protection (prevents permanent deletion until retention expires)
+- Access control: Access Policies and RBAC authorization
+- Azure resource integration (VMs, Disk Encryption, ARM templates)
+- Network ACLs (IP rules and VNet rules)
+- Returns vault URI, tenant ID, provisioning state
+- Adoption support for existing vaults
+- Optional deletion (`delete: false` to preserve secrets)
+- Type guard function (`isKeyVault()`)
+
+#### 5.2 ✅ KeyVault Tests
+**File:** `alchemy/test/azure/key-vault.test.ts` (530 lines)
+
+Test coverage (12 test cases):
+- ✅ Create key vault with standard SKU
+- ✅ Create key vault with RBAC authorization
+- ✅ Create key vault with network restrictions
+- ✅ Create key vault for Azure resources (deployment, disk encryption, templates)
+- ✅ Update key vault tags
+- ✅ Key vault with ResourceGroup object reference
+- ✅ Key vault with ResourceGroup string reference
+- ✅ Key vault with default name generation
+- ✅ Key vault name validation
+- ✅ Delete: false preserves key vault
+- ✅ Adopt existing key vault
+- ✅ Reject existing key vault without adopt flag
+
+#### 5.3 ✅ ContainerInstance Resource
 **File:** `alchemy/src/azure/container-instance.ts` (656 lines)
 
 Features:
@@ -933,7 +964,7 @@ Features:
 - Optional deletion (`delete: false`)
 - Type guard function (`isContainerInstance()`)
 
-#### 5.3 ✅ ContainerInstance Tests
+#### 5.4 ✅ ContainerInstance Tests
 **File:** `alchemy/test/azure/container-instance.test.ts` (485 lines)
 
 Test coverage (12 test cases):
@@ -950,7 +981,7 @@ Test coverage (12 test cases):
 - ✅ Container with premium resources (4 CPU, 16GB memory)
 - ✅ Delete: false preserves container instance
 
-#### 5.4 ✅ ContainerInstance Documentation
+#### 5.5 ✅ ContainerInstance Documentation
 **File:** `alchemy-web/src/content/docs/providers/azure/container-instance.md` (364 lines)
 
 Sections:
@@ -974,23 +1005,23 @@ Sections:
 
 ### Planned Tasks
 
-#### 5.5 📋 ServiceBus Resource
+#### 5.6 📋 ServiceBus Resource
 
 Enterprise messaging service (equivalent to AWS SQS/SNS)
 
-#### 5.6 📋 CognitiveServices Resource
+#### 5.7 📋 CognitiveServices Resource
 AI/ML services (vision, language, speech) - unique to Azure
 
-#### 5.7 📋 CDN Resource
+#### 5.8 📋 CDN Resource
 Content delivery network (equivalent to Cloudflare CDN, AWS CloudFront)
 
-#### 5.8-5.10 📋 Advanced Resource Tests
+#### 5.9-5.11 📋 Advanced Resource Tests
 Test suites for KeyVault, ServiceBus, CognitiveServices, CDN
 
-#### 5.11 📋 Azure Container Example
+#### 5.12 📋 Azure Container Example
 Example project: `examples/azure-container/`
 
-#### 5.12 📋 Advanced Resource Documentation
+#### 5.13 📋 Advanced Resource Documentation
 User-facing docs for KeyVault, ServiceBus, CognitiveServices, CDN
 
 ### Dependencies
@@ -1214,11 +1245,11 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 
 ### Overall Progress
 - **Total Tasks:** 91
-- **Completed:** 49 (53.8%)
+- **Completed:** 51 (56.0%)
 - **Deferred:** 4 (4.4%)
 - **Cancelled:** 2 (2.2%)
 - **In Progress:** 0 (0%)
-- **Pending:** 36 (39.6%)
+- **Pending:** 34 (37.4%)
 
 ### Phase Status
 - ✅ Phase 1: Foundation - **COMPLETE** (11/11 - 100%)
@@ -1258,15 +1289,15 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 - ✅ SqlServer - Managed SQL Server instance (AWS RDS for SQL Server equivalent)
 - ✅ SqlDatabase - SQL databases on SQL Server
 
-**Phase 5: Security & Advanced (1/4 resources)**
+**Phase 5: Security & Advanced (2/5 resources)**
+- ✅ KeyVault - Secrets and key management (AWS Secrets Manager + KMS equivalent)
 - ✅ ContainerInstance - Serverless container hosting (AWS ECS Fargate, Cloudflare Container equivalent)
-- 📋 KeyVault - Secrets and key management (AWS Secrets Manager equivalent) - **Next Priority**
 - 📋 ServiceBus - Enterprise messaging (AWS SQS/SNS equivalent)
 - 📋 CognitiveServices - AI/ML services (Azure-specific)
 - 📋 CDN - Content delivery network (AWS CloudFront, Cloudflare CDN equivalent)
 
-**Total Resources:** 18 planned (14 implemented ✅, 4 pending 📋)
-**Implementation Rate:** 77.8% complete
+**Total Resources:** 18 planned (15 implemented ✅, 3 pending 📋)
+**Implementation Rate:** 83.3% complete
 
 ### Code Statistics
 **Phase 1: Foundation**
@@ -1300,15 +1331,15 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 - Documentation: 996 lines across 3 files
 - **Subtotal:** 3,756 lines
 
-**Phase 5: Security & Advanced (Partial - ContainerInstance Only)**
-- Implementation: 656 lines across 1 file
-- Tests: 485 lines across 1 file (12 test cases)
+**Phase 5: Security & Advanced (Partial - KeyVault and ContainerInstance)**
+- Implementation: 1,223 lines across 2 files
+- Tests: 1,015 lines across 2 files (24 test cases)
 - Documentation: 364 lines across 1 file
-- **Subtotal:** 1,505 lines
+- **Subtotal:** 2,602 lines
 
-**Combined Total:** 19,021 lines across 52 files
-- **Implementation:** 7,861 lines across 19 files
-- **Tests:** 6,410 lines across 13 files (128 test cases)
+**Combined Total:** 20,118 lines across 54 files
+- **Implementation:** 8,428 lines across 20 files
+- **Tests:** 6,940 lines across 14 files (140 test cases)
 - **Documentation:** 4,154 lines across 14 files
 - **Examples:** 596 lines across 5 files
 
@@ -1316,31 +1347,33 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 
 ## Next Steps
 
-**Current Phase:** Phase 5 - Security & Advanced (3/12 tasks complete - 25%)
+**Current Phase:** Phase 5 - Security & Advanced (5/13 tasks complete - 38.5%)
 
 **Completed in Phase 5:**
+- ✅ KeyVault resource implementation (567 lines)
+- ✅ KeyVault tests (530 lines, 12 test cases)
 - ✅ ContainerInstance resource implementation (656 lines)
 - ✅ ContainerInstance tests (485 lines, 12 test cases)
 - ✅ ContainerInstance documentation (364 lines)
 
 **Remaining Phase 5 Tasks:**
-1. ⏳ Implement KeyVault resource for secrets and key management
-2. ⏳ Implement ServiceBus resource for enterprise messaging
-3. ⏳ Implement CognitiveServices resource for AI/ML capabilities
-4. ⏳ Implement CDN resource for content delivery
-5. ⏳ Write comprehensive tests for KeyVault, ServiceBus, CognitiveServices, CDN
-6. ⏳ Create Azure Container example project (optional)
-7. ⏳ Document KeyVault, ServiceBus, CognitiveServices, CDN resources
+1. ⏳ Implement ServiceBus resource for enterprise messaging
+2. ⏳ Implement CognitiveServices resource for AI/ML capabilities
+3. ⏳ Implement CDN resource for content delivery
+4. ⏳ Write comprehensive tests for ServiceBus, CognitiveServices, CDN
+5. ⏳ Create Azure Container example project (optional)
+6. ⏳ Document KeyVault resource (markdown docs)
+7. ⏳ Document ServiceBus, CognitiveServices, CDN resources
 
 **Recommended Approach:**
-1. Complete remaining Phase 5 resources (KeyVault is highest priority for secrets management)
-2. Implement ServiceBus for messaging scenarios
-3. Add CognitiveServices for AI/ML workloads
-4. Implement CDN for content delivery
-5. Write comprehensive tests for all new resources
+1. Implement ServiceBus for messaging scenarios
+2. Add CognitiveServices for AI/ML workloads
+3. Implement CDN for content delivery
+4. Write comprehensive tests for all new resources
+5. Create provider documentation (markdown docs for user-facing documentation)
 6. Document all resources with practical examples
 
-**Estimated Timeline:** 2-3 weeks to complete Phase 5
+**Estimated Timeline:** 1-2 weeks to complete Phase 5
 
 **Alternative Path:** Consider Phase 6 (Documentation & Guides) to create comprehensive getting started guides and provider overview documentation before continuing with remaining Phase 5 resources. This would provide better onboarding for users with the 14 resources already implemented.
 
