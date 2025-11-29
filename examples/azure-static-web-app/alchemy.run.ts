@@ -20,7 +20,9 @@ import { StaticWebApp } from "../../alchemy/src/azure/static-web-app.ts";
  * Equivalent to Cloudflare Pages, Vercel, Netlify
  */
 
-const app = await alchemy("azure-static-web-app");
+const app = await alchemy("azure-static-web-app", {
+  password: process.env.ALCHEMY_PASSWORD || "change-me-in-production",
+});
 
 // Create a resource group
 const rg = await ResourceGroup("webapp-rg", {

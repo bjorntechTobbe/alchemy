@@ -19,7 +19,9 @@ import { FunctionApp } from "../../alchemy/src/azure/function-app.ts";
  * - curl -X POST https://{url}/api/httpTrigger -d "Azure"
  */
 
-const app = await alchemy("azure-function-app");
+const app = await alchemy("azure-function-app", {
+  password: process.env.ALCHEMY_PASSWORD || "change-me-in-production",
+});
 
 // Create a resource group to contain all resources
 const rg = await ResourceGroup("function-rg", {
@@ -31,8 +33,10 @@ const rg = await ResourceGroup("function-rg", {
 });
 
 // Create a storage account (required for Azure Functions)
+// Note: Storage account names must be 3-24 characters, lowercase letters and numbers only
 const storage = await StorageAccount("functionstorage", {
   resourceGroup: rg,
+  name: `funcstore${Date.now().toString().slice(-8)}`, // Unique short name
   sku: "Standard_LRS", // Locally redundant storage
   kind: "StorageV2",
   tags: {
