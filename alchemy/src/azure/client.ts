@@ -7,6 +7,8 @@ import { ResourceManagementClient } from "@azure/arm-resources";
 import { StorageManagementClient } from "@azure/arm-storage";
 import { ManagedServiceIdentityClient } from "@azure/arm-msi";
 import { WebSiteManagementClient } from "@azure/arm-appservice";
+import { CosmosDBManagementClient } from "@azure/arm-cosmosdb";
+import { SqlManagementClient } from "@azure/arm-sql";
 import type { AzureClientProps } from "./client-props.ts";
 import { resolveAzureCredentials } from "./credentials.ts";
 
@@ -33,6 +35,16 @@ export interface AzureClients {
    * Client for managing app services, function apps, and static web apps
    */
   appService: WebSiteManagementClient;
+
+  /**
+   * Client for managing Cosmos DB accounts and databases
+   */
+  cosmosDB: CosmosDBManagementClient;
+
+  /**
+   * Client for managing SQL servers and databases
+   */
+  sql: SqlManagementClient;
 
   /**
    * The credential used to authenticate with Azure
@@ -135,6 +147,14 @@ export async function createAzureClients(
       credentials.subscriptionId,
     ),
     appService: new WebSiteManagementClient(
+      credential,
+      credentials.subscriptionId,
+    ),
+    cosmosDB: new CosmosDBManagementClient(
+      credential,
+      credentials.subscriptionId,
+    ),
+    sql: new SqlManagementClient(
       credential,
       credentials.subscriptionId,
     ),

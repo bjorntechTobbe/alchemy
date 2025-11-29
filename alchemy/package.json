@@ -213,8 +213,10 @@
   "peerDependencies": {
     "@astrojs/cloudflare": "^12.6.4",
     "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@azure/arm-cosmosdb": "^16.0.0",
     "@azure/arm-msi": "^2.0.0",
     "@azure/arm-resources": "^5.0.0",
+    "@azure/arm-sql": "^10.0.0",
     "@azure/arm-storage": "^18.0.0",
     "@azure/identity": "^4.0.0",
     "@coinbase/cdp-sdk": "^0.10.0",
@@ -239,10 +241,16 @@
     "@astrojs/cloudflare": {
       "optional": true
     },
+    "@azure/arm-cosmosdb": {
+      "optional": true
+    },
     "@azure/arm-msi": {
       "optional": true
     },
     "@azure/arm-resources": {
+      "optional": true
+    },
+    "@azure/arm-sql": {
       "optional": true
     },
     "@azure/arm-storage": {
@@ -314,8 +322,10 @@
     "@aws-sdk/client-sqs": "^3.0.0",
     "@aws-sdk/client-ssm": "^3.0.0",
     "@aws-sdk/client-sts": "^3.0.0",
+    "@azure/arm-cosmosdb": "^16.0.0",
     "@azure/arm-msi": "^2.0.0",
     "@azure/arm-resources": "^5.0.0",
+    "@azure/arm-sql": "^10.0.0",
     "@azure/arm-storage": "^18.0.0",
     "@azure/identity": "^4.0.0",
     "@clack/prompts": "^0.11.0",
@@ -362,6 +372,8 @@
     "zod": "^4.0.10"
   },
   "optionalDependencies": {
-    "@azure/arm-appservice": "^15.0.0"
+    "@azure/arm-appservice": "^15.0.0",
+    "@azure/arm-cosmosdb": "^16.0.0",
+    "@azure/arm-sql": "^11.0.0"
   }
 }
