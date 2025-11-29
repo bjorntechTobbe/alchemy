@@ -10,6 +10,7 @@ import { WebSiteManagementClient } from "@azure/arm-appservice";
 import { CosmosDBManagementClient } from "@azure/arm-cosmosdb";
 import { SqlManagementClient } from "@azure/arm-sql";
 import { NetworkManagementClient } from "@azure/arm-network";
+import { ContainerInstanceManagementClient } from "@azure/arm-containerinstance";
 import type { AzureClientProps } from "./client-props.ts";
 import { resolveAzureCredentials } from "./credentials.ts";
 
@@ -51,6 +52,11 @@ export interface AzureClients {
    * Client for managing virtual networks and network security groups
    */
   network: NetworkManagementClient;
+
+  /**
+   * Client for managing container instances
+   */
+  containerInstance: ContainerInstanceManagementClient;
 
   /**
    * The credential used to authenticate with Azure
@@ -162,6 +168,10 @@ export async function createAzureClients(
     ),
     sql: new SqlManagementClient(credential, credentials.subscriptionId),
     network: new NetworkManagementClient(
+      credential,
+      credentials.subscriptionId,
+    ),
+    containerInstance: new ContainerInstanceManagementClient(
       credential,
       credentials.subscriptionId,
     ),

@@ -2,7 +2,7 @@
 
 This document tracks the implementation progress of the Azure provider for Alchemy, organized into 7 phases following the plan outlined in [AZURE.md](./AZURE.md).
 
-**Overall Progress: 44/91 tasks (48.4%) - Phase 1 Complete ✅ | Phase 1.5 Networking Complete ✅ | Phase 2 Complete ✅ | Phase 3 Complete ✅ | Phase 4 Complete ✅**
+**Overall Progress: 47/91 tasks (51.6%) - Phase 1 Complete ✅ | Phase 1.5 Networking Complete ✅ | Phase 2 Complete ✅ | Phase 3 Complete ✅ | Phase 4 Complete ✅ | Phase 5 Starting (1/12) 🚧**
 
 ---
 
@@ -877,41 +877,103 @@ Sections:
 
 ---
 
-## Phase 5: Security & Advanced 📋 PLANNED
+## Phase 5: Security & Advanced 🚧 IN PROGRESS
 
-**Status:** 📋 Pending (0/12 tasks - 0%)  
+**Status:** 🚧 In Progress (3/12 tasks - 25%)  
 **Timeline:** Weeks 10-12  
-**Priority:** LOW
+**Priority:** MEDIUM
 
 ### Overview
 
 Implement advanced Azure services for security, messaging, AI, and content delivery.
 
-### Planned Tasks
+### Completed Tasks
 
 #### 5.1 📋 KeyVault Resource
 Secrets and key management service
 
-#### 5.2 📋 ContainerInstance Resource
-Run containers without orchestration (equivalent to Cloudflare Container, AWS ECS Fargate)
+#### 5.2 ✅ ContainerInstance Resource
+**File:** `alchemy/src/azure/container-instance.ts` (656 lines)
 
-#### 5.3 📋 ServiceBus Resource
+Features:
+- Serverless container hosting (equivalent to AWS ECS Fargate, Cloudflare Container)
+- Fast startup times (< 1 second), per-second billing
+- Multi-runtime support: Docker images from any registry
+- Resource allocation: CPU (0.5-4 cores), Memory (0.5-16 GB) with fractional support
+- Operating system: Linux and Windows containers
+- Restart policies: Always, OnFailure, Never
+- Custom command support (overrides ENTRYPOINT)
+- Environment variables with Secret support
+- Public and Private IP address support
+- DNS name labels with FQDN generation (*.azurecontainer.io)
+- Multi-port exposure (TCP/UDP)
+- Virtual network integration for network isolation
+- Subnet deployment support
+- Name validation (1-63 chars, lowercase, alphanumeric + hyphens)
+- Returns IP address, FQDN, provisioning state, instance state
+- Adoption support
+- Optional deletion (`delete: false`)
+- Type guard function (`isContainerInstance()`)
+
+#### 5.3 ✅ ContainerInstance Tests
+**File:** `alchemy/test/azure/container-instance.test.ts` (485 lines)
+
+Test coverage (12 test cases):
+- ✅ Create container instance
+- ✅ Update container instance tags
+- ✅ Container with environment variables (including Secrets)
+- ✅ Container with custom command
+- ✅ Container with multiple ports
+- ✅ Container with ResourceGroup object reference
+- ✅ Container with ResourceGroup string reference
+- ✅ Adopt existing container instance
+- ✅ Container name validation
+- ✅ Container with default name
+- ✅ Container with premium resources (4 CPU, 16GB memory)
+- ✅ Delete: false preserves container instance
+
+#### 5.4 ✅ ContainerInstance Documentation
+**File:** `alchemy-web/src/content/docs/providers/azure/container-instance.md` (364 lines)
+
+Sections:
+- Complete property reference (input/output tables)
+- IP address configuration table
+- Container port configuration table
+- 8 usage examples:
+  - Basic Web Server (NGINX)
+  - Container with Environment Variables
+  - Container in Virtual Network
+  - Multi-Port Container
+  - Custom Command
+  - High CPU Container
+  - Adopt Existing Container
+- Resource limits tables (Linux/Windows)
+- Restart policies comparison
+- Common patterns (microservice with database, worker container, scheduled job)
+- Important notes (billing, startup time, secrets, DNS names)
+- Related resources links
+- Official Azure documentation links
+
+### Planned Tasks
+
+#### 5.5 📋 ServiceBus Resource
+
 Enterprise messaging service (equivalent to AWS SQS/SNS)
 
-#### 5.4 📋 CognitiveServices Resource
+#### 5.6 📋 CognitiveServices Resource
 AI/ML services (vision, language, speech) - unique to Azure
 
-#### 5.5 📋 CDN Resource
+#### 5.7 📋 CDN Resource
 Content delivery network (equivalent to Cloudflare CDN, AWS CloudFront)
 
-#### 5.6-5.10 📋 Advanced Resource Tests
-Test suites for KeyVault, ContainerInstance, ServiceBus, CognitiveServices, CDN
+#### 5.8-5.10 📋 Advanced Resource Tests
+Test suites for KeyVault, ServiceBus, CognitiveServices, CDN
 
 #### 5.11 📋 Azure Container Example
 Example project: `examples/azure-container/`
 
 #### 5.12 📋 Advanced Resource Documentation
-User-facing docs for all advanced resources
+User-facing docs for KeyVault, ServiceBus, CognitiveServices, CDN
 
 ### Dependencies
 
@@ -1134,11 +1196,11 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 
 ### Overall Progress
 - **Total Tasks:** 91
-- **Completed:** 44 (48.4%)
+- **Completed:** 47 (51.6%)
 - **Deferred:** 4 (4.4%)
 - **Cancelled:** 2 (2.2%)
 - **In Progress:** 0 (0%)
-- **Pending:** 41 (45.0%)
+- **Pending:** 38 (41.8%)
 
 ### Phase Status
 - ✅ Phase 1: Foundation - **COMPLETE** (11/11 - 100%)
@@ -1146,7 +1208,7 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 - ✅ Phase 2: Storage - **COMPLETE** (7/8 - 87.5%, 1 cancelled)
 - ✅ Phase 3: Compute - **COMPLETE** (9/12 - 75%, 3 deferred)
 - ✅ Phase 4: Databases - **COMPLETE** (8/8 - 100%, 1 cancelled, 1 deferred)
-- 📋 Phase 5: Security & Advanced - Pending (0/12 - 0%)
+- 🚧 Phase 5: Security & Advanced - **IN PROGRESS** (3/12 - 25%)
 - 📋 Phase 6: Documentation - Pending (0/6 - 0%)
 - 📋 Phase 7: Polish & Release - Pending (0/7 - 0%)
 - 📋 Phase 8: Research - Ongoing (0/6 - 0%)
@@ -1165,13 +1227,13 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 - ✅ CosmosDBAccount
 - ✅ SqlServer
 - ✅ SqlDatabase
+- ✅ ContainerInstance
 - 📋 KeyVault (planned)
-- 📋 ContainerInstance (planned)
 - 📋 ServiceBus (planned)
 - 📋 CognitiveServices (planned)
 - 📋 CDN (planned)
 
-**Total Planned Resources:** 18 (13 implemented, 5 pending)
+**Total Planned Resources:** 18 (14 implemented, 4 pending)
 
 ### Code Statistics
 **Phase 1:**
@@ -1200,7 +1262,12 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 - Tests: 1,231 lines across 2 files (22 test cases)
 - Documentation: 996 lines across 3 files
 
-**Combined Total:** 17,516 lines across 49 files
+**Phase 5 (Partial):**
+- Implementation: 656 lines across 1 file
+- Tests: 485 lines across 1 file (12 test cases)
+- Documentation: 364 lines across 1 file
+
+**Combined Total:** 19,021 lines across 52 files
 
 ---
 
@@ -1224,7 +1291,7 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 
 ---
 
-*Last Updated: 2024 (Phase 1.5 Networking Complete, Phase 4 Complete)*
+*Last Updated: 2024 (Phase 1.5 Networking Complete, Phase 4 Complete, Phase 5 Started - ContainerInstance Complete)*
 
 ## Phase 1.5: Networking ✅ COMPLETE
 

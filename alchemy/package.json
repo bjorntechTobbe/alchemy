@@ -213,6 +213,7 @@
   "peerDependencies": {
     "@astrojs/cloudflare": "^12.6.4",
     "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@azure/arm-containerinstance": "^9.0.0",
     "@azure/arm-cosmosdb": "^16.0.0",
     "@azure/arm-msi": "^2.0.0",
     "@azure/arm-network": "^34.0.0",
@@ -240,6 +241,9 @@
   },
   "peerDependenciesMeta": {
     "@astrojs/cloudflare": {
+      "optional": true
+    },
+    "@azure/arm-containerinstance": {
       "optional": true
     },
     "@azure/arm-cosmosdb": {
@@ -326,6 +330,7 @@
     "@aws-sdk/client-sqs": "^3.0.0",
     "@aws-sdk/client-ssm": "^3.0.0",
     "@aws-sdk/client-sts": "^3.0.0",
+    "@azure/arm-containerinstance": "^9.0.0",
     "@azure/arm-cosmosdb": "^16.0.0",
     "@azure/arm-msi": "^2.0.0",
     "@azure/arm-network": "^34.0.0",
@@ -378,6 +383,7 @@
   },
   "optionalDependencies": {
     "@azure/arm-appservice": "^15.0.0",
+    "@azure/arm-containerinstance": "^9.0.0",
     "@azure/arm-cosmosdb": "^16.0.0",
     "@azure/arm-network": "^34.0.0",
     "@azure/arm-sql": "^11.0.0"
