@@ -1,0 +1,14 @@
+{
+  "name": "azure-container-firewall",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Azure Container Instance with Public IP and Network Security Group (Firewall)",
+  "type": "module",
+  "scripts": {
+    "deploy": "bun ./alchemy.run.ts",
+    "destroy": "bun ./alchemy.run.ts --destroy"
+  },
+  "dependencies": {
+    "alchemy": "workspace:*"
+  }
+}
