@@ -2,7 +2,7 @@
 
 This document tracks the implementation progress of the Azure provider for Alchemy, organized into 7 phases following the plan outlined in [AZURE.md](./AZURE.md).
 
-**Overall Progress: 11/82 tasks (13.4%) - Phase 1 Complete ✅**
+**Overall Progress: 18/82 tasks (22.0%) - Phase 1 Complete ✅ | Phase 2 Complete ✅**
 
 ---
 
@@ -80,7 +80,7 @@ Features:
 - Type guard function (`isResourceGroup()`)
 
 #### 1.6 ✅ UserAssignedIdentity Resource
-**File:** `alchemy/src/azure/user-assigned-identity.ts` (369 lines)
+**File:** `alchemy/src/azure/user-assigned-identity.ts` (372 lines)
 
 Features:
 - Managed Identity for secure resource authentication
@@ -92,6 +92,7 @@ Features:
 - Survives resource deletion
 - Adoption support
 - Type guard function (`isUserAssignedIdentity()`)
+- Fixed Azure SDK type compatibility issues
 
 #### 1.7 ✅ ResourceGroup Tests
 **File:** `alchemy/test/azure/resource-group.test.ts` (252 lines)
@@ -171,9 +172,9 @@ Contents:
 
 ### Deliverables
 
-**Implementation:** 7 files, 1,516 lines
+**Implementation:** 7 files, 1,519 lines
 - Core infrastructure (4 files, 410 lines)
-- Resources (2 files, 642 lines)
+- Resources (2 files, 645 lines)
 - Provider documentation (1 file, 464 lines)
 
 **Tests:** 2 files, 610 lines
@@ -186,7 +187,7 @@ Contents:
 - Example-driven approach
 - Complete property reference
 
-**Total:** 11 files, 2,554 lines of production code
+**Total:** 11 files, 2,557 lines of production code
 
 ### Key Achievements
 
@@ -199,125 +200,189 @@ Contents:
 
 ---
 
-## Phase 2: Storage 📋 PLANNED
+## Phase 2: Storage ✅ COMPLETE
 
-**Status:** 📋 Pending (0/8 tasks - 0%)  
-**Timeline:** Weeks 3-4  
+**Status:** ✅ **COMPLETE** (7/8 tasks - 87.5%)  
+**Timeline:** Completed  
 **Priority:** HIGH
 
 ### Overview
 
 Implement Azure Storage resources to enable blob storage functionality, equivalent to AWS S3 and Cloudflare R2.
 
-### Planned Tasks
+### Completed Tasks
 
-#### 2.1 📋 StorageAccount Resource
-**File:** `alchemy/src/azure/storage-account.ts`
+#### 2.1 ✅ StorageAccount Resource
+**File:** `alchemy/src/azure/storage-account.ts` (566 lines)
 
-Features to implement:
+Features:
 - Foundation for blob, file, queue, and table storage
 - Name validation (3-24 chars, lowercase letters and numbers only)
 - Globally unique naming requirement
-- SKU/tier selection (Standard, Premium)
+- SKU/tier selection (Standard_LRS, Standard_GRS, Standard_RAGRS, Standard_ZRS, Premium_LRS, Premium_ZRS)
 - Replication options (LRS, GRS, RA-GRS, ZRS)
-- Access tier (Hot, Cool, Archive)
-- Connection string generation
-- Primary/secondary keys
+- Access tier (Hot, Cool)
+- Connection string generation (returned as Secret)
+- Primary/secondary access keys (returned as Secret)
 - Blob, File, Queue, Table endpoints
+- Data Lake Gen2 support (hierarchical namespace)
+- Adoption support
+- Optional deletion (`delete: false`)
+- Type guard function (`isStorageAccount()`)
+- Azure SDK type aliasing to avoid naming conflicts
 
-#### 2.2 📋 BlobContainer Resource
-**File:** `alchemy/src/azure/blob-container.ts`
+#### 2.2 ✅ BlobContainer Resource
+**File:** `alchemy/src/azure/blob-container.ts` (439 lines)
 
-Features to implement:
-- Object storage container
-- Name validation (3-63 chars, lowercase)
+Features:
+- Object storage container (equivalent to S3 Buckets, R2 Buckets)
+- Name validation (3-63 chars, lowercase, hyphens)
 - Public access levels (None, Blob, Container)
 - Metadata support
 - StorageAccount dependency (string | StorageAccount)
 - Container URL generation
 - Adoption support
+- Optional deletion (`delete: false`)
+- Type guard function (`isBlobContainer()`)
 
-#### 2.3 📋 Storage Bindings
-**File:** `alchemy/src/bound.ts` (update)
+#### 2.3 ❌ Storage Bindings
+**Status:** Cancelled - Not applicable for Azure architecture
 
-Features to implement:
-- Runtime binding interface for BlobContainer
-- Storage account connection string binding
-- Type-safe binding configuration
+**Reason:** Azure uses SDKs and connection strings rather than runtime bindings like Cloudflare Workers. Resources are accessed via Azure Storage SDK with connection strings or managed identities.
 
-#### 2.4 📋 StorageAccount Tests
-**File:** `alchemy/test/azure/storage-account.test.ts`
+#### 2.4 ✅ StorageAccount Tests
+**File:** `alchemy/test/azure/storage-account.test.ts` (447 lines)
 
-Test cases to implement:
-- Create storage account
-- Update storage account (tier, replication)
-- Storage account name validation
-- Globally unique naming
-- Adopt existing storage account
-- Default name generation
-- Connection string access
-- Multiple endpoints verification
+Test coverage (9 test cases):
+- ✅ Create storage account
+- ✅ Update storage account tags
+- ✅ Storage account with ResourceGroup object reference
+- ✅ Storage account with ResourceGroup string reference
+- ✅ Adopt existing storage account
+- ✅ Storage account name validation (too short, uppercase, special chars)
+- ✅ Storage account with default name
+- ✅ Geo-redundant SKU (Standard_GRS)
+- ✅ Delete: false preserves storage account
 
-#### 2.5 📋 BlobContainer Tests
-**File:** `alchemy/test/azure/blob-container.test.ts`
+#### 2.5 ✅ BlobContainer Tests
+**File:** `alchemy/test/azure/blob-container.test.ts` (635 lines)
 
-Test cases to implement:
-- Create blob container
-- Update container (public access, metadata)
-- Container name validation
-- StorageAccount reference (object vs string)
-- Adopt existing container
-- Delete: false preservation
-- Container URL verification
+Test coverage (9 test cases):
+- ✅ Create blob container
+- ✅ Update blob container metadata
+- ✅ Blob container with StorageAccount object reference
+- ✅ Blob container with StorageAccount string reference
+- ✅ Adopt existing blob container
+- ✅ Blob container name validation (length, case, hyphens)
+- ✅ Blob container with default name
+- ✅ Multiple containers in same storage account
+- ✅ Delete: false preserves blob container
 
-#### 2.6 📋 Azure Storage Example
+#### 2.6 ✅ Azure Storage Example
 **Directory:** `examples/azure-storage/`
 
-Files to create:
-- `package.json` - Dependencies
-- `tsconfig.json` - TypeScript config
-- `alchemy.run.ts` - Infrastructure definition
-- `README.md` - Setup and usage instructions
-- `src/upload.ts` - Example blob upload code
+Files created (5 files, 596 lines):
+- `package.json` (18 lines) - Dependencies and scripts
+- `tsconfig.json` (12 lines) - TypeScript configuration
+- `alchemy.run.ts` (141 lines) - Infrastructure definition
+- `README.md` (228 lines) - Setup and usage instructions
+- `src/upload.ts` (197 lines) - Example blob upload code
+- `.gitignore` - Standard ignore file
 
-Features to demonstrate:
+Features demonstrated:
 - Resource group creation
-- Storage account provisioning
-- Multiple blob containers (public and private)
-- Managed identity for access
+- 2 Storage accounts (Standard LRS and Geo-Redundant)
+- 4 Blob containers with different configurations:
+  - Private container for uploads
+  - Public container for static assets
+  - Backup container with `delete: false`
+  - Critical container in geo-redundant storage
+- Managed identity for secure access
 - Blob upload/download examples
+- Azure Storage SDK integration
+- Complete documentation and troubleshooting
 
-#### 2.7 📋 StorageAccount Documentation
-**File:** `alchemy-web/src/content/docs/providers/azure/storage-account.md`
+#### 2.7 ✅ StorageAccount Documentation
+**File:** `alchemy-web/src/content/docs/providers/azure/storage-account.md` (253 lines)
 
-Sections to include:
-- Properties reference
-- Basic usage
-- Replication and redundancy
-- Access tiers
-- Connection strings
-- Security best practices
-- Naming constraints
+Sections:
+- Complete property reference (input/output tables)
+- 7 usage examples:
+  - Basic storage account
+  - Geo-redundancy
+  - Premium storage
+  - Data Lake Gen2
+  - Connection strings
+  - Multi-region
+  - Adoption
+- SKU comparison table
+- Access tier descriptions
+- Important notes (naming, immutability, keys, SKUs)
 - Related resources
+- Official Azure documentation links
 
-#### 2.8 📋 BlobContainer Documentation
-**File:** `alchemy-web/src/content/docs/providers/azure/blob-container.md`
+#### 2.8 ✅ BlobContainer Documentation
+**File:** `alchemy-web/src/content/docs/providers/azure/blob-container.md` (318 lines)
 
-Sections to include:
-- Properties reference
-- Basic usage
-- Public access levels
-- Metadata usage
-- Storage account integration
-- Container URLs
-- Upload/download patterns
+Sections:
+- Complete property reference (input/output tables)
+- 8 usage examples:
+  - Basic blob container
+  - Public access
+  - Multiple containers
+  - Upload/download
+  - Metadata
+  - Preservation
+  - Adoption
+- Public access levels table
+- Container URL format
+- Common patterns (static website, backups, multi-environment)
+- Best practices for blob storage
 - Related resources
+- Official Azure documentation links
 
-### Dependencies
+### Deliverables
 
-- ✅ Phase 1 complete (ResourceGroup, UserAssignedIdentity)
-- Storage resources depend on ResourceGroup
-- BlobContainer depends on StorageAccount
+**Implementation:** 3 files, 1,005 lines
+- StorageAccount resource (566 lines)
+- BlobContainer resource (439 lines)
+- Updated index.ts with exports
+
+**Tests:** 2 files, 1,082 lines
+- 18 comprehensive test cases
+- Full lifecycle coverage
+- Assertion helpers
+
+**Documentation:** 2 files, 571 lines
+- User-facing resource documentation
+- Example-driven approach
+- Complete property reference
+
+**Example Project:** 5 files, 596 lines
+- Complete working example
+- Upload script
+- Comprehensive README
+
+**Total:** 12 files, 3,254 lines of production code
+
+### Key Achievements
+
+✅ **Azure Storage patterns** (globally unique naming, SKU selection, access tiers)  
+✅ **Secret management** (connection strings and keys returned as Secret objects)  
+✅ **Geo-redundancy support** (GRS, RA-GRS with secondary endpoints)  
+✅ **Data Lake Gen2** (hierarchical namespace support)  
+✅ **Public access controls** (None, Blob, Container levels)  
+✅ **Comprehensive testing** (18 test cases with full lifecycle coverage)  
+✅ **Production-ready** (error handling, validation, adoption patterns)  
+✅ **Working example** (deployable demo with upload script)  
+✅ **Type safety** (Azure SDK type aliasing, proper Secret handling)  
+
+### Technical Notes
+
+- **Azure SDK Compatibility**: Resolved naming conflicts between Alchemy types and Azure SDK types using import aliases (`import type { StorageAccount as AzureStorageAccount }`)
+- **Secret Handling**: Connection strings and access keys properly wrapped in Secret objects using `Secret.wrap()`
+- **Type Structure**: Azure SDK resources have properties at the top level (not nested in a `properties` field)
+- **Build Status**: ✅ All TypeScript errors resolved, builds successfully
 
 ---
 
@@ -372,7 +437,7 @@ User-facing docs for App Services
 ### Dependencies
 
 - ✅ Phase 1 complete (ResourceGroup, UserAssignedIdentity)
-- 📋 Phase 2 complete (StorageAccount for function storage)
+- ✅ Phase 2 complete (StorageAccount for function storage)
 
 ---
 
@@ -458,7 +523,7 @@ User-facing docs for all advanced resources
 ### Dependencies
 
 - ✅ Phase 1 complete (ResourceGroup, UserAssignedIdentity)
-- 📋 Phase 2 complete (Storage for container instances)
+- ✅ Phase 2 complete (Storage for container instances)
 
 ---
 
@@ -676,13 +741,14 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 
 ### Overall Progress
 - **Total Tasks:** 82
-- **Completed:** 11 (13.4%)
+- **Completed:** 18 (22.0%)
+- **Cancelled:** 1 (1.2%)
 - **In Progress:** 0 (0%)
-- **Pending:** 71 (86.6%)
+- **Pending:** 63 (76.8%)
 
 ### Phase Status
 - ✅ Phase 1: Foundation - **COMPLETE** (11/11 - 100%)
-- 📋 Phase 2: Storage - Pending (0/8 - 0%)
+- ✅ Phase 2: Storage - **COMPLETE** (7/8 - 87.5%, 1 cancelled)
 - 📋 Phase 3: Compute - Pending (0/12 - 0%)
 - 📋 Phase 4: Databases - Pending (0/8 - 0%)
 - 📋 Phase 5: Security & Advanced - Pending (0/12 - 0%)
@@ -691,10 +757,10 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 - 📋 Phase 8: Research - Ongoing (0/6 - 0%)
 
 ### Resources Implemented
-- ✅ ResourceGroup (2 resources)
+- ✅ ResourceGroup
 - ✅ UserAssignedIdentity
-- 📋 StorageAccount (planned)
-- 📋 BlobContainer (planned)
+- ✅ StorageAccount
+- ✅ BlobContainer
 - 📋 FunctionApp (planned)
 - 📋 StaticWebApp (planned)
 - 📋 AppService (planned)
@@ -706,30 +772,38 @@ Ongoing research to evaluate potential enhancements and Azure-specific features.
 - 📋 CognitiveServices (planned)
 - 📋 CDN (planned)
 
-**Total Planned Resources:** 13 (2 implemented, 11 pending)
+**Total Planned Resources:** 14 (4 implemented, 10 pending)
 
-### Code Statistics (Phase 1)
-- **Implementation:** 1,516 lines across 7 files
-- **Tests:** 610 lines across 2 files (17 test cases)
-- **Documentation:** 428 lines across 2 files
-- **Total:** 2,554 lines
+### Code Statistics
+**Phase 1:**
+- Implementation: 1,519 lines across 7 files
+- Tests: 610 lines across 2 files (17 test cases)
+- Documentation: 428 lines across 2 files
+
+**Phase 2:**
+- Implementation: 1,005 lines across 2 files  
+- Tests: 1,082 lines across 2 files (18 test cases)
+- Documentation: 571 lines across 2 files
+- Example: 596 lines across 5 files
+
+**Combined Total:** 5,811 lines across 23 files
 
 ---
 
 ## Next Steps
 
-**Immediate Next Phase:** Phase 2 - Storage
+**Immediate Next Phase:** Phase 3 - Compute
 
 **Recommended Approach:**
-1. Implement StorageAccount resource
-2. Implement BlobContainer resource
-3. Add storage bindings
+1. Implement FunctionApp resource
+2. Implement StaticWebApp resource
+3. Implement AppService resource
 4. Write comprehensive tests
-5. Create example project
+5. Create example projects
 6. Document resources
 
-**Estimated Timeline:** 2 weeks for Phase 2
+**Estimated Timeline:** 3 weeks for Phase 3
 
 ---
 
-*Last Updated: 2024 (Phase 1 Complete)*
+*Last Updated: 2024 (Phase 2 Complete)*

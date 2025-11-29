@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": ["src/**/*.ts", "alchemy.run.ts"],
+  "compilerOptions": {
+    "composite": true,
+    "resolveJsonModule": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["bun-types"]
+  },
+  "references": [{ "path": "../../alchemy/tsconfig.json" }]
+}

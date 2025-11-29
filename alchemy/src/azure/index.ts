@@ -45,3 +45,5 @@ export * from "./client-props.ts";
 export * from "./credentials.ts";
 export * from "./resource-group.ts";
 export * from "./user-assigned-identity.ts";
+export * from "./storage-account.ts";
+export * from "./blob-container.ts";

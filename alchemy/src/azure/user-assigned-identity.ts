@@ -241,14 +241,11 @@ export const UserAssignedIdentity = Resource(
     if (this.phase === "delete") {
       if (identityId) {
         try {
-          // Begin deletion - this is a long-running operation
-          const poller = await clients.msi.userAssignedIdentities.beginDelete(
+          // Delete identity - this is a synchronous operation in newer SDK
+          await clients.msi.userAssignedIdentities.delete(
             resourceGroupName,
             name,
           );
-
-          // Wait for the deletion to complete
-          await poller.pollUntilDone();
         } catch (error: any) {
           // If identity doesn't exist (404), that's fine
           if (
@@ -339,7 +336,7 @@ export const UserAssignedIdentity = Resource(
       );
     }
 
-    if (!result.properties?.principalId || !result.properties?.clientId) {
+    if (!result.principalId || !result.clientId) {
       throw new Error(
         `User-assigned identity "${name}" was created but response is missing principalId or clientId`,
       );
@@ -351,9 +348,9 @@ export const UserAssignedIdentity = Resource(
       resourceGroup: resourceGroupName,
       location: result.location!,
       identityId: result.id,
-      principalId: result.properties.principalId,
-      clientId: result.properties.clientId,
-      tenantId: result.properties.tenantId!,
+      principalId: result.principalId,
+      clientId: result.clientId,
+      tenantId: result.tenantId!,
       tags: result.tags,
       subscriptionId: props.subscriptionId,
       type: "azure::UserAssignedIdentity",
