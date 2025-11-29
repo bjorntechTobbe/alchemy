@@ -313,7 +313,10 @@ describe("Azure Storage", () => {
       } finally {
         await destroy(scope);
         if (storage) {
-          await assertStorageAccountDoesNotExist(resourceGroupName, storage.name);
+          await assertStorageAccountDoesNotExist(
+            resourceGroupName,
+            storage.name,
+          );
         }
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }

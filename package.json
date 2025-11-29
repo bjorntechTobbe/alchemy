@@ -76,6 +76,7 @@
     "yaml": "^2.7.1"
   },
   "dependencies": {
+    "@azure/arm-network": "^34.0.0",
     "oxfmt": "^0.5.0"
   }
 }

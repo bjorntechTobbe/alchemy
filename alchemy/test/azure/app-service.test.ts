@@ -456,7 +456,10 @@ describe("Azure Compute", () => {
       } finally {
         await destroy(scope);
         if (appService) {
-          await assertAppServiceDoesNotExist(resourceGroupName, appService.name);
+          await assertAppServiceDoesNotExist(
+            resourceGroupName,
+            appService.name,
+          );
         }
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }

@@ -120,10 +120,7 @@ export interface CosmosDBAccountProps extends AzureClientProps {
   cosmosDBAccountId?: string;
 }
 
-export type CosmosDBAccount = Omit<
-  CosmosDBAccountProps,
-  "delete" | "adopt"
-> & {
+export type CosmosDBAccount = Omit<CosmosDBAccountProps, "delete" | "adopt"> & {
   /**
    * The Alchemy resource ID
    */
@@ -477,19 +474,21 @@ export const CosmosDBAccount = Resource(
 
     if (cosmosDBAccountId) {
       // Update existing account
-      result = await clients.cosmosDB.databaseAccounts.beginCreateOrUpdateAndWait(
-        resourceGroupName,
-        name,
-        accountParams,
-      );
-    } else {
-      // Create new account
-      try {
-        result = await clients.cosmosDB.databaseAccounts.beginCreateOrUpdateAndWait(
+      result =
+        await clients.cosmosDB.databaseAccounts.beginCreateOrUpdateAndWait(
           resourceGroupName,
           name,
           accountParams,
         );
+    } else {
+      // Create new account
+      try {
+        result =
+          await clients.cosmosDB.databaseAccounts.beginCreateOrUpdateAndWait(
+            resourceGroupName,
+            name,
+            accountParams,
+          );
       } catch (error: any) {
         if (error.code === "DatabaseAccountAlreadyExists") {
           if (!adopt) {
@@ -506,11 +505,12 @@ export const CosmosDBAccount = Resource(
           );
 
           // Update it with new configuration
-          result = await clients.cosmosDB.databaseAccounts.beginCreateOrUpdateAndWait(
-            resourceGroupName,
-            name,
-            accountParams,
-          );
+          result =
+            await clients.cosmosDB.databaseAccounts.beginCreateOrUpdateAndWait(
+              resourceGroupName,
+              name,
+              accountParams,
+            );
         } else {
           throw error;
         }

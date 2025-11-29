@@ -239,9 +239,7 @@ export const SqlServer = Resource(
 
     // Validate name
     if (name.length < 1 || name.length > 63) {
-      throw new Error(
-        `SQL server name "${name}" must be 1-63 characters long`,
-      );
+      throw new Error(`SQL server name "${name}" must be 1-63 characters long`);
     }
     if (!/^[a-z0-9-]+$/.test(name)) {
       throw new Error(
@@ -319,10 +317,7 @@ export const SqlServer = Resource(
             : props.resourceGroup.name;
 
         try {
-          await clients.sql.servers.beginDeleteAndWait(
-            resourceGroupName,
-            name,
-          );
+          await clients.sql.servers.beginDeleteAndWait(resourceGroupName, name);
         } catch (error: any) {
           if (error.statusCode !== 404) {
             console.error(`Error deleting SQL server ${name}:`, error);

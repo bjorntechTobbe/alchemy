@@ -9,6 +9,7 @@ import { ManagedServiceIdentityClient } from "@azure/arm-msi";
 import { WebSiteManagementClient } from "@azure/arm-appservice";
 import { CosmosDBManagementClient } from "@azure/arm-cosmosdb";
 import { SqlManagementClient } from "@azure/arm-sql";
+import { NetworkManagementClient } from "@azure/arm-network";
 import type { AzureClientProps } from "./client-props.ts";
 import { resolveAzureCredentials } from "./credentials.ts";
 
@@ -45,6 +46,11 @@ export interface AzureClients {
    * Client for managing SQL servers and databases
    */
   sql: SqlManagementClient;
+
+  /**
+   * Client for managing virtual networks and network security groups
+   */
+  network: NetworkManagementClient;
 
   /**
    * The credential used to authenticate with Azure
@@ -154,7 +160,8 @@ export async function createAzureClients(
       credential,
       credentials.subscriptionId,
     ),
-    sql: new SqlManagementClient(
+    sql: new SqlManagementClient(credential, credentials.subscriptionId),
+    network: new NetworkManagementClient(
       credential,
       credentials.subscriptionId,
     ),

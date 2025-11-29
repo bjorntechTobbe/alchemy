@@ -108,7 +108,10 @@ export interface SqlDatabaseProps extends AzureClientProps {
   databaseId?: string;
 }
 
-export type SqlDatabase = Omit<SqlDatabaseProps, "delete" | "adopt" | "sqlServer"> & {
+export type SqlDatabase = Omit<
+  SqlDatabaseProps,
+  "delete" | "adopt" | "sqlServer"
+> & {
   /**
    * The Alchemy resource ID
    */
