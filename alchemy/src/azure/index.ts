@@ -69,6 +69,7 @@
 
 export * from "./app-service.ts";
 export * from "./blob-container.ts";
+export * from "./blob-state-store.ts";
 export * from "./cdn-endpoint.ts";
 export * from "./cdn-profile.ts";
 export * from "./client.ts";
