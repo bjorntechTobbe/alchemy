@@ -396,7 +396,7 @@ describe("Azure Security", () => {
 
     test("adopt existing key vault", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-kv-adopt-rg`;
-      const vaultName = `${BRANCH_PREFIX}-kv-adopt`
+      const vaultName = `${BRANCH_PREFIX}-kv-adopt-${Date.now()}`
         .toLowerCase()
         .replace(/_/g, "-")
         .substring(0, 24);
@@ -412,14 +412,11 @@ describe("Azure Security", () => {
         // Create key vault directly with Azure SDK
         const clients = await createAzureClients();
         
-        // Get tenant ID from token (same method as KeyVault resource uses)
-        const token = await clients.credential.getToken(
-          "https://management.azure.com/.default",
-        );
-        const payload = JSON.parse(
-          Buffer.from(token!.token.split(".")[1], "base64").toString(),
-        );
-        const tenantId = payload.tid;
+        // Get tenant ID from clients (now auto-detected)
+        const tenantId = clients.tenantId;
+        if (!tenantId) {
+          throw new Error("Tenant ID is required for Key Vault tests");
+        }
         
         await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
           resourceGroupName,
@@ -433,6 +430,7 @@ describe("Azure Security", () => {
                 name: "standard",
               },
               accessPolicies: [],
+              enableSoftDelete: false, // Disable soft-delete for test vaults
             },
           },
         );
@@ -458,7 +456,7 @@ describe("Azure Security", () => {
 
     test("reject existing key vault without adopt", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-kv-reject-rg`;
-      const vaultName = `${BRANCH_PREFIX}-kv-reject`
+      const vaultName = `${BRANCH_PREFIX}-kv-rej-${Date.now()}`
         .toLowerCase()
         .replace(/_/g, "-")
         .substring(0, 24);
@@ -473,14 +471,11 @@ describe("Azure Security", () => {
         // Create key vault directly with Azure SDK
         const clients = await createAzureClients();
         
-        // Get tenant ID from token (same method as KeyVault resource uses)
-        const token = await clients.credential.getToken(
-          "https://management.azure.com/.default",
-        );
-        const payload = JSON.parse(
-          Buffer.from(token!.token.split(".")[1], "base64").toString(),
-        );
-        const tenantId = payload.tid;
+        // Get tenant ID from clients (now auto-detected)
+        const tenantId = clients.tenantId;
+        if (!tenantId) {
+          throw new Error("Tenant ID is required for Key Vault tests");
+        }
         
         await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
           resourceGroupName,
@@ -494,6 +489,7 @@ describe("Azure Security", () => {
                 name: "standard",
               },
               accessPolicies: [],
+              enableSoftDelete: false, // Disable soft-delete for test vaults
             },
           },
         );
@@ -531,6 +527,7 @@ async function assertKeyVaultDoesNotExist(
       throw error;
     }
   }
+
 }
 
 async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
