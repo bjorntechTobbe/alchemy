@@ -1,4 +1,4 @@
-import { alchemy } from "alchemy";
+import alchemy from "alchemy";
 import {
   ResourceGroup,
   StorageAccount,
@@ -6,11 +6,7 @@ import {
   UserAssignedIdentity,
 } from "alchemy/azure";
 
-const app = await alchemy("azure-storage-example", {
-  azure: {
-    subscriptionId: process.env.AZURE_SUBSCRIPTION_ID!,
-  },
-});
+const app = await alchemy("azure-storage-example");
 
 // Create a resource group in East US
 const rg = await ResourceGroup("storage-demo", {

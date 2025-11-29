@@ -173,13 +173,6 @@ export const ResourceGroup = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    // Validate name format (Azure requirements)
-    if (!/^[\w\-\.()]{1,90}$/.test(name)) {
-      throw new Error(
-        `Resource group name "${name}" is invalid. Must be 1-90 characters and contain only alphanumeric characters, underscores, hyphens, periods, and parentheses.`,
-      );
-    }
-
     if (this.scope.local) {
       // Local development mode - return mock data
       return {
@@ -225,6 +218,14 @@ export const ResourceGroup = Resource(
         }
       }
       return this.destroy();
+    }
+
+    // Validate name format (Azure requirements)
+    // Only validate during creation/update, not deletion
+    if (!/^[\w\-\.()]{1,90}$/.test(name)) {
+      throw new Error(
+        `Resource group name "${name}" is invalid. Must be 1-90 characters and contain only alphanumeric characters, underscores, hyphens, periods, and parentheses.`,
+      );
     }
 
     // Check for immutable property changes
