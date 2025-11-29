@@ -136,12 +136,28 @@ export async function createAzureClients(
   props?: AzureClientProps,
 ): Promise<AzureClients> {
   // Resolve credentials from environment, scope, and resource levels
-  const credentials = await resolveAzureCredentials(props);
+  let credentials = await resolveAzureCredentials(props);
+
+  // Auto-detect subscription ID from Azure CLI if not provided
+  if (!credentials.subscriptionId) {
+    try {
+      const { exec } = await import("../os/exec.ts");
+      const result = await exec("az account show --query id -o tsv", {
+        captureOutput: true,
+      });
+      if (result?.stdout?.trim()) {
+        const subscriptionId = result.stdout.trim();
+        credentials = { ...credentials, subscriptionId };
+      }
+    } catch {
+      // Azure CLI not available or not logged in - will throw error below
+    }
+  }
 
   if (!credentials.subscriptionId) {
     throw new Error(
       "Azure subscription ID is required. " +
-        "Set AZURE_SUBSCRIPTION_ID environment variable or provide subscriptionId in props.",
+        "Set AZURE_SUBSCRIPTION_ID environment variable, provide subscriptionId in props, or login with 'az login'.",
     );
   }
 
