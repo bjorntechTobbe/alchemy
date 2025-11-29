@@ -167,7 +167,8 @@ export const ResourceGroup = Resource(
     id: string,
     props: ResourceGroupProps,
   ): Promise<ResourceGroup> {
-    const resourceGroupId = props.resourceGroupId || this.output?.resourceGroupId;
+    const resourceGroupId =
+      props.resourceGroupId || this.output?.resourceGroupId;
     const adopt = props.adopt ?? this.scope.adopt;
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
@@ -184,7 +185,8 @@ export const ResourceGroup = Resource(
       return {
         id,
         name,
-        resourceGroupId: resourceGroupId || `/subscriptions/local/resourceGroups/${name}`,
+        resourceGroupId:
+          resourceGroupId || `/subscriptions/local/resourceGroups/${name}`,
         location: props.location,
         tags: props.tags,
         provisioningState: "Succeeded",
@@ -202,15 +204,19 @@ export const ResourceGroup = Resource(
       if (props.delete !== false && resourceGroupId) {
         try {
           // Begin deletion - this is a long-running operation
-          const poller = await clients.resources.resourceGroups.beginDelete(name);
-          
+          const poller =
+            await clients.resources.resourceGroups.beginDelete(name);
+
           // Wait for the deletion to complete
           // This is crucial because Azure returns 202 Accepted immediately
           // but the actual deletion happens asynchronously
           await poller.pollUntilDone();
         } catch (error: any) {
           // If resource group doesn't exist (404), that's fine
-          if (error?.statusCode !== 404 && error?.code !== "ResourceGroupNotFound") {
+          if (
+            error?.statusCode !== 404 &&
+            error?.code !== "ResourceGroupNotFound"
+          ) {
             throw new Error(
               `Failed to delete resource group "${name}": ${error?.message || error}`,
               { cause: error },

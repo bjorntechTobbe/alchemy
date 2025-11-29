@@ -1,8 +1,12 @@
 import type { TokenCredential } from "@azure/identity";
-import { DefaultAzureCredential, ClientSecretCredential } from "@azure/identity";
+import {
+  DefaultAzureCredential,
+  ClientSecretCredential,
+} from "@azure/identity";
 import { ResourceManagementClient } from "@azure/arm-resources";
 import { StorageManagementClient } from "@azure/arm-storage";
 import { ManagedServiceIdentityClient } from "@azure/arm-msi";
+import { WebSiteManagementClient } from "@azure/arm-appservice";
 import type { AzureClientProps } from "./client-props.ts";
 import { resolveAzureCredentials } from "./credentials.ts";
 
@@ -24,6 +28,11 @@ export interface AzureClients {
    * Client for managing managed identities (User Assigned Identities)
    */
   msi: ManagedServiceIdentityClient;
+
+  /**
+   * Client for managing app services, function apps, and static web apps
+   */
+  appService: WebSiteManagementClient;
 
   /**
    * The credential used to authenticate with Azure
@@ -113,9 +122,22 @@ export async function createAzureClients(
   }
 
   return {
-    resources: new ResourceManagementClient(credential, credentials.subscriptionId),
-    storage: new StorageManagementClient(credential, credentials.subscriptionId),
-    msi: new ManagedServiceIdentityClient(credential, credentials.subscriptionId),
+    resources: new ResourceManagementClient(
+      credential,
+      credentials.subscriptionId,
+    ),
+    storage: new StorageManagementClient(
+      credential,
+      credentials.subscriptionId,
+    ),
+    msi: new ManagedServiceIdentityClient(
+      credential,
+      credentials.subscriptionId,
+    ),
+    appService: new WebSiteManagementClient(
+      credential,
+      credentials.subscriptionId,
+    ),
     credential,
     subscriptionId: credentials.subscriptionId,
   };

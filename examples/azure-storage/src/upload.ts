@@ -4,13 +4,13 @@ import { join } from "node:path";
 
 /**
  * Example script to upload files to Azure Blob Storage
- * 
+ *
  * This demonstrates how to:
  * 1. Connect to Azure Storage using a connection string
  * 2. Upload files to blob containers
  * 3. Set blob metadata and properties
  * 4. Generate SAS tokens for secure access
- * 
+ *
  * Prerequisites:
  * - Run `bun alchemy.run.ts` to deploy the infrastructure
  * - Set AZURE_STORAGE_CONNECTION_STRING environment variable
@@ -20,24 +20,29 @@ import { join } from "node:path";
 async function main() {
   // Get connection string from environment
   const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
-  
+
   if (!connectionString) {
-    console.error("Error: AZURE_STORAGE_CONNECTION_STRING environment variable not set");
+    console.error(
+      "Error: AZURE_STORAGE_CONNECTION_STRING environment variable not set",
+    );
     console.error("\nTo get the connection string:");
     console.error("1. Run: bun alchemy.run.ts");
     console.error("2. Copy the connection string from the output");
-    console.error("3. Set: export AZURE_STORAGE_CONNECTION_STRING='<connection-string>'");
+    console.error(
+      "3. Set: export AZURE_STORAGE_CONNECTION_STRING='<connection-string>'",
+    );
     console.error("4. Run: bun run upload");
     process.exit(1);
   }
 
   console.log("Connecting to Azure Storage...");
-  const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
+  const blobServiceClient =
+    BlobServiceClient.fromConnectionString(connectionString);
 
   // Upload to private container
   console.log("\n📦 Uploading to private container (uploads)...");
   const privateContainer = blobServiceClient.getContainerClient("uploads");
-  
+
   // Create sample content
   const sampleText = `# Azure Storage Example
 
@@ -191,7 +196,7 @@ Azure Blob Storage features:
   console.log("=".repeat(60) + "\n");
 }
 
-main().catch(error => {
+main().catch((error) => {
   console.error("Error:", error.message);
   process.exit(1);
 });

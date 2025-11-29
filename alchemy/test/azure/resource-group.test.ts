@@ -112,15 +112,12 @@ describe("Azure Resources", () => {
 
         // Verify resource group still exists
         const clients = await createAzureClients();
-        const existing = await clients.resources.resourceGroups.get(
-          resourceGroupName,
-        );
+        const existing =
+          await clients.resources.resourceGroups.get(resourceGroupName);
         expect(existing.name).toBe(resourceGroupName);
 
         // Create new scope and adopt the existing resource group
-        const adoptScope = await alchemy("adopt-test", {
-          prefix: BRANCH_PREFIX,
-        });
+        const adoptScope = await alchemy("adopt-test");
 
         const adoptedRg = await ResourceGroup("test-adopt-rg-adopted", {
           name: resourceGroupName,
@@ -143,7 +140,7 @@ describe("Azure Resources", () => {
     });
 
     test("resource group with default name", async (scope) => {
-      let rg: ResourceGroup;
+      let rg: ResourceGroup | undefined;
       try {
         // Create resource group without specifying name
         // Should use createPhysicalName pattern: ${app}-${stage}-${id}
@@ -226,15 +223,13 @@ describe("Azure Resources", () => {
 
         // Verify resource group still exists after scope destruction
         const clients = await createAzureClients();
-        const existing = await clients.resources.resourceGroups.get(
-          resourceGroupName,
-        );
+        const existing =
+          await clients.resources.resourceGroups.get(resourceGroupName);
         expect(existing.name).toBe(resourceGroupName);
 
         // Cleanup: manually delete the preserved resource group
-        const poller = await clients.resources.resourceGroups.beginDelete(
-          resourceGroupName,
-        );
+        const poller =
+          await clients.resources.resourceGroups.beginDelete(resourceGroupName);
         await poller.pollUntilDone();
       } finally {
         await assertResourceGroupDoesNotExist(resourceGroupName);
@@ -253,9 +248,8 @@ async function assertResourceGroupDoesNotExist(
   const clients = await createAzureClients();
 
   try {
-    const result = await clients.resources.resourceGroups.get(
-      resourceGroupName,
-    );
+    const result =
+      await clients.resources.resourceGroups.get(resourceGroupName);
 
     // If we get here, the resource group exists when it shouldn't
     throw new Error(

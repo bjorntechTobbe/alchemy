@@ -96,10 +96,7 @@ export interface StorageAccountProps extends AzureClientProps {
   storageAccountId?: string;
 }
 
-export type StorageAccount = Omit<
-  StorageAccountProps,
-  "delete" | "adopt"
-> & {
+export type StorageAccount = Omit<StorageAccountProps, "delete" | "adopt"> & {
   /**
    * The Alchemy resource ID
    */
@@ -310,7 +307,7 @@ export const StorageAccount = Resource(
     const storageAccountId =
       props.storageAccountId || this.output?.storageAccountId;
     const adopt = props.adopt ?? this.scope.adopt;
-    
+
     // Generate name with lowercase alphanumeric only
     const defaultName = this.scope
       .createPhysicalName(id)
@@ -342,7 +339,7 @@ export const StorageAccount = Resource(
           storageAccountId ||
           `/subscriptions/local/resourceGroups/${resourceGroupName}/providers/Microsoft.Storage/storageAccounts/${name}`,
         primaryConnectionString: Secret.wrap(
-          `DefaultEndpointsProtocol=https;AccountName=${name};AccountKey=mockkey;EndpointSuffix=core.windows.net`
+          `DefaultEndpointsProtocol=https;AccountName=${name};AccountKey=mockkey;EndpointSuffix=core.windows.net`,
         ),
         primaryAccessKey: Secret.wrap("mockaccesskey"),
         secondaryAccessKey: Secret.wrap("mockaccesskey2"),
@@ -372,16 +369,10 @@ export const StorageAccount = Resource(
       if (props.delete !== false && storageAccountId) {
         try {
           // Begin deletion - this is a long-running operation
-          await clients.storage.storageAccounts.delete(
-            resourceGroupName,
-            name,
-          );
+          await clients.storage.storageAccounts.delete(resourceGroupName, name);
         } catch (error: any) {
           // If storage account doesn't exist (404), that's fine
-          if (
-            error?.statusCode !== 404 &&
-            error?.code !== "ResourceNotFound"
-          ) {
+          if (error?.statusCode !== 404 && error?.code !== "ResourceNotFound") {
             throw new Error(
               `Failed to delete storage account "${name}": ${error?.message || error}`,
               { cause: error },
@@ -480,7 +471,7 @@ export const StorageAccount = Resource(
             if (props.accessTier) {
               updateParams.properties = { accessTier: props.accessTier };
             }
-            
+
             result = await clients.storage.storageAccounts.update(
               resourceGroupName,
               name,

@@ -276,7 +276,7 @@ describe("Azure Resources", () => {
       const resourceGroupName = `${BRANCH_PREFIX}-test-default-identity-rg`;
 
       let rg: ResourceGroup;
-      let identity: UserAssignedIdentity;
+      let identity: UserAssignedIdentity | undefined;
 
       try {
         rg = await ResourceGroup("test-default-identity-rg", {

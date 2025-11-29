@@ -248,10 +248,7 @@ export const UserAssignedIdentity = Resource(
           );
         } catch (error: any) {
           // If identity doesn't exist (404), that's fine
-          if (
-            error?.statusCode !== 404 &&
-            error?.code !== "ResourceNotFound"
-          ) {
+          if (error?.statusCode !== 404 && error?.code !== "ResourceNotFound") {
             throw new Error(
               `Failed to delete user-assigned identity "${name}": ${error?.message || error}`,
               { cause: error },
@@ -269,7 +266,8 @@ export const UserAssignedIdentity = Resource(
         location = props.resourceGroup.location;
       } else {
         // Need to fetch resource group to get location
-        const rg = await clients.resources.resourceGroups.get(resourceGroupName);
+        const rg =
+          await clients.resources.resourceGroups.get(resourceGroupName);
         location = rg.location!;
       }
     }

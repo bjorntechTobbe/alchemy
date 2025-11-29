@@ -40,10 +40,13 @@
  * @module
  */
 
+export * from "./app-service.ts";
+export * from "./blob-container.ts";
 export * from "./client.ts";
 export * from "./client-props.ts";
 export * from "./credentials.ts";
+export * from "./function-app.ts";
 export * from "./resource-group.ts";
-export * from "./user-assigned-identity.ts";
+export * from "./static-web-app.ts";
 export * from "./storage-account.ts";
-export * from "./blob-container.ts";
+export * from "./user-assigned-identity.ts";

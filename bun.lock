@@ -121,6 +121,9 @@
         "wrangler": "^4.42.2",
         "zod": "^4.0.10",
       },
+      "optionalDependencies": {
+        "@azure/arm-appservice": "^15.0.0",
+      },
       "peerDependencies": {
         "@astrojs/cloudflare": "^12.6.4",
         "@aws-sdk/client-dynamodb": "^3.0.0",
@@ -1098,6 +1101,8 @@
     "@aws/lambda-invoke-store": ["@aws/lambda-invoke-store@0.0.1", "", {}, "sha512-ORHRQ2tmvnBXc8t/X9Z8IcSbBA4xTLKuN873FopzklHMeqBst7YG0d+AX97inkvDX+NChYtSr+qGfcqGFaI8Zw=="],
 
     "@azure/abort-controller": ["@azure/abort-controller@1.1.0", "", { "dependencies": { "tslib": "^2.2.0" } }, "sha512-TrRLIoSQVzfAJX9H1JeFjzAoDGcoK1IYX1UImfceTZpsyYfWr09Ss1aHW1y5TrrR3iq6RZLBwJ3E24uwPhwahw=="],
+
+    "@azure/arm-appservice": ["@azure/arm-appservice@15.0.0", "", { "dependencies": { "@azure/abort-controller": "^1.0.0", "@azure/core-auth": "^1.6.0", "@azure/core-client": "^1.7.0", "@azure/core-lro": "^2.5.4", "@azure/core-paging": "^1.2.0", "@azure/core-rest-pipeline": "^1.14.0", "tslib": "^2.2.0" } }, "sha512-huJ2uFDXB7w0cYKqxhzYOHuTsuLCY1e0xmWFF8G3KpDbQGnFDM3AVNtxWPas50OxuSWClblqSaExiS/XnWhTTg=="],
 
     "@azure/arm-msi": ["@azure/arm-msi@2.2.0", "", { "dependencies": { "@azure/core-auth": "^1.9.0", "@azure/core-client": "^1.9.2", "@azure/core-paging": "^1.6.2", "@azure/core-rest-pipeline": "^1.19.0", "tslib": "^2.8.1" } }, "sha512-Wqg9j9qR+k1IxZXwKtegZWj6k1d6UUGOz4uHPmhyJOeiQrtZHXBcaWSZhtqJo5sy888TD6jVIQV/4znhbKYL9g=="],
 

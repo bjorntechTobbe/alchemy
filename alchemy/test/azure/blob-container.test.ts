@@ -390,19 +390,20 @@ describe("Azure Storage", () => {
 
       let rg: ResourceGroup;
       let storage: StorageAccount;
-      let container: BlobContainer;
+      let container: BlobContainer | undefined;
       try {
         rg = await ResourceGroup("bc-defname-rg", {
           name: resourceGroupName,
-          location: "uksouth",
+          location: "eastus",
         });
 
-        storage = await StorageAccount("bc-defname-sa", {
+        storage = await StorageAccount("bc-defname-storage", {
           name: storageAccountName,
           resourceGroup: rg,
           sku: "Standard_LRS",
         });
 
+        // Create container with default name
         container = await BlobContainer("bc-defname-container", {
           storageAccount: storage,
         });
@@ -414,11 +415,13 @@ describe("Azure Storage", () => {
         expect(container.name).toMatch(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/);
       } finally {
         await destroy(scope);
-        await assertBlobContainerDoesNotExist(
-          resourceGroupName,
-          storageAccountName,
-          container.name,
-        );
+        if (container) {
+          await assertBlobContainerDoesNotExist(
+            resourceGroupName,
+            storageAccountName,
+            container.name,
+          );
+        }
         await assertStorageAccountDoesNotExist(
           resourceGroupName,
           storageAccountName,

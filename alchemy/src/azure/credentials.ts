@@ -48,9 +48,10 @@ export function getGlobalAzureConfig(): AzureClientProps {
 /**
  * Unwrap Azure credentials from Secret objects to strings
  */
-function unwrapAzureCredentials(
-  props: AzureClientProps,
-): Omit<AzureClientProps, "tenantId" | "clientId" | "clientSecret"> & {
+function unwrapAzureCredentials(props: AzureClientProps): Omit<
+  AzureClientProps,
+  "tenantId" | "clientId" | "clientSecret"
+> & {
   tenantId?: string;
   clientId?: string;
   clientSecret?: string;

@@ -360,5 +360,8 @@
     "undici": "^7.14.0",
     "wrangler": "^4.42.2",
     "zod": "^4.0.10"
+  },
+  "optionalDependencies": {
+    "@azure/arm-appservice": "^15.0.0"
   }
 }

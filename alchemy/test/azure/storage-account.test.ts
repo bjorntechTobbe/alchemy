@@ -293,7 +293,7 @@ describe("Azure Storage", () => {
       const resourceGroupName = `${BRANCH_PREFIX}-sa-defname-rg`;
 
       let rg: ResourceGroup;
-      let storage: StorageAccount;
+      let storage: StorageAccount | undefined;
       try {
         rg = await ResourceGroup("sa-defname-rg", {
           name: resourceGroupName,
@@ -312,10 +312,9 @@ describe("Azure Storage", () => {
         expect(storage.name).toMatch(/^[a-z0-9]+$/);
       } finally {
         await destroy(scope);
-        await assertStorageAccountDoesNotExist(
-          resourceGroupName,
-          storage.name,
-        );
+        if (storage) {
+          await assertStorageAccountDoesNotExist(resourceGroupName, storage.name);
+        }
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
     });
