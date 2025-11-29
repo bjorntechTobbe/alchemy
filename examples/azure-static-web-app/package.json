@@ -1,0 +1,12 @@
+{
+  "name": "azure-static-web-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "bun ./alchemy.run.ts",
+    "destroy": "bun ./alchemy.run.ts --destroy"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

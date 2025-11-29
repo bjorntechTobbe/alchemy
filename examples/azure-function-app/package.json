@@ -1,0 +1,15 @@
+{
+  "name": "azure-function-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "bun ./alchemy.run.ts",
+    "destroy": "bun ./alchemy.run.ts --destroy"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.5.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

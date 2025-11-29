@@ -7,6 +7,8 @@
     { "path": "./stacks/tsconfig.json" },
     { "path": "./examples/aws-app/tsconfig.json" },
     { "path": "./examples/azure-container-firewall/tsconfig.json" },
+    { "path": "./examples/azure-function-app/tsconfig.json" },
+    { "path": "./examples/azure-static-web-app/tsconfig.json" },
     { "path": "./examples/azure-storage/tsconfig.json" },
     { "path": "./examples/cloudflare-astro/tsconfig.json" },
     { "path": "./examples/cloudflare-container/tsconfig.json" },

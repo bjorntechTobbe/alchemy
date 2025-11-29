@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Azure Static Web App - Alchemy Example</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 60px 40px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    }
+    
+    h1 {
+      color: #333;
+      font-size: 2.5em;
+      margin-bottom: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    p {
+      color: #666;
+      font-size: 1.2em;
+      line-height: 1.6;
+      margin-bottom: 30px;
+    }
+    
+    .features {
+      display: grid;
+      gap: 20px;
+      margin-top: 40px;
+      text-align: left;
+    }
+    
+    .feature {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 10px;
+      border-left: 4px solid #667eea;
+    }
+    
+    .feature h3 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 1.2em;
+    }
+    
+    .feature p {
+      color: #666;
+      font-size: 0.95em;
+      margin: 0;
+    }
+    
+    .badge {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.9em;
+      margin-top: 20px;
+    }
+    
+    .info {
+      background: #e3f2fd;
+      border-radius: 10px;
+      padding: 20px;
+      margin-top: 30px;
+    }
+    
+    .info p {
+      font-size: 0.95em;
+      margin: 0;
+      color: #1976d2;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚀 Azure Static Web App</h1>
+    <p>Deployed with Alchemy - Infrastructure as Code for Modern Applications</p>
+    
+    <div class="badge">Powered by Azure Static Web Apps</div>
+    
+    <div class="features">
+      <div class="feature">
+        <h3>⚡ Lightning Fast</h3>
+        <p>Content served from Azure's global CDN with automatic caching and optimization</p>
+      </div>
+      
+      <div class="feature">
+        <h3>🔒 Secure by Default</h3>
+        <p>Automatic HTTPS, built-in authentication, and DDoS protection</p>
+      </div>
+      
+      <div class="feature">
+        <h3>🌍 Global Scale</h3>
+        <p>Content distributed across Azure's worldwide network for low latency</p>
+      </div>
+      
+      <div class="feature">
+        <h3>💰 Cost Effective</h3>
+        <p>Free tier includes 100GB bandwidth and custom domains</p>
+      </div>
+    </div>
+    
+    <div class="info">
+      <p>
+        <strong>Deployed at:</strong> <span id="timestamp"></span><br>
+        <strong>Location:</strong> <span id="location">Detecting...</span>
+      </p>
+    </div>
+  </div>
+  
+  <script>
+    // Display deployment timestamp
+    document.getElementById('timestamp').textContent = new Date().toLocaleString();
+    
+    // Display user location (approximation based on timezone)
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    document.getElementById('location').textContent = timezone;
+    
+    // Add some interactivity
+    console.log('Azure Static Web App Example');
+    console.log('Deployed with Alchemy');
+    console.log('Learn more: https://github.com/sst/alchemy');
+  </script>
+</body>
+</html>
