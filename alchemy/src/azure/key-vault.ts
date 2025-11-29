@@ -433,17 +433,12 @@ export const KeyVault = Resource(
       location = rg.location!;
     }
 
-    // Resolve tenant ID from credentials
-    const credentials = await import("./credentials.ts").then((m) =>
-      m.resolveAzureCredentials(props),
-    );
+    // Get tenant ID from clients (auto-detected from Azure CLI if available)
+    let tenantId = clients.tenantId || this.output?.outputTenantId;
     
-    let tenantId = credentials.tenantId || this.output?.outputTenantId;
-    
-    // If no tenant ID from credentials, try to get it from Azure CLI or from a token
+    // If still no tenant ID, try to extract from token as final fallback
     if (!tenantId) {
       try {
-        // Try to get a token and extract tenant ID from it
         const token = await clients.credential.getToken(
           "https://management.azure.com/.default",
         );
@@ -454,17 +449,8 @@ export const KeyVault = Resource(
           );
           tenantId = payload.tid;
         }
-      } catch (error) {
-        // If token parsing fails, try Azure CLI
-        try {
-          const { exec } = await import("../os/exec.ts");
-          const result = await exec("az account show --query tenantId -o tsv");
-          if (result) {
-            tenantId = result.stdout.trim();
-          }
-        } catch {
-          // Azure CLI not available or not logged in
-        }
+      } catch {
+        // Token parsing failed
       }
     }
     

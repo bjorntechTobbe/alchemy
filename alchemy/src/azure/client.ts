@@ -85,6 +85,11 @@ export interface AzureClients {
    * The Azure subscription ID
    */
   subscriptionId: string;
+
+  /**
+   * The Azure tenant ID (optional, auto-detected from Azure CLI if available)
+   */
+  tenantId?: string;
 }
 
 /**
@@ -138,19 +143,34 @@ export async function createAzureClients(
   // Resolve credentials from environment, scope, and resource levels
   let credentials = await resolveAzureCredentials(props);
 
-  // Auto-detect subscription ID from Azure CLI if not provided
-  if (!credentials.subscriptionId) {
+  // Auto-detect credentials from Azure CLI if not provided
+  if (!credentials.subscriptionId || !credentials.tenantId) {
     try {
       const { exec } = await import("../os/exec.ts");
-      const result = await exec("az account show --query id -o tsv", {
-        captureOutput: true,
-      });
-      if (result?.stdout?.trim()) {
-        const subscriptionId = result.stdout.trim();
-        credentials = { ...credentials, subscriptionId };
+      
+      // Get subscription ID if not provided
+      if (!credentials.subscriptionId) {
+        const subResult = await exec("az account show --query id -o tsv", {
+          captureOutput: true,
+        });
+        if (subResult?.stdout?.trim()) {
+          const subscriptionId = subResult.stdout.trim();
+          credentials = { ...credentials, subscriptionId };
+        }
+      }
+
+      // Get tenant ID if not provided
+      if (!credentials.tenantId) {
+        const tenantResult = await exec("az account show --query tenantId -o tsv", {
+          captureOutput: true,
+        });
+        if (tenantResult?.stdout?.trim()) {
+          const tenantId = tenantResult.stdout.trim();
+          credentials = { ...credentials, tenantId };
+        }
       }
     } catch {
-      // Azure CLI not available or not logged in - will throw error below
+      // Azure CLI not available or not logged in - will throw error below if needed
     }
   }
 
@@ -220,5 +240,6 @@ export async function createAzureClients(
     cdn: new CdnManagementClient(credential, credentials.subscriptionId),
     credential,
     subscriptionId: credentials.subscriptionId,
+    tenantId: credentials.tenantId,
   };
 }
