@@ -117,8 +117,12 @@ describe("Azure Resources", () => {
           await clients.resources.resourceGroups.get(resourceGroupName);
         expect(existing.name).toBe(resourceGroupName);
 
-        // Create new scope and adopt the existing resource group
-        const adoptScope = await alchemy("adopt-test");
+        // Create new alchemy app to test adoption from a different state context
+        const adoptScope = await alchemy("adopt-test", {
+          // Use same password and state store type as test
+          password: scope.password,
+          stateStore: scope.stateStore,
+        });
 
         const adoptedRg = await ResourceGroup("test-adopt-rg-adopted", {
           name: resourceGroupName,
@@ -133,9 +137,9 @@ describe("Azure Resources", () => {
         expect(adoptedRg.name).toBe(resourceGroupName);
         expect(adoptedRg.tags?.adopted).toBe("true");
 
-        // Finalize and cleanup: delete the adopted resource group
+        // Cleanup: delete the adopted resource group explicitly
+        await destroy(adoptedRg);
         await adoptScope.finalize();
-        await destroy(adoptScope);
       } finally {
         // Ensure cleanup even if test fails
         try {
