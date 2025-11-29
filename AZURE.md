@@ -2,6 +2,22 @@
 
 This document outlines the plan for adding Azure support to Alchemy following the established provider conventions and patterns.
 
+## Implementation Strategy: SDK vs REST API
+
+**DECISION: Use Official Azure SDK** ✅
+
+The Azure provider uses the official `@azure/identity` and `@azure/arm-*` SDK packages. These are **pure JavaScript/TypeScript packages with NO platform-specific (arm64/x86_64) native binaries**. They work identically across all platforms and architectures.
+
+**Why SDK (not REST API):**
+- ✅ No native binaries or platform dependencies
+- ✅ Automatic long-running operation (LRO) polling
+- ✅ Built-in authentication (`DefaultAzureCredential`)
+- ✅ Type-safe TypeScript interfaces
+- ✅ Consistent with AWS provider (`@aws-sdk/client-*`)
+- ✅ Automatic retry and error handling
+
+**Verified:** The `@azure/*` packages have been confirmed to have no CPU/OS restrictions - only requiring Node.js >= 20.
+
 ## Overview
 
 Azure support will enable Alchemy users to provision and manage Azure resources using the same TypeScript-native Infrastructure-as-Code patterns used for Cloudflare and AWS providers.
@@ -268,7 +284,7 @@ const name = props.name
 ### Long-Running Operations (LROs)
 
 Azure management APIs frequently return `202 Accepted` with a `Location` header for asynchronous operations. 
-**Crucial**: Prefer the official Azure SDK (which handles polling automatically via `beginCreateOrUpdateAndWait`) or a shared Azure API helper, rather than calling `fetch` directly from resource implementations.
+**IMPORTANT**: ALWAYS use the official Azure SDK, which handles polling automatically via `beginCreateOrUpdateAndWait()` methods. Never use raw `fetch()` or REST API calls - the SDK provides automatic retry, polling, authentication, and type safety without any platform-specific dependencies.
 
 ### Resource Deletion
 
@@ -441,19 +457,21 @@ export const BlobContainer = Resource(
       };
     }
 
-    const api = await createAzureApi(this.scope);
+    const clients = await createAzureClients(props);
 
     if (this.phase === "delete") {
       if (props.delete !== false && containerId) {
         try {
-          const deleteResponse = await api.delete(
-            `/subscriptions/${this.scope.azure.subscriptionId}/resourceGroups/${getResourceGroupName(props.resourceGroup)}/providers/Microsoft.Storage/storageAccounts/${getStorageAccountName(props.storageAccount)}/blobServices/default/containers/${name}?api-version=2023-01-01`
+          await clients.storage.blobContainers.delete(
+            getResourceGroupName(props.resourceGroup),
+            getStorageAccountName(props.storageAccount),
+            name
           );
-          if (!deleteResponse.ok && deleteResponse.status !== 404) {
-            await handleAzureApiError(deleteResponse, "delete", "blob container", id);
+        } catch (error: any) {
+          if (error.statusCode !== 404) {
+            throw error;
           }
-        } catch (error) {
-          throw error;
+          // OK if already deleted
         }
       }
       return this.destroy();
@@ -473,52 +491,47 @@ export const BlobContainer = Resource(
       },
     };
 
-    let result: AzureBlobContainerResponse;
+    let result;
     
-    if (containerId) {
-      // Update existing container
-      result = await extractAzureResult<AzureBlobContainerResponse>(
-        `update blob container "${name}"`,
-        api.put(
-          `/subscriptions/${this.scope.azure.subscriptionId}/resourceGroups/${getResourceGroupName(props.resourceGroup)}/providers/Microsoft.Storage/storageAccounts/${getStorageAccountName(props.storageAccount)}/blobServices/default/containers/${name}?api-version=2023-01-01`,
-          requestBody
-        ),
-      );
-    } else {
-      try {
-        // Create new container
-        result = await extractAzureResult<AzureBlobContainerResponse>(
-          `create blob container "${name}"`,
-          api.put(
-            `/subscriptions/${this.scope.azure.subscriptionId}/resourceGroups/${getResourceGroupName(props.resourceGroup)}/providers/Microsoft.Storage/storageAccounts/${getStorageAccountName(props.storageAccount)}/blobServices/default/containers/${name}?api-version=2023-01-01`,
-            requestBody
-          ),
-        );
-      } catch (error) {
-        if (error instanceof AzureApiError && error.code === "ContainerAlreadyExists") {
-          if (!adopt) {
-            throw new Error(
-              `Blob container "${name}" already exists. Use adopt: true to adopt it.`,
-              { cause: error },
-            );
-          }
-          
-          // Get existing container
-          const existing = await api.get(
-            `/subscriptions/${this.scope.azure.subscriptionId}/resourceGroups/${getResourceGroupName(props.resourceGroup)}/providers/Microsoft.Storage/storageAccounts/${getStorageAccountName(props.storageAccount)}/blobServices/default/containers/${name}?api-version=2023-01-01`
-          );
-          
-          if (!existing.ok) {
-            throw new Error(
-              `Blob container "${name}" failed to create due to name conflict and could not be found for adoption.`,
-              { cause: error },
-            );
-          }
-          
-          result = await existing.json();
-        } else {
-          throw error;
+    try {
+      // Create or update container using Azure SDK
+      result = await clients.storage.blobContainers.create(
+        getResourceGroupName(props.resourceGroup),
+        getStorageAccountName(props.storageAccount),
+        name,
+        {
+          publicAccess: props.publicAccess ?? "None",
+          metadata: props.metadata,
         }
+      );
+    } catch (error: any) {
+      if (error.code === "ContainerAlreadyExists") {
+        if (!adopt) {
+          throw new Error(
+            `Blob container "${name}" already exists. Use adopt: true to adopt it.`,
+            { cause: error },
+          );
+        }
+        
+        // Get and update existing container
+        result = await clients.storage.blobContainers.get(
+          getResourceGroupName(props.resourceGroup),
+          getStorageAccountName(props.storageAccount),
+          name
+        );
+        
+        // Update with new settings
+        result = await clients.storage.blobContainers.update(
+          getResourceGroupName(props.resourceGroup),
+          getStorageAccountName(props.storageAccount),
+          name,
+          {
+            publicAccess: props.publicAccess ?? "None",
+            metadata: props.metadata,
+          }
+        );
+      } else {
+        throw error;
       }
     }
 
@@ -527,13 +540,13 @@ export const BlobContainer = Resource(
 
     return {
       id,
-      name: result.name,
-      containerId: result.id,
+      name: result.name!,
+      containerId: result.id!,
       url,
       resourceGroup: props.resourceGroup,
       storageAccount: props.storageAccount,
-      publicAccess: result.properties.publicAccess,
-      metadata: result.properties.metadata,
+      publicAccess: (result.publicAccess as "blob" | "container" | "none") ?? "none",
+      metadata: result.metadata,
       type: "azure::BlobContainer",
     };
   },
@@ -574,11 +587,13 @@ function getStorageAccountName(sa: string | StorageAccount): string {
 
 ## Authentication & API Client
 
-**Recommendation**: Use the Official Azure SDK.
-Do **not** use raw `fetch` calls. The Azure SDK (`@azure/identity`, `@azure/arm-resources`, etc.) handles:
-1.  **Authentication**: `DefaultAzureCredential` supports Environment Vars, Azure CLI, Managed Identity, and Workload Identity out of the box.
-2.  **Long-Running Operations**: Automatic polling for `202 Accepted` responses.
-3.  **Consistency**: Aligns with the AWS implementation.
+**REQUIRED**: Use the Official Azure SDK.
+Do **NOT** use raw `fetch` or REST API calls. The Azure SDK (`@azure/identity`, `@azure/arm-resources`, etc.) is:
+1.  **Platform-Independent**: Pure JavaScript/TypeScript with no native binaries - works on all platforms (arm64, x86_64, Windows, Linux, macOS)
+2.  **Authentication**: `DefaultAzureCredential` supports Environment Vars, Azure CLI, Managed Identity, and Workload Identity out of the box.
+3.  **Long-Running Operations**: Automatic polling for `202 Accepted` responses via `beginCreateOrUpdateAndWait()` methods.
+4.  **Consistency**: Aligns with the AWS implementation pattern using `@aws-sdk/client-*` packages.
+5.  **Type Safety**: Full TypeScript types for all APIs.
 
 ```ts
 // alchemy/src/azure/client.ts
@@ -741,16 +756,19 @@ async function assertContainerDoesNotExist(
   storageAccount: string,
   containerName: string
 ) {
-  const api = await createAzureApi(/* ... */);
-  const response = await api.get(
-    `/subscriptions/${subscriptionId}/resourceGroups/${resourceGroup}/providers/Microsoft.Storage/storageAccounts/${storageAccount}/blobServices/default/containers/${containerName}?api-version=2023-01-01`
-  );
+  const clients = await createAzureClients({ subscriptionId });
   
-  if (response.ok) {
+  try {
+    await clients.storage.blobContainers.get(
+      resourceGroup,
+      storageAccount,
+      containerName
+    );
     throw new Error(`Blob container ${containerName} still exists after deletion`);
+  } catch (error: any) {
+    // Expected - container should not exist
+    expect(error.statusCode).toBe(404);
   }
-  
-  expect(response.status).toBe(404);
 }
 ```
 
