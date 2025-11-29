@@ -411,10 +411,15 @@ describe("Azure Security", () => {
 
         // Create key vault directly with Azure SDK
         const clients = await createAzureClients();
-        // Get tenant ID from Azure CLI
-        const { exec } = await import("../../src/os/exec.ts");
-        const result = await exec("az account show --query tenantId -o tsv");
-        const tenantId = result?.stdout.trim();
+        
+        // Get tenant ID from token (same method as KeyVault resource uses)
+        const token = await clients.credential.getToken(
+          "https://management.azure.com/.default",
+        );
+        const payload = JSON.parse(
+          Buffer.from(token!.token.split(".")[1], "base64").toString(),
+        );
+        const tenantId = payload.tid;
         
         await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
           resourceGroupName,
@@ -422,7 +427,7 @@ describe("Azure Security", () => {
           {
             location: "eastus",
             properties: {
-              tenantId: tenantId!,
+              tenantId: tenantId,
               sku: {
                 family: "A",
                 name: "standard",
@@ -467,10 +472,15 @@ describe("Azure Security", () => {
 
         // Create key vault directly with Azure SDK
         const clients = await createAzureClients();
-        // Get tenant ID from Azure CLI
-        const { exec } = await import("../../src/os/exec.ts");
-        const result = await exec("az account show --query tenantId -o tsv");
-        const tenantId = result?.stdout.trim();
+        
+        // Get tenant ID from token (same method as KeyVault resource uses)
+        const token = await clients.credential.getToken(
+          "https://management.azure.com/.default",
+        );
+        const payload = JSON.parse(
+          Buffer.from(token!.token.split(".")[1], "base64").toString(),
+        );
+        const tenantId = payload.tid;
         
         await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
           resourceGroupName,
@@ -478,7 +488,7 @@ describe("Azure Security", () => {
           {
             location: "eastus",
             properties: {
-              tenantId: tenantId!,
+              tenantId: tenantId,
               sku: {
                 family: "A",
                 name: "standard",

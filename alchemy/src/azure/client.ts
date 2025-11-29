@@ -12,6 +12,8 @@ import { SqlManagementClient } from "@azure/arm-sql";
 import { NetworkManagementClient } from "@azure/arm-network";
 import { ContainerInstanceManagementClient } from "@azure/arm-containerinstance";
 import { KeyVaultManagementClient } from "@azure/arm-keyvault";
+import { ServiceBusManagementClient } from "@azure/arm-servicebus";
+import { CdnManagementClient } from "@azure/arm-cdn";
 import type { AzureClientProps } from "./client-props.ts";
 import { resolveAzureCredentials } from "./credentials.ts";
 
@@ -63,6 +65,16 @@ export interface AzureClients {
    * Client for managing key vaults
    */
   keyVault: KeyVaultManagementClient;
+
+  /**
+   * Client for managing service bus namespaces, queues, and topics
+   */
+  serviceBus: ServiceBusManagementClient;
+
+  /**
+   * Client for managing CDN profiles and endpoints
+   */
+  cdn: CdnManagementClient;
 
   /**
    * The credential used to authenticate with Azure
@@ -185,6 +197,11 @@ export async function createAzureClients(
       credential,
       credentials.subscriptionId,
     ),
+    serviceBus: new ServiceBusManagementClient(
+      credential,
+      credentials.subscriptionId,
+    ),
+    cdn: new CdnManagementClient(credential, credentials.subscriptionId),
     credential,
     subscriptionId: credentials.subscriptionId,
   };

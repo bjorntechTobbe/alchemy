@@ -69,6 +69,8 @@
 
 export * from "./app-service.ts";
 export * from "./blob-container.ts";
+export * from "./cdn-endpoint.ts";
+export * from "./cdn-profile.ts";
 export * from "./client.ts";
 export * from "./client-props.ts";
 export * from "./container-instance.ts";
@@ -79,6 +81,7 @@ export * from "./key-vault.ts";
 export * from "./network-security-group.ts";
 export * from "./public-ip-address.ts";
 export * from "./resource-group.ts";
+export * from "./service-bus.ts";
 export * from "./sql-database.ts";
 export * from "./sql-server.ts";
 export * from "./static-web-app.ts";

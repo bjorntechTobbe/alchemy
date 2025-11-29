@@ -217,10 +217,85 @@ console.log(`Vault URI: ${vault.vaultUri}`);
 **Priority**: MEDIUM
 **Status**: ✅ Implemented
 
+#### ServiceBus
+**Purpose**: Enterprise messaging with queues and pub/sub topics
+**Equivalent**: AWS SQS + AWS SNS
+**Priority**: HIGH
+**Status**: ✅ Implemented
+
+```typescript
+const bus = await ServiceBus("orders", {
+  resourceGroup: rg,
+  sku: "Standard", // Basic, Standard, or Premium
+  disableLocalAuth: false // Enable/disable SAS authentication
+});
+
+console.log(`Endpoint: ${bus.endpoint}`);
+console.log(Secret.unwrap(bus.primaryConnectionString));
+```
+
+**Features**:
+- Name validation (6-50 chars, globally unique, lowercase alphanumeric + hyphens)
+- SKU tiers: Basic (queues only), Standard (queues + topics), Premium (dedicated resources)
+- Zone redundancy (Premium SKU only)
+- Azure AD authentication with optional SAS key disablement
+- Automatic connection string and key management
+- Adoption of existing namespaces
+- Optional deletion (set `delete: false` to preserve messages)
+
+#### CDNProfile
+**Purpose**: Content delivery network profile container
+**Equivalent**: AWS CloudFront Distribution (container)
+**Priority**: MEDIUM
+**Status**: ✅ Implemented
+
+```typescript
+const cdn = await CDNProfile("content-cdn", {
+  resourceGroup: rg,
+  sku: "Standard_Microsoft" // Or Standard_AzureFrontDoor for modern apps
+});
+```
+
+**Features**:
+- Name validation (1-260 chars, alphanumeric + hyphens)
+- SKU tiers: Standard_Microsoft, Standard_Akamai, Standard_Verizon, Premium_Verizon, Standard_AzureFrontDoor, Premium_AzureFrontDoor
+- Container for CDN endpoints (all endpoints share the same SKU)
+- Adoption of existing profiles
+- Optional deletion (set `delete: false` to preserve endpoints)
+
+#### CDNEndpoint
+**Purpose**: Content delivery endpoint with caching and optimization
+**Equivalent**: AWS CloudFront Distribution, Cloudflare CDN
+**Priority**: MEDIUM
+**Status**: ✅ Implemented
+
+```typescript
+const endpoint = await CDNEndpoint("website", {
+  profile: cdn,
+  origins: [{
+    name: "storage-origin",
+    hostName: "mystorage.blob.core.windows.net"
+  }],
+  optimizationType: "GeneralWebDelivery",
+  isCompressionEnabled: true
+});
+
+console.log(endpoint.hostName); // *.azureedge.net
+```
+
+**Features**:
+- Name validation (1-50 chars, globally unique, lowercase alphanumeric + hyphens)
+- Multiple origin servers with load balancing
+- Optimization types: GeneralWebDelivery, GeneralMediaStreaming, VideoOnDemandMediaStreaming, LargeFileDownload, DynamicSiteAcceleration
+- Query string caching behavior configuration
+- Content compression with customizable content types
+- HTTP/HTTPS control
+- Custom origin host headers
+- Adoption of existing endpoints
+- Optional deletion (set `delete: false`)
+
 **Planned Resources**:
-- **ServiceBus**: Enterprise messaging service
 - **CognitiveServices**: AI/ML services
-- **CDN**: Content delivery network
 
 ## Azure-Specific Patterns
 
@@ -253,6 +328,10 @@ Azure has strict naming rules that vary by resource type:
 | Storage Account | 3-24 | Lowercase letters, numbers only | Lowercase | Global |
 | Blob Container | 3-63 | Lowercase letters, numbers, hyphens | Lowercase | Storage Account |
 | User-Assigned Identity | 3-128 | Alphanumeric, hyphens, underscores | Mixed | Resource Group |
+| Key Vault | 3-24 | Alphanumeric, hyphens | Mixed | Global |
+| Service Bus | 6-50 | Lowercase letters, numbers, hyphens | Lowercase | Global |
+| CDN Profile | 1-260 | Alphanumeric, hyphens | Mixed | Resource Group |
+| CDN Endpoint | 1-50 | Lowercase letters, numbers, hyphens | Lowercase | Global |
 
 All resources implement automatic validation with helpful error messages.
 

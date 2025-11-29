@@ -391,13 +391,6 @@ export const KeyVault = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    // Validate name format (must be globally unique, 3-24 chars, alphanumeric + hyphens)
-    if (!/^[a-zA-Z][a-zA-Z0-9-]{1,22}[a-zA-Z0-9]$/.test(name)) {
-      throw new Error(
-        `Key vault name "${name}" is invalid. Must be 3-24 characters, start with a letter, end with letter or digit, and contain only alphanumeric characters and hyphens.`,
-      );
-    }
-
     if (this.scope.local) {
       // Local development mode - return mock data
       return {
@@ -494,6 +487,14 @@ export const KeyVault = Resource(
         }
       }
       return this.destroy();
+    }
+
+    // Validate name format (must be globally unique, 3-24 chars, alphanumeric + hyphens)
+    // Only validate during create/update, not during delete
+    if (!/^[a-zA-Z][a-zA-Z0-9-]{1,22}[a-zA-Z0-9]$/.test(name)) {
+      throw new Error(
+        `Key vault name "${name}" is invalid. Must be 3-24 characters, start with a letter, end with letter or digit, and contain only alphanumeric characters and hyphens.`,
+      );
     }
 
     // Check for immutable property changes
