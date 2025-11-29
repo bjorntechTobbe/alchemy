@@ -192,9 +192,9 @@ export type ContainerInstance = Omit<
   containerGroupId: string;
 
   /**
-   * Environment variables (with secrets wrapped)
+   * Environment variables
    */
-  environmentVariables?: Record<string, Secret>;
+  environmentVariables?: Record<string, string | Secret>;
 
   /**
    * Allocated public or private IP address
@@ -388,13 +388,6 @@ export const ContainerInstance = Resource(
 
     if (this.scope.local) {
       // Local development mode - return mock data
-      const envVars: Record<string, Secret> = {};
-      if (props.environmentVariables) {
-        for (const [key, value] of Object.entries(props.environmentVariables)) {
-          envVars[key] = Secret.wrap(value);
-        }
-      }
-
       return {
         id,
         name,
@@ -406,8 +399,7 @@ export const ContainerInstance = Resource(
         osType: props.osType || "Linux",
         restartPolicy: props.restartPolicy || "Always",
         command: props.command,
-        environmentVariables:
-          Object.keys(envVars).length > 0 ? envVars : undefined,
+        environmentVariables: props.environmentVariables,
         ipAddress:
           props.ipAddress?.type === "Public" ? "203.0.113.1" : "10.0.1.4",
         fqdn: props.ipAddress?.dnsNameLabel
@@ -485,37 +477,39 @@ export const ContainerInstance = Resource(
       }
     }
 
+    // Build container group request body
     const requestBody: any = {
       location,
       tags: props.tags,
-      properties: {
-        containers: [
-          {
-            name: name,
-            properties: {
-              image: props.image,
-              resources: {
-                requests: {
-                  cpu: props.cpu || 1,
-                  memoryInGB: props.memoryInGB || 1.5,
-                },
-              },
-              command: props.command,
-              environmentVariables:
-                environmentVariables.length > 0
-                  ? environmentVariables
-                  : undefined,
+      containers: [
+        {
+          name: name,
+          image: props.image,
+          resources: {
+            requests: {
+              cpu: props.cpu || 1,
+              memoryInGB: props.memoryInGB || 1.5,
             },
           },
-        ],
-        osType: props.osType || "Linux",
-        restartPolicy: props.restartPolicy || "Always",
-      },
+          command: props.command,
+          environmentVariables:
+            environmentVariables.length > 0
+              ? environmentVariables
+              : undefined,
+          // Add ports from ipAddress config to container
+          ports: props.ipAddress?.ports.map((p) => ({
+            port: p.port,
+            protocol: p.protocol || "TCP",
+          })),
+        },
+      ],
+      osType: props.osType || "Linux",
+      restartPolicy: props.restartPolicy || "Always",
     };
 
     // Add IP address configuration
     if (props.ipAddress) {
-      requestBody.properties.ipAddress = {
+      requestBody.ipAddress = {
         type: props.ipAddress.type,
         ports: props.ipAddress.ports.map((p) => ({
           port: p.port,
@@ -548,7 +542,7 @@ export const ContainerInstance = Resource(
         );
       }
 
-      requestBody.properties.subnetIds = [
+      requestBody.subnetIds = [
         {
           id: subnet.id,
         },
@@ -575,10 +569,7 @@ export const ContainerInstance = Resource(
             requestBody,
           );
       } catch (error: any) {
-        if (
-          error.code === "ContainerGroupAlreadyExists" ||
-          error.statusCode === 409
-        ) {
+        if (error.code === "ContainerGroupAlreadyExists") {
           if (!adopt) {
             throw new Error(
               `Container instance "${name}" already exists. Use adopt: true to adopt it.`,
@@ -605,14 +596,6 @@ export const ContainerInstance = Resource(
       }
     }
 
-    // Wrap environment variables in Secret
-    const outputEnvVars: Record<string, Secret> = {};
-    if (props.environmentVariables) {
-      for (const [key, value] of Object.entries(props.environmentVariables)) {
-        outputEnvVars[key] = Secret.wrap(value);
-      }
-    }
-
     return {
       id,
       name: result.name!,
@@ -624,8 +607,7 @@ export const ContainerInstance = Resource(
       osType: result.properties?.osType,
       restartPolicy: result.properties?.restartPolicy,
       command: props.command,
-      environmentVariables:
-        Object.keys(outputEnvVars).length > 0 ? outputEnvVars : undefined,
+      environmentVariables: props.environmentVariables,
       ipAddress: result.properties?.ipAddress?.ip,
       fqdn: result.properties?.ipAddress?.fqdn,
       provisioningState: result.properties?.provisioningState,

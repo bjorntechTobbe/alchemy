@@ -1,6 +1,5 @@
 import { alchemy } from "../../alchemy/src/alchemy.ts";
 import { ResourceGroup } from "../../alchemy/src/azure/resource-group.ts";
-import { VirtualNetwork } from "../../alchemy/src/azure/virtual-network.ts";
 import { NetworkSecurityGroup } from "../../alchemy/src/azure/network-security-group.ts";
 import { PublicIPAddress } from "../../alchemy/src/azure/public-ip-address.ts";
 import { ContainerInstance } from "../../alchemy/src/azure/container-instance.ts";
@@ -26,21 +25,6 @@ const rg = await ResourceGroup("container-rg", {
   tags: {
     project: "azure-container-firewall",
     environment: "demo",
-  },
-});
-
-// Create a virtual network for network isolation
-const vnet = await VirtualNetwork("container-vnet", {
-  resourceGroup: rg,
-  addressSpace: ["10.0.0.0/16"],
-  subnets: [
-    {
-      name: "container-subnet",
-      addressPrefix: "10.0.1.0/24",
-    },
-  ],
-  tags: {
-    purpose: "container-isolation",
   },
 });
 
@@ -93,8 +77,8 @@ const nsg = await NetworkSecurityGroup("container-nsg", {
 // Create a public IP address for external access
 const publicIp = await PublicIPAddress("container-ip", {
   resourceGroup: rg,
-  allocationMethod: "Static",
-  sku: "Standard",
+  allocationMethod: "Dynamic",
+  sku: "Basic",
   domainNameLabel: `container-${Date.now()}`, // Globally unique DNS name
   tags: {
     purpose: "container-access",
@@ -106,7 +90,7 @@ const container = await ContainerInstance("nginx-container", {
   resourceGroup: rg,
   
   // Container configuration
-  image: "nginx:alpine",
+  image: "mcr.microsoft.com/cbl-mariner/base/nginx:1",
   cpu: 1.0,
   memoryInGB: 1.5,
   osType: "Linux",
@@ -118,13 +102,11 @@ const container = await ContainerInstance("nginx-container", {
       { port: 80, protocol: "TCP" },
       { port: 443, protocol: "TCP" },
     ],
+    dnsNameLabel: `nginx-${Date.now()}`, // Globally unique DNS name
   },
   
-  // Connect to virtual network
-  subnet: {
-    virtualNetwork: vnet,
-    subnetName: "container-subnet",
-  },
+  // Note: Container deployed without VNet for simplicity
+  // In production, use subnet for network isolation
   
   // Environment variables for the container
   environmentVariables: {
@@ -146,14 +128,18 @@ console.log("\n✅ Deployment Complete!");
 console.log("\n📊 Resource Details:");
 console.log(`   Resource Group: ${rg.name}`);
 console.log(`   Location: ${rg.location}`);
-console.log(`   Virtual Network: ${vnet.name} (${vnet.addressSpace.join(", ")})`);
 console.log(`   Network Security Group: ${nsg.name}`);
-console.log(`   Public IP: ${publicIp.ipAddress}`);
-console.log(`   DNS Name: ${publicIp.fqdn}`);
+console.log(`   Container IP: ${container.ipAddress}`);
+console.log(`   Container DNS: ${container.fqdn}`);
 
 console.log("\n🌐 Access Your Container:");
-console.log(`   HTTP:  http://${publicIp.fqdn}`);
-console.log(`   HTTPS: https://${publicIp.fqdn}`);
+if (container.fqdn) {
+  console.log(`   HTTP:  http://${container.fqdn}`);
+  console.log(`   HTTPS: https://${container.fqdn}`);
+} else if (container.ipAddress) {
+  console.log(`   HTTP:  http://${container.ipAddress}`);
+  console.log(`   HTTPS: https://${container.ipAddress}`);
+}
 
 console.log("\n🔒 Firewall Rules:");
 console.log(`   ✓ Allow HTTP (port 80) from anywhere`);
@@ -162,14 +148,15 @@ console.log(`   ✗ Deny all other inbound traffic`);
 
 console.log("\n🐳 Container Details:");
 console.log(`   Name: ${container.name}`);
-console.log(`   Image: nginx:alpine`);
+console.log(`   Image: mcr.microsoft.com/cbl-mariner/base/nginx:1`);
 console.log(`   CPU: 1.0 cores`);
 console.log(`   Memory: 1.5 GB`);
 console.log(`   State: ${container.instanceState}`);
 console.log(`   IP Address: ${container.ipAddress}`);
 
 console.log("\n💡 Next Steps:");
-console.log(`   1. Visit http://${publicIp.fqdn} to see the NGINX welcome page`);
+const url = container.fqdn ? `http://${container.fqdn}` : container.ipAddress ? `http://${container.ipAddress}` : "N/A";
+console.log(`   1. Visit ${url} to see the NGINX welcome page`);
 console.log(`   2. Check container logs: az container logs --resource-group ${rg.name} --name ${container.name}`);
 console.log(`   3. Destroy resources: bun ./alchemy.run --destroy`);
 
