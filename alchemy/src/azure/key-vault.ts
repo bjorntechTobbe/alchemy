@@ -445,11 +445,39 @@ export const KeyVault = Resource(
       m.resolveAzureCredentials(props),
     );
     
-    const tenantId = credentials.tenantId || this.output?.outputTenantId;
+    let tenantId = credentials.tenantId || this.output?.outputTenantId;
+    
+    // If no tenant ID from credentials, try to get it from Azure CLI or from a token
+    if (!tenantId) {
+      try {
+        // Try to get a token and extract tenant ID from it
+        const token = await clients.credential.getToken(
+          "https://management.azure.com/.default",
+        );
+        if (token?.token) {
+          // Parse the JWT token to get tenant ID
+          const payload = JSON.parse(
+            Buffer.from(token.token.split(".")[1], "base64").toString(),
+          );
+          tenantId = payload.tid;
+        }
+      } catch (error) {
+        // If token parsing fails, try Azure CLI
+        try {
+          const { exec } = await import("../os/exec.ts");
+          const result = await exec("az account show --query tenantId -o tsv");
+          if (result) {
+            tenantId = result.stdout.trim();
+          }
+        } catch {
+          // Azure CLI not available or not logged in
+        }
+      }
+    }
     
     if (!tenantId) {
       throw new Error(
-        "Tenant ID is required for Key Vault. Set AZURE_TENANT_ID environment variable or provide tenantId in scope/resource configuration.",
+        "Tenant ID is required for Key Vault. Please authenticate with Azure CLI (az login) or set AZURE_TENANT_ID environment variable.",
       );
     }
 
