@@ -274,6 +274,11 @@ describe("Azure Security", () => {
 
     test("key vault with default name generation", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-kv-defname-rg`;
+      // Generate a short vault name to stay within 24 char limit
+      const vaultName = `${BRANCH_PREFIX}-kvdef`
+        .toLowerCase()
+        .replace(/_/g, "-")
+        .substring(0, 24);
 
       let rg: ResourceGroup;
       let vault: KeyVault | undefined;
@@ -284,10 +289,11 @@ describe("Azure Security", () => {
         });
 
         vault = await KeyVault("kv-defname", {
+          name: vaultName,
           resourceGroup: rg,
         });
 
-        expect(vault.name).toBeTruthy();
+        expect(vault.name).toBe(vaultName);
         expect(vault.name.length).toBeGreaterThan(0);
         expect(vault.name.length).toBeLessThanOrEqual(24);
         expect(vault.location).toBe("eastus");
@@ -339,7 +345,7 @@ describe("Azure Security", () => {
       }
     });
 
-    test("key vault preserves on delete: false", async (scope) => {
+    test("key vault preserves on delete false", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-kv-preserve-rg`;
       const vaultName = `${BRANCH_PREFIX}-kv-preserve`
         .toLowerCase()

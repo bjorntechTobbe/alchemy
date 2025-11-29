@@ -433,23 +433,24 @@ export const KeyVault = Resource(
         ? props.resourceGroup
         : props.resourceGroup.name;
 
-    // Get resource group for location and tenant ID
+    // Get resource group for location
     let location = props.location;
-    let tenantId = props.tenantId;
-
-    if (!location || !tenantId) {
+    if (!location) {
       const rg = await clients.resources.resourceGroups.get(resourceGroupName);
-      location = location || rg.location!;
+      location = rg.location!;
     }
 
-    // Resolve tenant ID from credentials if not provided
+    // Resolve tenant ID from credentials
+    const credentials = await import("./credentials.ts").then((m) =>
+      m.resolveAzureCredentials(props),
+    );
+    
+    const tenantId = credentials.tenantId || this.output?.outputTenantId;
+    
     if (!tenantId) {
-      if (!props.tenantId && !this.output?.outputTenantId) {
-        throw new Error(
-          "Tenant ID is required for Key Vault. Provide it via props.tenantId or scope configuration.",
-        );
-      }
-      tenantId = props.tenantId || this.output?.outputTenantId || "";
+      throw new Error(
+        "Tenant ID is required for Key Vault. Set AZURE_TENANT_ID environment variable or provide tenantId in scope/resource configuration.",
+      );
     }
 
     if (this.phase === "delete") {
