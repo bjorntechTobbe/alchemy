@@ -60,9 +60,9 @@ const app = await alchemy("my-app", {
 
 ## Prerequisites
 
-### Create Storage Account
+### Create Storage Account and Container
 
-The Azure Storage account must exist before using BlobStateStore. The container will be automatically created if it doesn't exist.
+The Azure Storage account and container must exist before using BlobStateStore.
 
 ```bash
 # Create a storage account with Azure CLI
@@ -73,11 +73,17 @@ az storage account create \
   --sku Standard_LRS
 
 # Get the storage account key
-az storage account keys list \
+ACCOUNT_KEY=$(az storage account keys list \
   --account-name myalchemystate \
   --resource-group my-resource-group \
   --query "[0].value" \
-  --output tsv
+  --output tsv)
+
+# Create the container
+az storage container create \
+  --name alchemy-state \
+  --account-name myalchemystate \
+  --account-key "$ACCOUNT_KEY"
 ```
 
 ### Configure Credentials
@@ -187,8 +193,8 @@ jobs:
 
 BlobStateStore includes built-in error handling:
 
+- **Missing container**: Clear error message if container doesn't exist
 - **Missing account credentials**: Clear error message with setup instructions
-- **Container creation**: Automatically creates container if it doesn't exist
 - **Missing blobs**: Gracefully handles missing state files
 - **Network errors**: Proper error propagation with detailed messages
 - **Permissions**: Clear Azure permission error messages

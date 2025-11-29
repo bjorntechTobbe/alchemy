@@ -16,7 +16,7 @@ export interface BlobStateStoreOptions {
 
   /**
    * The Azure Storage account name
-   * Required - the storage account must already exist (but container will be auto-created)
+   * Required - the storage account must already exist
    */
   accountName?: string;
 
@@ -29,6 +29,7 @@ export interface BlobStateStoreOptions {
 
   /**
    * The blob container name to use
+   * Required - the container must already exist
    * @default "alchemy-state"
    */
   containerName?: string;
@@ -37,8 +38,6 @@ export interface BlobStateStoreOptions {
 /**
  * State store implementation using Azure Blob Storage
  * Provides reliable, scalable state storage with strong consistency
- * 
- * The container will be automatically created if it doesn't exist.
  * 
  * @example
  * ```typescript
@@ -110,22 +109,28 @@ export class BlobStateStore implements StateStore {
   }
 
   /**
-   * Initialize the blob client and create container if needed
+   * Initialize the blob client and verify container access
    */
   async init(): Promise<void> {
     if (this.initialized) return;
 
-    // Get or create the container
+    // Verify container exists and is accessible
     const containerClient = this.client.getContainerClient(this.containerName);
 
     try {
-      // Try to create the container (idempotent - succeeds if already exists)
-      // No public access - container and blobs are private
-      await containerClient.createIfNotExists();
+      const exists = await containerClient.exists();
+      if (!exists) {
+        throw new Error(
+          `Azure Blob Storage container '${this.containerName}' does not exist. Please create the container first.`,
+        );
+      }
     } catch (error: any) {
-      throw new Error(
-        `Failed to access or create Azure Blob Storage container '${this.containerName}': ${error.message}`,
-      );
+      if (error.statusCode === 404) {
+        throw new Error(
+          `Azure Blob Storage container '${this.containerName}' does not exist. Please create the container first.`,
+        );
+      }
+      throw error;
     }
 
     this.initialized = true;
