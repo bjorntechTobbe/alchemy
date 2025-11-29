@@ -84,12 +84,13 @@ describe("Azure Security", () => {
           resourceGroup: rg,
           sku: "standard",
           enableRbacAuthorization: true,
-          enablePurgeProtection: false,
+          // Don't set enablePurgeProtection - leave it as default (false/undefined)
         });
 
         expect(vault.name).toBe(vaultName);
         expect(vault.enableRbacAuthorization).toBe(true);
-        expect(vault.enablePurgeProtection).toBe(false);
+        // enablePurgeProtection should be undefined when not explicitly set
+        expect(vault.enablePurgeProtection).toBeUndefined();
       } finally {
         await destroy(scope);
         await assertKeyVaultDoesNotExist(resourceGroupName, vaultName);
@@ -121,7 +122,8 @@ describe("Azure Security", () => {
 
         expect(vault.name).toBe(vaultName);
         expect(vault.networkAclsDefaultAction).toBe("Deny");
-        expect(vault.ipRules).toEqual(["203.0.113.0/24", "198.51.100.42"]);
+        // Azure automatically adds /32 to single IP addresses
+        expect(vault.ipRules).toEqual(["203.0.113.0/24", "198.51.100.42/32"]);
       } finally {
         await destroy(scope);
         await assertKeyVaultDoesNotExist(resourceGroupName, vaultName);
@@ -358,6 +360,7 @@ describe("Azure Security", () => {
         rg = await ResourceGroup("kv-preserve-rg", {
           name: resourceGroupName,
           location: "eastus",
+          delete: false, // Also preserve the resource group
         });
 
         vault = await KeyVault("kv-preserve", {
@@ -381,6 +384,12 @@ describe("Azure Security", () => {
         // Clean up manually
         await clients.keyVault.vaults.delete(resourceGroupName, vaultName);
         await assertKeyVaultDoesNotExist(resourceGroupName, vaultName);
+        
+        // Also delete the resource group
+        const poller = await clients.resources.resourceGroups.beginDelete(
+          resourceGroupName,
+        );
+        await poller.pollUntilDone();
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
     });
@@ -402,17 +411,23 @@ describe("Azure Security", () => {
 
         // Create key vault directly with Azure SDK
         const clients = await createAzureClients();
+        // Get tenant ID from Azure CLI
+        const { exec } = await import("../../src/os/exec.ts");
+        const result = await exec("az account show --query tenantId -o tsv");
+        const tenantId = result?.stdout.trim();
+        
         await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
           resourceGroupName,
           vaultName,
           {
             location: "eastus",
             properties: {
-              tenantId: process.env.AZURE_TENANT_ID!,
+              tenantId: tenantId!,
               sku: {
                 family: "A",
                 name: "standard",
               },
+              accessPolicies: [],
             },
           },
         );
@@ -452,17 +467,23 @@ describe("Azure Security", () => {
 
         // Create key vault directly with Azure SDK
         const clients = await createAzureClients();
+        // Get tenant ID from Azure CLI
+        const { exec } = await import("../../src/os/exec.ts");
+        const result = await exec("az account show --query tenantId -o tsv");
+        const tenantId = result?.stdout.trim();
+        
         await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
           resourceGroupName,
           vaultName,
           {
             location: "eastus",
             properties: {
-              tenantId: process.env.AZURE_TENANT_ID!,
+              tenantId: tenantId!,
               sku: {
                 family: "A",
                 name: "standard",
               },
+              accessPolicies: [],
             },
           },
         );

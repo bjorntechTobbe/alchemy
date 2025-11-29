@@ -524,30 +524,31 @@ export const KeyVault = Resource(
         enabledForDiskEncryption: props.enabledForDiskEncryption || false,
         enabledForTemplateDeployment:
           props.enabledForTemplateDeployment || false,
-        enablePurgeProtection: props.enablePurgeProtection || false,
         enableSoftDelete: props.enableSoftDelete ?? true,
         softDeleteRetentionInDays: props.softDeleteRetentionInDays || 90,
         enableRbacAuthorization: props.enableRbacAuthorization || false,
       },
     };
 
+    // Only set enablePurgeProtection if explicitly true (Azure doesn't allow setting it to false)
+    if (props.enablePurgeProtection === true) {
+      requestBody.properties.enablePurgeProtection = true;
+    }
+
     // Add access policies if provided and RBAC is not enabled
-    if (
-      props.accessPolicies &&
-      props.accessPolicies.length > 0 &&
-      !props.enableRbacAuthorization
-    ) {
-      requestBody.properties.accessPolicies = props.accessPolicies.map(
-        (policy) => ({
-          tenantId: policy.tenantId,
-          objectId: policy.objectId,
-          permissions: {
-            keys: policy.permissions.keys || [],
-            secrets: policy.permissions.secrets || [],
-            certificates: policy.permissions.certificates || [],
-          },
-        }),
-      );
+    // Azure requires accessPolicies to be an array (can be empty) when not using RBAC
+    if (!props.enableRbacAuthorization) {
+      requestBody.properties.accessPolicies = props.accessPolicies
+        ? props.accessPolicies.map((policy) => ({
+            tenantId: policy.tenantId,
+            objectId: policy.objectId,
+            permissions: {
+              keys: policy.permissions.keys || [],
+              secrets: policy.permissions.secrets || [],
+              certificates: policy.permissions.certificates || [],
+            },
+          }))
+        : [];
     }
 
     // Add network ACLs if specified
