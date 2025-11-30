@@ -249,16 +249,25 @@ console.log(Secret.unwrap(bus.primaryConnectionString));
 **Priority**: MEDIUM
 **Status**: ✅ Implemented
 
+⚠️ **IMPORTANT**: Azure has deprecated classic CDN SKUs (Standard_Microsoft, Standard_Akamai, Standard_Verizon, Premium_Verizon) and no longer supports new profile creation. Use Azure Front Door SKUs instead.
+
 ```typescript
 const cdn = await CDNProfile("content-cdn", {
   resourceGroup: rg,
-  sku: "Standard_Microsoft" // Or Standard_AzureFrontDoor for modern apps
+  sku: "Standard_AzureFrontDoor" // Default, recommended (automatically uses global location)
+});
+
+// Or Premium with WAF
+const premium = await CDNProfile("premium-cdn", {
+  resourceGroup: rg,
+  sku: "Premium_AzureFrontDoor" // Includes WAF, private link (automatically uses global location)
 });
 ```
 
 **Features**:
 - Name validation (1-260 chars, alphanumeric + hyphens)
-- SKU tiers: Standard_Microsoft, Standard_Akamai, Standard_Verizon, Premium_Verizon, Standard_AzureFrontDoor, Premium_AzureFrontDoor
+- **Recommended SKUs**: Standard_AzureFrontDoor, Premium_AzureFrontDoor (automatically use global location)
+- **Deprecated SKUs**: Standard_Microsoft, Standard_Akamai, Standard_Verizon, Premium_Verizon (not supported for new profiles)
 - Container for CDN endpoints (all endpoints share the same SKU)
 - Adoption of existing profiles
 - Optional deletion (set `delete: false` to preserve endpoints)

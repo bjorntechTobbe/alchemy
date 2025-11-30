@@ -14,7 +14,11 @@ const test = alchemy.test(import.meta, {
 
 describe("Azure CDN", () => {
   describe("CDNProfile", () => {
-    test("create CDN profile with Standard Microsoft", async (scope) => {
+    // NOTE: Azure has deprecated classic CDN SKUs (Standard_Microsoft, Standard_Akamai, etc.)
+    // and no longer supports new profile creation. All tests use Azure Front Door SKUs.
+    // Azure Front Door requires location: "global" instead of regional locations.
+    
+    test("create CDN profile with Azure Front Door Standard", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-std-rg`;
       const profileName = `${BRANCH_PREFIX}-cdn-std`;
 
@@ -29,7 +33,7 @@ describe("Azure CDN", () => {
         profile = await CDNProfile("cdn-std", {
           name: profileName,
           resourceGroup: rg,
-          sku: "Standard_Microsoft",
+          sku: "Standard_AzureFrontDoor",
           tags: {
             environment: "test",
             purpose: "alchemy-testing",
@@ -37,8 +41,8 @@ describe("Azure CDN", () => {
         });
 
         expect(profile.name).toBe(profileName);
-        expect(profile.location).toBe("eastus");
-        expect(profile.sku).toBe("Standard_Microsoft");
+        expect(profile.location).toBe("global");
+        expect(profile.sku).toBe("Standard_AzureFrontDoor");
         expect(profile.tags).toEqual({
           environment: "test",
           purpose: "alchemy-testing",
@@ -100,7 +104,7 @@ describe("Azure CDN", () => {
         profile = await CDNProfile("cdn-update", {
           name: profileName,
           resourceGroup: rg,
-          sku: "Standard_Microsoft",
+          sku: "Standard_AzureFrontDoor",
           tags: {
             version: "1.0",
           },
@@ -114,7 +118,7 @@ describe("Azure CDN", () => {
         profile = await CDNProfile("cdn-update", {
           name: profileName,
           resourceGroup: rg,
-          sku: "Standard_Microsoft",
+          sku: "Standard_AzureFrontDoor",
           tags: {
             version: "2.0",
             updated: "true",
@@ -147,10 +151,10 @@ describe("Azure CDN", () => {
         profile = await CDNProfile("cdn-rgobj", {
           name: profileName,
           resourceGroup: rg, // Object reference
-          sku: "Standard_Microsoft",
+          sku: "Standard_AzureFrontDoor",
         });
 
-        expect(profile.location).toBe("westus"); // Inherited from RG
+        expect(profile.location).toBe("global"); // Inherited from RG
         expect(profile.resourceGroup).toBe(resourceGroupName);
       } finally {
         await destroy(scope);
@@ -174,11 +178,11 @@ describe("Azure CDN", () => {
         profile = await CDNProfile("cdn-rgstr", {
           name: profileName,
           resourceGroup: resourceGroupName, // String reference
-          location: "eastus", // Must specify location explicitly
-          sku: "Standard_Microsoft",
+          location: "global", // Must specify location explicitly
+          sku: "Standard_AzureFrontDoor",
         });
 
-        expect(profile.location).toBe("eastus");
+        expect(profile.location).toBe("global");
         expect(profile.resourceGroup).toBe(resourceGroupName);
       } finally {
         await destroy(scope);
@@ -207,7 +211,7 @@ describe("Azure CDN", () => {
           {
             location: "eastus",
             sku: {
-              name: "Standard_Microsoft",
+              name: "Standard_AzureFrontDoor",
             },
           },
         );
@@ -224,7 +228,7 @@ describe("Azure CDN", () => {
         profile = await CDNProfile("cdn-adopt", {
           name: profileName,
           resourceGroup: rg,
-          sku: "Standard_Microsoft",
+          sku: "Standard_AzureFrontDoor",
           adopt: true, // Adopt the existing profile
         });
 
@@ -251,7 +255,7 @@ describe("Azure CDN", () => {
           CDNProfile("cdn-short", {
             name: "",
             resourceGroup: rg,
-            sku: "Standard_Microsoft",
+            sku: "Standard_AzureFrontDoor",
           }),
         ).rejects.toThrow(/must be 1-260 characters/);
 
@@ -260,7 +264,7 @@ describe("Azure CDN", () => {
           CDNProfile("cdn-long", {
             name: "a".repeat(261),
             resourceGroup: rg,
-            sku: "Standard_Microsoft",
+            sku: "Standard_AzureFrontDoor",
           }),
         ).rejects.toThrow(/must be 1-260 characters/);
 
@@ -269,7 +273,7 @@ describe("Azure CDN", () => {
           CDNProfile("cdn-invalid-chars", {
             name: "invalid_name!",
             resourceGroup: rg,
-            sku: "Standard_Microsoft",
+            sku: "Standard_AzureFrontDoor",
           }),
         ).rejects.toThrow(/alphanumeric characters and hyphens/);
       } finally {
@@ -291,7 +295,7 @@ describe("Azure CDN", () => {
 
         profile = await CDNProfile("cdn-defname", {
           resourceGroup: rg,
-          sku: "Standard_Microsoft",
+          sku: "Standard_AzureFrontDoor",
           // name not specified - will use ${app}-${stage}-${id}
         });
 
@@ -322,7 +326,7 @@ describe("Azure CDN", () => {
         profile = await CDNProfile("cdn-preserve", {
           name: profileName,
           resourceGroup: rg,
-          sku: "Standard_Microsoft",
+          sku: "Standard_AzureFrontDoor",
           delete: false, // Don't delete on destroy
         });
 
@@ -368,7 +372,7 @@ describe("Azure CDN", () => {
         await cdn.profiles.beginCreateAndWait(resourceGroupName, profileName, {
           location: "eastus",
           sku: {
-            name: "Standard_Microsoft",
+            name: "Standard_AzureFrontDoor",
           },
         });
 
@@ -383,7 +387,7 @@ describe("Azure CDN", () => {
           CDNProfile("cdn-reject", {
             name: profileName,
             resourceGroup: rg,
-            sku: "Standard_Microsoft",
+            sku: "Standard_AzureFrontDoor",
             adopt: false, // Explicitly don't adopt
           }),
         ).rejects.toThrow(/already exists/);

@@ -28,21 +28,26 @@ export interface CDNProfileProps extends AzureClientProps {
 
   /**
    * The pricing tier (SKU) for this CDN profile
-   * - Standard_Microsoft: Microsoft CDN, good performance, Azure-native
-   * - Standard_Akamai: Akamai CDN, global reach, fast
-   * - Standard_Verizon: Verizon CDN, advanced features
-   * - Premium_Verizon: Premium Verizon CDN, rules engine, advanced analytics
-   * - Standard_AzureFrontDoor: Azure Front Door Standard (recommended for modern apps)
-   * - Premium_AzureFrontDoor: Azure Front Door Premium with WAF and private link
-   * @default "Standard_Microsoft"
+   * 
+   * **IMPORTANT**: Classic CDN SKUs (Standard_Microsoft, Standard_Akamai, Standard_Verizon, Premium_Verizon) 
+   * are deprecated by Azure and no longer support new profile creation. Use Azure Front Door SKUs instead.
+   * 
+   * - Standard_AzureFrontDoor: Azure Front Door Standard (recommended, requires location: "global")
+   * - Premium_AzureFrontDoor: Azure Front Door Premium with WAF and private link (requires location: "global")
+   * - Standard_Microsoft: ⚠️ DEPRECATED - Microsoft CDN (not supported for new profiles)
+   * - Standard_Akamai: ⚠️ DEPRECATED - Akamai CDN (not supported for new profiles)
+   * - Standard_Verizon: ⚠️ DEPRECATED - Verizon CDN (not supported for new profiles)
+   * - Premium_Verizon: ⚠️ DEPRECATED - Premium Verizon CDN (not supported for new profiles)
+   * 
+   * @default "Standard_AzureFrontDoor"
    */
   sku?:
+    | "Standard_AzureFrontDoor"
+    | "Premium_AzureFrontDoor"
     | "Standard_Microsoft"
     | "Standard_Akamai"
     | "Standard_Verizon"
-    | "Premium_Verizon"
-    | "Standard_AzureFrontDoor"
-    | "Premium_AzureFrontDoor";
+    | "Premium_Verizon";
 
   /**
    * Tags to apply to the CDN profile
@@ -148,9 +153,9 @@ export function isCDNProfile(resource: unknown): resource is CDNProfile {
  * **Cloudflare Equivalent**: Zone with CDN enabled
  *
  * @example
- * ## Basic CDN Profile with Microsoft CDN
+ * ## Azure Front Door Standard Profile
  *
- * Create a CDN profile for content acceleration:
+ * Create a CDN profile with Azure Front Door (recommended):
  *
  * ```ts
  * const rg = await ResourceGroup("cdn-rg", {
@@ -159,34 +164,24 @@ export function isCDNProfile(resource: unknown): resource is CDNProfile {
  *
  * const cdn = await CDNProfile("content-cdn", {
  *   resourceGroup: rg,
- *   sku: "Standard_Microsoft" // Azure-native CDN
+ *   location: "global", // Azure Front Door requires global location
+ *   sku: "Standard_AzureFrontDoor" // Default, recommended
  * });
  *
  * console.log(cdn.cdnProfileId); // Profile ID for creating endpoints
  * ```
  *
  * @example
- * ## Azure Front Door Standard Profile
+ * ## Azure Front Door Premium with WAF
  *
- * Create a modern CDN profile with Azure Front Door:
- *
- * ```ts
- * const cdn = await CDNProfile("frontdoor", {
- *   resourceGroup: rg,
- *   sku: "Standard_AzureFrontDoor", // Modern, recommended
- *   tags: { environment: "production" }
- * });
- * ```
- *
- * @example
- * ## Premium Verizon with Advanced Features
- *
- * Create a premium CDN profile with rules engine and analytics:
+ * Create a premium CDN profile with Web Application Firewall:
  *
  * ```ts
  * const cdn = await CDNProfile("premium-cdn", {
  *   resourceGroup: rg,
- *   sku: "Premium_Verizon" // Advanced features, rules engine
+ *   location: "global",
+ *   sku: "Premium_AzureFrontDoor", // Includes WAF, private link
+ *   tags: { environment: "production" }
  * });
  * ```
  */
@@ -221,21 +216,31 @@ export const CDNProfile = Resource(
         ? props.resourceGroup
         : props.resourceGroup.name;
 
-    // Get location from resource group if not specified
-    const location =
-      props.location ||
-      this.output?.location ||
-      (typeof props.resourceGroup === "string"
-        ? undefined
-        : props.resourceGroup.location);
+    // Determine SKU first (needed for location validation)
+    const sku = props.sku ?? this.output?.sku ?? "Standard_AzureFrontDoor";
+    const isFrontDoor = sku === "Standard_AzureFrontDoor" || sku === "Premium_AzureFrontDoor";
 
-    if (!location) {
-      throw new Error(
-        "Location must be specified either directly or via ResourceGroup object",
-      );
+    // Get location - Azure Front Door requires "global", others can use resource group location
+    let location: string;
+    if (isFrontDoor) {
+      // Azure Front Door SKUs MUST use "global" location
+      location = "global";
+    } else {
+      // Classic CDN SKUs (deprecated) can use regional locations
+      location =
+        props.location ||
+        this.output?.location ||
+        (typeof props.resourceGroup === "string"
+          ? undefined
+          : props.resourceGroup.location) ||
+        "";
+      
+      if (!location) {
+        throw new Error(
+          "Location must be specified either directly or via ResourceGroup object for classic CDN SKUs",
+        );
+      }
     }
-
-    const sku = props.sku ?? this.output?.sku ?? "Standard_Microsoft";
 
     // Local development mode
     if (this.scope.local) {
