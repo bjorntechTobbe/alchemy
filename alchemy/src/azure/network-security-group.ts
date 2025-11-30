@@ -459,18 +459,21 @@ export const NetworkSecurityGroup = Resource(
       networkSecurityGroupId: result.id!,
       location: result.location!,
       securityRules:
-        result.properties?.securityRules?.map((rule: any) => ({
-          name: rule.name!,
-          priority: rule.properties?.priority!,
-          direction: rule.properties?.direction!,
-          access: rule.properties?.access!,
-          protocol: rule.properties?.protocol!,
-          sourceAddressPrefix: rule.properties?.sourceAddressPrefix,
-          sourcePortRange: rule.properties?.sourcePortRange,
-          destinationAddressPrefix: rule.properties?.destinationAddressPrefix,
-          destinationPortRange: rule.properties?.destinationPortRange,
-          description: rule.properties?.description,
-        })) || [],
+        (result as { properties?: { securityRules?: Array<unknown> } }).properties?.securityRules?.map((rule: unknown) => {
+          const r = rule as { name?: string; properties?: { priority?: number; direction?: string; access?: string; protocol?: string; sourceAddressPrefix?: string; sourcePortRange?: string; destinationAddressPrefix?: string; destinationPortRange?: string; description?: string } };
+          return {
+          name: r.name!,
+          priority: r.properties?.priority!,
+          direction: r.properties?.direction as "Inbound" | "Outbound",
+          access: r.properties?.access as "Allow" | "Deny",
+          protocol: r.properties?.protocol as "*" | "Tcp" | "Udp" | "Icmp",
+          sourceAddressPrefix: r.properties?.sourceAddressPrefix,
+          sourcePortRange: r.properties?.sourcePortRange,
+          destinationAddressPrefix: r.properties?.destinationAddressPrefix,
+          destinationPortRange: r.properties?.destinationPortRange,
+          description: r.properties?.description,
+        };
+        }) || [],
       resourceGroup: props.resourceGroup,
       tags: result.tags,
       type: "azure::NetworkSecurityGroup",

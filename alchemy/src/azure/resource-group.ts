@@ -204,14 +204,13 @@ export const ResourceGroup = Resource(
           // but the actual deletion happens asynchronously
           await poller.pollUntilDone();
         } catch (error: unknown) {
-        const azureError = error as { statusCode?: number; code?: string; message?: string };
-          // If resource group doesn't exist (404), that's fine
+          const azureError = error as { statusCode?: number; code?: string; message?: string };
           if (
-            error?.statusCode !== 404 &&
-            error?.code !== "ResourceGroupNotFound"
+            azureError.statusCode !== 404 &&
+            azureError.code !== "ResourceGroupNotFound"
           ) {
             throw new Error(
-              `Failed to delete resource group "${name}": ${error?.message || error}`,
+              `Failed to delete resource group "${name}": ${azureError.message || String(error)}`,
               { cause: error },
             );
           }
@@ -248,10 +247,10 @@ export const ResourceGroup = Resource(
         resourceGroupParams,
       );
     } catch (error: unknown) {
-        const azureError = error as { statusCode?: number; code?: string; message?: string };
+      const azureError = error as { statusCode?: number; code?: string; message?: string };
       if (
-        error?.statusCode === 409 ||
-        error?.code === "ResourceGroupAlreadyExists"
+        azureError.statusCode === 409 ||
+        azureError.code === "ResourceGroupAlreadyExists"
       ) {
         if (!adopt) {
           throw new Error(
@@ -265,15 +264,16 @@ export const ResourceGroup = Resource(
             name,
             resourceGroupParams,
           );
-        } catch (adoptError) {
+        } catch (adoptError: unknown) {
+          const adoptAzureError = adoptError as { message?: string };
           throw new Error(
-            `Resource group "${name}" failed to create due to name conflict and could not be adopted: ${adoptError?.message || adoptError}`,
+            `Resource group "${name}" failed to create due to name conflict and could not be adopted: ${adoptAzureError.message || String(adoptError)}`,
             { cause: adoptError },
           );
         }
       } else {
         throw new Error(
-          `Failed to create resource group "${name}": ${error?.message || error}`,
+          `Failed to create resource group "${name}": ${azureError.message || String(error)}`,
           { cause: error },
         );
       }

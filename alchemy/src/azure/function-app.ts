@@ -395,8 +395,8 @@ export const FunctionApp = Resource(
         try {
           await clients.appService.webApps.delete(resourceGroupName, name);
         } catch (error: unknown) {
-        const azureError = error as { statusCode?: number; code?: string; message?: string };
-          if (error?.statusCode !== 404) {
+          const azureError = error as { statusCode?: number; code?: string; message?: string };
+          if (azureError.statusCode !== 404) {
             console.error(`Error deleting function app ${id}:`, error);
             throw error;
           }
@@ -479,8 +479,8 @@ export const FunctionApp = Resource(
         siteEnvelope,
       );
     } catch (error: unknown) {
-        const azureError = error as { statusCode?: number; code?: string; message?: string };
-      if (error?.code === "WebsiteAlreadyExists" || error?.statusCode === 409) {
+      const azureError = error as { statusCode?: number; code?: string; message?: string };
+      if (azureError.code === "WebsiteAlreadyExists" || azureError.statusCode === 409) {
         if (!adopt) {
           throw new Error(
             `Function app "${name}" already exists. Use adopt: true to adopt it.`,

@@ -373,10 +373,11 @@ export const SqlServer = Resource(
           name,
           serverParams,
         );
-      } catch (error) {
+      } catch (error: unknown) {
+        const azureError = error as { code?: string };
         if (
-          error.code === "ServerAlreadyExists" ||
-          error.code === "ConflictingServerOperation"
+          azureError.code === "ServerAlreadyExists" ||
+          azureError.code === "ConflictingServerOperation"
         ) {
           if (!adopt) {
             throw new Error(

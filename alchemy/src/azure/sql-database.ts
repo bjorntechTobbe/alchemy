@@ -399,7 +399,7 @@ export const SqlDatabase = Resource(
         resourceGroupName,
         sqlServerName,
         name,
-        databaseParams,
+        databaseParams as unknown as Database,
       );
     } else {
       try {
@@ -407,12 +407,13 @@ export const SqlDatabase = Resource(
           resourceGroupName,
           sqlServerName,
           name,
-          databaseParams,
+          databaseParams as unknown as Database,
         );
-      } catch (error) {
+      } catch (error: unknown) {
+        const azureError = error as { code?: string };
         if (
-          error.code === "DatabaseAlreadyExists" ||
-          error.code === "ConflictingDatabaseOperation"
+          azureError.code === "DatabaseAlreadyExists" ||
+          azureError.code === "ConflictingDatabaseOperation"
         ) {
           if (!adopt) {
             throw new Error(
@@ -421,19 +422,17 @@ export const SqlDatabase = Resource(
             );
           }
 
-          // Fetch existing database
           result = await clients.sql.databases.get(
             resourceGroupName,
             sqlServerName,
             name,
           );
 
-          // Update it with new configuration
           result = await clients.sql.databases.beginCreateOrUpdateAndWait(
             resourceGroupName,
             sqlServerName,
             name,
-            databaseParams,
+            databaseParams as unknown as Database,
           );
         } else {
           throw error;

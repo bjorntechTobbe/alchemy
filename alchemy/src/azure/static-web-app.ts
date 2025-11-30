@@ -373,8 +373,9 @@ export const StaticWebApp = Resource(
             resourceGroupName,
             name,
           );
-        } catch (error) {
-          if (error?.statusCode !== 404) {
+        } catch (error: unknown) {
+          const azureError = error as { statusCode?: number };
+          if (azureError.statusCode !== 404) {
             console.error(`Error deleting static web app ${id}:`, error);
             throw error;
           }
@@ -433,9 +434,9 @@ export const StaticWebApp = Resource(
         tier: props.sku || "Free",
       },
       buildProperties,
-      repositoryUrl: repositoryProperties?.repositoryUrl,
-      branch: repositoryProperties?.branch,
-      repositoryToken: repositoryProperties?.repositoryToken,
+      repositoryUrl: repositoryProperties?.repositoryUrl as string | undefined,
+      branch: repositoryProperties?.branch as string | undefined,
+      repositoryToken: repositoryProperties?.repositoryToken as string | undefined,
     };
 
     let result: StaticSiteARMResource;
@@ -448,10 +449,11 @@ export const StaticWebApp = Resource(
           name,
           staticSiteEnvelope,
         );
-    } catch (error) {
+    } catch (error: unknown) {
+      const azureError = error as { code?: string; statusCode?: number };
       if (
-        error?.code === "StaticSiteAlreadyExists" ||
-        error?.statusCode === 409
+        azureError.code === "StaticSiteAlreadyExists" ||
+        azureError.statusCode === 409
       ) {
         if (!adopt) {
           throw new Error(
@@ -492,10 +494,11 @@ export const StaticWebApp = Resource(
             properties: appSettings,
           },
         );
-      } catch (error) {
+      } catch (error: unknown) {
+        const azureError = error as { message?: string };
         console.warn(
           `Warning: Failed to update app settings for ${name}:`,
-          error.message,
+          azureError.message,
         );
       }
     }
