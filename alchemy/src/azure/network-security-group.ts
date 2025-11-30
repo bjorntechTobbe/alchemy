@@ -387,7 +387,7 @@ export const NetworkSecurityGroup = Resource(
       }
     }
 
-    const requestBody: Partial<AzureNetworkSecurityGroup> = {
+    const requestBody: any = {
       location,
       tags: props.tags,
       properties: {
@@ -413,22 +413,20 @@ export const NetworkSecurityGroup = Resource(
 
     if (networkSecurityGroupId) {
       // Update existing network security group
-      result =
+      await clients.network.networkSecurityGroups.beginCreateOrUpdateAndWait(
+        resourceGroupName,
+        name,
+        requestBody,
+      );
+    } else {
+      try {
+        // Create new network security group
         await clients.network.networkSecurityGroups.beginCreateOrUpdateAndWait(
           resourceGroupName,
           name,
           requestBody,
         );
-    } else {
-      try {
-        // Create new network security group
-        result =
-          await clients.network.networkSecurityGroups.beginCreateOrUpdateAndWait(
-            resourceGroupName,
-            name,
-            requestBody,
-          );
-      } catch (error) {
+      } catch (error: any) {
         if (isConflictError(error)) {
           if (!adopt) {
             throw new Error(
@@ -444,17 +442,22 @@ export const NetworkSecurityGroup = Resource(
           );
 
           // Update with requested configuration
-          result =
-            await clients.network.networkSecurityGroups.beginCreateOrUpdateAndWait(
-              resourceGroupName,
-              name,
-              requestBody,
-            );
+          await clients.network.networkSecurityGroups.beginCreateOrUpdateAndWait(
+            resourceGroupName,
+            name,
+            requestBody,
+          );
         } else {
           throw error;
         }
       }
     }
+
+    // Fetch the complete NSG with all properties populated
+    result = await clients.network.networkSecurityGroups.get(
+      resourceGroupName,
+      name,
+    ) as any;
 
     return {
       id,
@@ -485,7 +488,7 @@ export const NetworkSecurityGroup = Resource(
  * Type guard to check if a resource is a NetworkSecurityGroup
  */
 export function isNetworkSecurityGroup(
-  resource: unknown,
+  resource: any,
 ): resource is NetworkSecurityGroup {
   return resource?.[ResourceKind] === "azure::NetworkSecurityGroup";
 }

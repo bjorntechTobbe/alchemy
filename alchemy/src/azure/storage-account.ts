@@ -313,7 +313,8 @@ export const StorageAccount = Resource(
     const defaultName = this.scope
       .createPhysicalName(id)
       .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
+      .replace(/[^a-z0-9]/g, "")
+      .slice(0, 24); // Truncate to Azure's 24-character limit
     const name = props.name ?? this.output?.name ?? defaultName;
 
     // Validate name format (Azure requirements)
@@ -371,7 +372,7 @@ export const StorageAccount = Resource(
         try {
           // Begin deletion - this is a long-running operation
           await clients.storage.storageAccounts.delete(resourceGroupName, name);
-        } catch (error) {
+        } catch (error: any) {
           // If storage account doesn't exist (404), that's fine
           if (error?.statusCode !== 404 && error?.code !== "ResourceNotFound") {
             throw new Error(
@@ -444,7 +445,7 @@ export const StorageAccount = Resource(
 
       // Wait for the creation to complete
       result = await poller.pollUntilDone();
-    } catch (error) {
+    } catch (error: any) {
       // Check if this is a conflict error (resource exists)
       if (
         error?.statusCode === 409 ||
@@ -479,7 +480,7 @@ export const StorageAccount = Resource(
               updateParams,
             );
           }
-        } catch (adoptError) {
+        } catch (adoptError: any) {
           throw new Error(
             `Storage account "${name}" failed to create due to name conflict and could not be adopted: ${adoptError?.message || adoptError}`,
             { cause: adoptError },

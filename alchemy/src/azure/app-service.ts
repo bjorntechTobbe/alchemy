@@ -391,7 +391,7 @@ export const AppService = Resource(
       if (props.delete !== false) {
         try {
           await clients.appService.webApps.delete(resourceGroupName, name);
-        } catch (error) {
+        } catch (error: any) {
           // Ignore 404 errors (already deleted)
           if (error?.statusCode !== 404) {
             console.error(`Error deleting app service ${id}:`, error);
@@ -437,9 +437,10 @@ export const AppService = Resource(
 
     // Set runtime-specific properties based on OS
     if (os === "linux") {
-      // Linux uses linuxFxVersion
+      // Linux uses linuxFxVersion with specific format
       if (runtime === "node") {
-        siteConfig.linuxFxVersion = `NODE|${runtimeVersion}`;
+        // Azure requires specific Node.js version format
+        siteConfig.linuxFxVersion = `NODE|${runtimeVersion}-lts`;
       } else if (runtime === "python") {
         siteConfig.linuxFxVersion = `PYTHON|${runtimeVersion}`;
       } else if (runtime === "dotnet") {
@@ -499,7 +500,7 @@ export const AppService = Resource(
         name,
         siteEnvelope,
       );
-    } catch (error) {
+    } catch (error: any) {
       // Handle name conflicts
       if (error?.code === "WebsiteAlreadyExists" || error?.statusCode === 409) {
         if (!adopt) {

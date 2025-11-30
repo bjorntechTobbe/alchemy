@@ -269,7 +269,7 @@ export const CDNProfile = Resource(
 
       try {
         await cdn.profiles.beginDeleteAndWait(resourceGroupName, name);
-      } catch (error) {
+      } catch (error: any) {
         if (!isNotFoundError(error)) {
           console.error(`Error deleting CDN profile ${id}:`, error);
           throw error;
@@ -317,7 +317,7 @@ export const CDNProfile = Resource(
           name,
           profileParams,
         );
-      } catch (error) {
+      } catch (error: any) {
         // Handle name conflicts with adoption
         if (error.code === "ProfileAlreadyExists" || error.statusCode === 409) {
           if (!adopt) {
@@ -336,7 +336,7 @@ export const CDNProfile = Resource(
               name,
               profileParams,
             );
-          } catch (getError) {
+          } catch (getError: any) {
             throw new Error(
               `CDN profile "${name}" failed to create due to name conflict and could not be found for adoption.`,
               { cause: getError },

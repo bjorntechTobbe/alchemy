@@ -248,7 +248,7 @@ export const UserAssignedIdentity = Resource(
             resourceGroupName,
             name,
           );
-        } catch (error) {
+        } catch (error: any) {
           // If identity doesn't exist (404), that's fine
           if (error?.statusCode !== 404 && error?.code !== "ResourceNotFound") {
             throw new Error(
@@ -296,7 +296,7 @@ export const UserAssignedIdentity = Resource(
         name,
         identityParams,
       );
-    } catch (error) {
+    } catch (error: any) {
       // Check if this is a conflict error (resource exists)
       if (
         error?.statusCode === 409 ||
@@ -316,7 +316,7 @@ export const UserAssignedIdentity = Resource(
             name,
             identityParams,
           );
-        } catch (adoptError) {
+        } catch (adoptError: any) {
           throw new Error(
             `User-assigned identity "${name}" failed to create due to name conflict and could not be adopted: ${adoptError?.message || adoptError}`,
             { cause: adoptError },
@@ -362,7 +362,7 @@ export const UserAssignedIdentity = Resource(
  * Type guard to check if a resource is a UserAssignedIdentity
  */
 export function isUserAssignedIdentity(
-  resource: unknown,
+  resource: any,
 ): resource is UserAssignedIdentity {
   return resource?.[ResourceKind] === "azure::UserAssignedIdentity";
 }

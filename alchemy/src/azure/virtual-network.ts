@@ -50,7 +50,7 @@ export interface VirtualNetworkProps extends AzureClientProps {
 
   /**
    * Subnets to create within the virtual network
-   * @default [{ name: "default", addressPrefix: "10.0.0.0/24" }]
+   * @default [{ name: "default", addressPrefix: "<first-address-space>/24" }]
    */
   subnets?: Subnet[];
 
@@ -236,15 +236,16 @@ export const VirtualNetwork = Resource(
     }
 
     if (this.scope.local) {
-      // Local development mode - return mock data
+      const addressSpace = props.addressSpace || ["10.0.0.0/16"];
+      const defaultSubnet = addressSpace[0].replace(/\/\d+$/, "/24");
       return {
         id,
         name,
         virtualNetworkId: virtualNetworkId || `local-${id}`,
         location: props.location || "eastus",
-        addressSpace: props.addressSpace || ["10.0.0.0/16"],
+        addressSpace,
         subnets: props.subnets || [
-          { name: "default", addressPrefix: "10.0.0.0/24" },
+          { name: "default", addressPrefix: defaultSubnet },
         ],
         resourceGroup: props.resourceGroup,
         dnsServers: props.dnsServers,
@@ -296,9 +297,12 @@ export const VirtualNetwork = Resource(
     // Default address space and subnets
     const addressSpace = props.addressSpace ||
       this.output?.addressSpace || ["10.0.0.0/16"];
+    
+    // Compute default subnet based on the address space
+    const defaultSubnet = addressSpace[0].replace(/\/\d+$/, "/24");
     const subnets = props.subnets ||
       this.output?.subnets || [
-        { name: "default", addressPrefix: "10.0.0.0/24" },
+        { name: "default", addressPrefix: defaultSubnet },
       ];
 
     const requestBody: Partial<AzureVirtualNetwork> = {
