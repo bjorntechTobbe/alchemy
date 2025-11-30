@@ -175,6 +175,7 @@ describe("Azure Storage", () => {
           name: storageAccountName,
           resourceGroup: rg,
           sku: "Standard_ZRS",
+          allowBlobPublicAccess: true,
         });
 
         container = await BlobContainer("bc-saobj-container", {
@@ -227,6 +228,7 @@ describe("Azure Storage", () => {
           name: storageAccountName,
           resourceGroup: rg,
           sku: "Standard_LRS",
+          allowBlobPublicAccess: true,
         });
 
         container = await BlobContainer("bc-sastr-container", {
@@ -461,6 +463,7 @@ describe("Azure Storage", () => {
           name: storageAccountName,
           resourceGroup: rg,
           sku: "Standard_LRS",
+          allowBlobPublicAccess: true,
         });
 
         // Create multiple containers
@@ -586,7 +589,7 @@ async function assertBlobContainerDoesNotExist(
     throw new Error(
       `Blob container ${containerName} still exists in storage account ${storageAccountName}`,
     );
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode === 404 || error.code === "ContainerNotFound") {
       // Expected - container doesn't exist
       return;
@@ -611,7 +614,7 @@ async function assertStorageAccountDoesNotExist(
     throw new Error(
       `Storage account ${storageAccountName} still exists in resource group ${resourceGroupName}`,
     );
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode === 404 || error.code === "ResourceNotFound") {
       // Expected - storage account doesn't exist
       return;
@@ -628,7 +631,7 @@ async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
   try {
     await clients.resources.resourceGroups.get(resourceGroupName);
     throw new Error(`Resource group ${resourceGroupName} still exists`);
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode === 404 || error.code === "ResourceGroupNotFound") {
       // Expected - resource group doesn't exist
       return;
