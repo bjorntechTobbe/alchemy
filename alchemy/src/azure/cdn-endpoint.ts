@@ -316,7 +316,6 @@ export const CDNEndpoint = Resource(
         .toLowerCase()
         .replace(/[^a-z0-9-]/g, "-");
 
-    // Validate name format
     if (name.length < 1 || name.length > 50) {
       throw new Error(
         `CDN endpoint name must be 1-50 characters, got: ${name}`,
@@ -350,7 +349,6 @@ export const CDNEndpoint = Resource(
       );
     }
 
-    // Get location from profile if not specified
     const location =
       props.location ||
       this.output?.location ||
@@ -362,7 +360,6 @@ export const CDNEndpoint = Resource(
       );
     }
 
-    // Local development mode
     if (this.scope.local) {
       return {
         id,
@@ -385,10 +382,8 @@ export const CDNEndpoint = Resource(
       };
     }
 
-    // Create Azure clients
     const { cdn } = await createAzureClients(props);
 
-    // Handle deletion
     if (this.phase === "delete") {
       if (props.delete === false) {
         // Don't delete the endpoint, just remove from state
@@ -415,7 +410,6 @@ export const CDNEndpoint = Resource(
       return this.destroy();
     }
 
-    // Check for replacement due to immutable properties
     if (this.phase === "update" && this.output) {
       if (this.output.name !== name) {
         return this.replace();
@@ -436,7 +430,6 @@ export const CDNEndpoint = Resource(
       weight: origin.weight ?? 1000,
     }));
 
-    // Prepare endpoint parameters
     const endpointParams: Endpoint = {
       location,
       origins,
@@ -462,7 +455,6 @@ export const CDNEndpoint = Resource(
     let endpoint: Endpoint;
 
     if (cdnEndpointId) {
-      // Update existing endpoint
       endpoint = await cdn.endpoints.beginCreateAndWait(
         resourceGroupName,
         profileName,
@@ -471,7 +463,6 @@ export const CDNEndpoint = Resource(
       );
     } else {
       try {
-        // Create new endpoint
         endpoint = await cdn.endpoints.beginCreateAndWait(
           resourceGroupName,
           profileName,
@@ -491,14 +482,12 @@ export const CDNEndpoint = Resource(
             );
           }
 
-          // Try to get existing endpoint
           try {
             endpoint = await cdn.endpoints.get(
               resourceGroupName,
               profileName,
               name,
             );
-            // Update with desired configuration
             endpoint = await cdn.endpoints.beginCreateAndWait(
               resourceGroupName,
               profileName,

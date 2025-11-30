@@ -238,7 +238,6 @@ export const SqlServer = Resource(
         .replace(/[^a-z0-9-]/g, "")
         .slice(0, 63);
 
-    // Validate name
     if (name.length < 1 || name.length > 63) {
       throw new Error(`SQL server name "${name}" must be 1-63 characters long`);
     }
@@ -272,7 +271,6 @@ export const SqlServer = Resource(
       );
     }
 
-    // Local development mode
     if (this.scope.local) {
       return {
         id,
@@ -304,7 +302,6 @@ export const SqlServer = Resource(
 
     const clients = await createAzureClients(props);
 
-    // Handle deletion
     if (this.phase === "delete") {
       if (!sqlServerId) {
         console.warn(`No sqlServerId found for ${id}, skipping delete`);
@@ -346,7 +343,6 @@ export const SqlServer = Resource(
       );
     }
 
-    // Prepare server creation parameters
     const serverParams = {
       location,
       administratorLogin: props.administratorLogin,
@@ -365,14 +361,12 @@ export const SqlServer = Resource(
     let result: Server;
 
     if (sqlServerId) {
-      // Update existing server
       result = await clients.sql.servers.beginCreateOrUpdateAndWait(
         resourceGroupName,
         name,
         serverParams,
       );
     } else {
-      // Create new server
       try {
         result = await clients.sql.servers.beginCreateOrUpdateAndWait(
           resourceGroupName,

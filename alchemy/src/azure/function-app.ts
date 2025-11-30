@@ -316,7 +316,6 @@ export const FunctionApp = Resource(
         .toLowerCase()
         .replace(/[^a-z0-9-]/g, "");
 
-    // Validate name
     if (name.length < 2 || name.length > 60) {
       throw new Error(
         `Function app name "${name}" must be between 2 and 60 characters`,
@@ -333,13 +332,11 @@ export const FunctionApp = Resource(
       );
     }
 
-    // Extract resource group information
     const resourceGroupName =
       typeof props.resourceGroup === "string"
         ? props.resourceGroup
         : props.resourceGroup.name;
 
-    // Get location (inherit from resource group if not specified)
     const location =
       props.location ||
       this.output?.location ||
@@ -364,7 +361,6 @@ export const FunctionApp = Resource(
       ) as string;
     }
 
-    // Local development mode
     if (this.scope.local) {
       return {
         id,
@@ -389,7 +385,6 @@ export const FunctionApp = Resource(
 
     const clients = await createAzureClients(props);
 
-    // Handle deletion
     if (this.phase === "delete") {
       if (!functionAppId) {
         console.warn(`No functionAppId found for ${id}, skipping delete`);
@@ -400,7 +395,6 @@ export const FunctionApp = Resource(
         try {
           await clients.appService.webApps.delete(resourceGroupName, name);
         } catch (error) {
-          // Ignore 404 errors (already deleted)
           if (error?.statusCode !== 404) {
             console.error(`Error deleting function app ${id}:`, error);
             throw error;
@@ -410,7 +404,6 @@ export const FunctionApp = Resource(
       return this.destroy();
     }
 
-    // Check for immutable property changes
     if (this.phase === "update" && this.output) {
       if (this.output.location !== location) {
         return this.replace();
@@ -420,7 +413,6 @@ export const FunctionApp = Resource(
       }
     }
 
-    // Prepare app settings
     const appSettings: Record<string, string> = {
       AzureWebJobsStorage: storageConnectionString,
       FUNCTIONS_EXTENSION_VERSION: props.functionsVersion || "~4",
@@ -436,7 +428,6 @@ export const FunctionApp = Resource(
       ),
     };
 
-    // Prepare site config
     const siteConfig: Record<string, unknown> = {
       appSettings: Object.entries(appSettings).map(([name, value]) => ({
         name,
@@ -446,7 +437,6 @@ export const FunctionApp = Resource(
       alwaysOn: props.alwaysOn ?? false,
     };
 
-    // Set runtime-specific properties
     if (props.runtime === "node") {
       siteConfig.nodeVersion = `~${props.runtimeVersion || "20"}`;
     } else if (props.runtime === "python") {
@@ -455,7 +445,6 @@ export const FunctionApp = Resource(
       siteConfig.netFrameworkVersion = props.runtimeVersion || "v8.0";
     }
 
-    // Prepare identity configuration
     let identityConfig: Record<string, unknown> | undefined = undefined;
     if (props.identity) {
       const identityResourceId =
@@ -471,7 +460,6 @@ export const FunctionApp = Resource(
       };
     }
 
-    // Prepare site envelope
     const siteEnvelope: Site = {
       location,
       tags: props.tags,
@@ -490,7 +478,6 @@ export const FunctionApp = Resource(
         siteEnvelope,
       );
     } catch (error) {
-      // Handle name conflicts
       if (error?.code === "WebsiteAlreadyExists" || error?.statusCode === 409) {
         if (!adopt) {
           throw new Error(
@@ -499,7 +486,6 @@ export const FunctionApp = Resource(
           );
         }
 
-        // Adopt existing function app
         try {
           const existing = await clients.appService.webApps.get(
             resourceGroupName,

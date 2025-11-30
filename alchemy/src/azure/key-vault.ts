@@ -394,7 +394,6 @@ export const KeyVault = Resource(
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
     if (this.scope.local) {
-      // Local development mode - return mock data
       return {
         id,
         name,
@@ -468,7 +467,6 @@ export const KeyVault = Resource(
           // Delete the vault (no beginDelete operation, just delete)
           await clients.keyVault.vaults.delete(resourceGroupName, name);
         } catch (error) {
-          // Ignore 404 errors - vault already deleted
           if (!isNotFoundError(error)) {
             throw error;
           }
@@ -485,7 +483,6 @@ export const KeyVault = Resource(
       );
     }
 
-    // Check for immutable property changes
     if (this.phase === "update" && this.output) {
       if (this.output.name !== name) {
         return this.replace(); // Name is immutable
@@ -525,7 +522,6 @@ export const KeyVault = Resource(
     }
 
     // Add access policies if provided and RBAC is not enabled
-    // Azure requires accessPolicies to be an array (can be empty) when not using RBAC
     if (!props.enableRbacAuthorization) {
       requestBody.properties.accessPolicies = props.accessPolicies
         ? props.accessPolicies.map((policy) => ({
@@ -558,7 +554,6 @@ export const KeyVault = Resource(
     let result: AzureVault;
 
     if (keyVaultId) {
-      // Update existing key vault
       result = await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
         resourceGroupName,
         name,
@@ -566,7 +561,6 @@ export const KeyVault = Resource(
       );
     } else {
       try {
-        // Create new key vault
         result = await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
           resourceGroupName,
           name,

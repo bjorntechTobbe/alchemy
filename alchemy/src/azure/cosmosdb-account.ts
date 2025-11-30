@@ -307,7 +307,6 @@ export const CosmosDBAccount = Resource(
         .replace(/[^a-z0-9-]/g, "")
         .slice(0, 44);
 
-    // Validate name
     if (name.length < 3 || name.length > 44) {
       throw new Error(
         `Cosmos DB account name "${name}" must be 3-44 characters long`,
@@ -319,7 +318,6 @@ export const CosmosDBAccount = Resource(
       );
     }
 
-    // Local development mode
     if (this.scope.local) {
       return {
         id,
@@ -355,7 +353,6 @@ export const CosmosDBAccount = Resource(
 
     const clients = await createAzureClients(props);
 
-    // Handle deletion
     if (this.phase === "delete") {
       if (!cosmosDBAccountId) {
         console.warn(`No cosmosDBAccountId found for ${id}, skipping delete`);
@@ -400,7 +397,6 @@ export const CosmosDBAccount = Resource(
       );
     }
 
-    // Validate serverless constraints
     if (props.serverless) {
       if (props.enableAutomaticFailover) {
         throw new Error(
@@ -419,7 +415,6 @@ export const CosmosDBAccount = Resource(
       }
     }
 
-    // Build locations array
     const locations: unknown[] = [
       {
         locationName: location,
@@ -438,12 +433,10 @@ export const CosmosDBAccount = Resource(
       });
     }
 
-    // Build consistency policy
     const consistencyPolicy = {
       defaultConsistencyLevel: props.consistencyLevel || "Session",
     };
 
-    // Build capabilities
     const capabilities: unknown[] = [];
     if (props.serverless) {
       capabilities.push({ name: "EnableServerless" });
@@ -452,7 +445,6 @@ export const CosmosDBAccount = Resource(
       capabilities.push({ name: "EnableAnalyticalStorage" });
     }
 
-    // Prepare account creation parameters
     const accountParams = {
       location,
       kind: props.kind || "GlobalDocumentDB",
@@ -474,7 +466,6 @@ export const CosmosDBAccount = Resource(
     let result: DatabaseAccountGetResults;
 
     if (cosmosDBAccountId) {
-      // Update existing account
       result =
         await clients.cosmosDB.databaseAccounts.beginCreateOrUpdateAndWait(
           resourceGroupName,
@@ -482,7 +473,6 @@ export const CosmosDBAccount = Resource(
           accountParams,
         );
     } else {
-      // Create new account
       try {
         result =
           await clients.cosmosDB.databaseAccounts.beginCreateOrUpdateAndWait(
@@ -518,7 +508,6 @@ export const CosmosDBAccount = Resource(
       }
     }
 
-    // Get connection strings and keys
     const keys = await clients.cosmosDB.databaseAccounts.listKeys(
       resourceGroupName,
       name,

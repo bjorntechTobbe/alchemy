@@ -28,7 +28,6 @@ const app = await alchemy("azure-sql-database", {
   password: process.env.ALCHEMY_PASSWORD || "change-me-in-production",
 });
 
-// Create a resource group
 const rg = await ResourceGroup("sql-rg", {
   location: "eastus",
   tags: {
@@ -37,7 +36,6 @@ const rg = await ResourceGroup("sql-rg", {
   },
 });
 
-// Create a SQL Server (logical server)
 const sqlServer = await SqlServer("demo-sql-server", {
   resourceGroup: rg,
 
@@ -55,7 +53,6 @@ const sqlServer = await SqlServer("demo-sql-server", {
   },
 });
 
-// Create a SQL Database
 const database = await SqlDatabase("demo-db", {
   resourceGroup: rg,
   sqlServer: sqlServer,
@@ -71,7 +68,6 @@ const database = await SqlDatabase("demo-db", {
   },
 });
 
-// Output deployment information
 console.log("\n✅ Azure SQL Database Deployed!");
 console.log("\n📊 Resource Details:");
 console.log(`   Resource Group: ${rg.name}`);
@@ -87,7 +83,9 @@ console.log(`   Version: ${sqlServer.version}`);
 console.log("\n💾 Database Configuration:");
 console.log(`   SKU: ${database.sku}`);
 if (database.maxSizeBytes) {
-  console.log(`   Max Size: ${database.maxSizeBytes / (1024 * 1024 * 1024)} GB`);
+  console.log(
+    `   Max Size: ${database.maxSizeBytes / (1024 * 1024 * 1024)} GB`,
+  );
 }
 
 console.log("\n🔌 Connection String:");
@@ -115,9 +113,7 @@ console.log(
 
 console.log("\n🔒 Security Notes:");
 console.log("   ⚠️  Current firewall allows Azure services (0.0.0.0)");
-console.log(
-  "   ⚠️  For production, add specific IP ranges and remove 0.0.0.0",
-);
+console.log("   ⚠️  For production, add specific IP ranges and remove 0.0.0.0");
 console.log("   ✓ SSL/TLS encryption is enabled by default");
 console.log("   ✓ Use Azure Key Vault for storing connection strings");
 

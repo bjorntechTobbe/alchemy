@@ -30,7 +30,6 @@ const app = await alchemy("azure-ai-services", {
   password: process.env.ALCHEMY_PASSWORD || "change-me-in-production",
 });
 
-// Create a resource group
 const rg = await ResourceGroup("ai-rg", {
   location: "eastus",
   tags: {
@@ -39,13 +38,11 @@ const rg = await ResourceGroup("ai-rg", {
   },
 });
 
-// Create an Azure OpenAI Service account
 const openai = await CognitiveServices("my-openai", {
   resourceGroup: rg,
   kind: "OpenAI",
   sku: "S0", // Standard tier
 
-  // Enable public network access (set to false for private endpoints)
   publicNetworkAccess: true,
 
   tags: {
@@ -54,7 +51,6 @@ const openai = await CognitiveServices("my-openai", {
   },
 });
 
-// Create a Computer Vision account
 const vision = await CognitiveServices("my-vision", {
   resourceGroup: rg,
   kind: "ComputerVision",
@@ -65,7 +61,6 @@ const vision = await CognitiveServices("my-vision", {
   },
 });
 
-// Create a Speech Services account
 const speech = await CognitiveServices("my-speech", {
   resourceGroup: rg,
   kind: "SpeechServices",
@@ -76,7 +71,6 @@ const speech = await CognitiveServices("my-speech", {
   },
 });
 
-// Create a Language Service account
 const language = await CognitiveServices("my-language", {
   resourceGroup: rg,
   kind: "TextAnalytics",
@@ -87,7 +81,6 @@ const language = await CognitiveServices("my-language", {
   },
 });
 
-// Output deployment information
 console.log("\n✅ Azure AI Services Deployed!");
 console.log("\n📊 Resource Details:");
 console.log(`   Resource Group: ${rg.name}`);
@@ -133,7 +126,9 @@ console.log(`   `);
 console.log(`   const response = await client.chat.completions.create({`);
 console.log(`     model: 'gpt-4',`);
 console.log(`     messages: [`);
-console.log(`       { role: 'system', content: 'You are a helpful assistant.' },`);
+console.log(
+  `       { role: 'system', content: 'You are a helpful assistant.' },`,
+);
 console.log(`       { role: 'user', content: 'What is Azure OpenAI?' }`);
 console.log(`     ]`);
 console.log(`   });`);
@@ -190,7 +185,9 @@ console.log("\n   5. Start building!");
 console.log("\n💰 Pricing:");
 console.log("   OpenAI Service:");
 console.log("   - GPT-4 Turbo: $0.01/1K input tokens, $0.03/1K output tokens");
-console.log("   - GPT-3.5 Turbo: $0.0005/1K input tokens, $0.0015/1K output tokens");
+console.log(
+  "   - GPT-3.5 Turbo: $0.0005/1K input tokens, $0.0015/1K output tokens",
+);
 console.log("   - DALL-E 3: $0.04/image (standard), $0.08/image (HD)");
 console.log("   - Embeddings: $0.0001/1K tokens");
 console.log("\n   Computer Vision: $1/1000 transactions (S1 tier)");
@@ -208,7 +205,9 @@ console.log("   ✓ Your data is NOT used for training");
 
 console.log("\n📚 Documentation:");
 console.log("   OpenAI: https://learn.microsoft.com/azure/ai-services/openai/");
-console.log("   Quickstarts: https://learn.microsoft.com/azure/ai-services/openai/quickstart");
+console.log(
+  "   Quickstarts: https://learn.microsoft.com/azure/ai-services/openai/quickstart",
+);
 console.log(
   "   API Reference: https://learn.microsoft.com/azure/ai-services/openai/reference",
 );

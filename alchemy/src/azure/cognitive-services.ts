@@ -327,13 +327,11 @@ export const CognitiveServices = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    // Get resource group name
     const resourceGroupName =
       typeof props.resourceGroup === "string"
         ? props.resourceGroup
         : props.resourceGroup.name;
 
-    // Get location from resource group if not specified
     const location =
       props.location ||
       this.output?.location ||
@@ -350,7 +348,6 @@ export const CognitiveServices = Resource(
     const kind = props.kind ?? this.output?.kind ?? "CognitiveServices";
     const sku = props.sku ?? this.output?.sku ?? "S0";
 
-    // Local development mode
     if (this.scope.local) {
       return {
         id,
@@ -374,10 +371,8 @@ export const CognitiveServices = Resource(
       };
     }
 
-    // Create Azure clients
     const { cognitiveServices } = await createAzureClients(props);
 
-    // Handle deletion
     if (this.phase === "delete") {
       if (props.delete === false) {
         // Don't delete the account, just remove from state
@@ -419,7 +414,6 @@ export const CognitiveServices = Resource(
       );
     }
 
-    // Check for replacement due to immutable properties
     if (this.phase === "update" && this.output) {
       if (this.output.name !== name) {
         return this.replace();
@@ -432,7 +426,6 @@ export const CognitiveServices = Resource(
       }
     }
 
-    // Prepare account parameters
     const accountParams: Record<string, unknown> = {
       location,
       kind,
@@ -462,14 +455,12 @@ export const CognitiveServices = Resource(
     let account: unknown;
 
     if (cognitiveServicesId) {
-      // Update existing account
       account = await cognitiveServices.accounts.beginCreateAndWait(
         resourceGroupName,
         name,
         accountParams,
       );
     } else {
-      // Check if account already exists when not adopting
       if (!adopt) {
         try {
           const existing = await cognitiveServices.accounts.get(
@@ -500,7 +491,6 @@ export const CognitiveServices = Resource(
       );
     }
 
-    // Get access keys
     const keys = await cognitiveServices.accounts.listKeys(
       resourceGroupName,
       name,

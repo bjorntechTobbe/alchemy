@@ -316,7 +316,6 @@ export const AppService = Resource(
         .toLowerCase()
         .replace(/[^a-z0-9-]/g, "");
 
-    // Validate name
     if (name.length < 2 || name.length > 60) {
       throw new Error(
         `App service name "${name}" must be between 2 and 60 characters`,
@@ -333,13 +332,11 @@ export const AppService = Resource(
       );
     }
 
-    // Extract resource group information
     const resourceGroupName =
       typeof props.resourceGroup === "string"
         ? props.resourceGroup
         : props.resourceGroup.name;
 
-    // Get location (inherit from resource group if not specified)
     const location =
       props.location ||
       this.output?.location ||
@@ -358,7 +355,6 @@ export const AppService = Resource(
     const runtime = props.runtime || "node";
     const runtimeVersion = props.runtimeVersion || "20";
 
-    // Local development mode
     if (this.scope.local) {
       return {
         id,
@@ -381,7 +377,6 @@ export const AppService = Resource(
 
     const clients = await createAzureClients(props);
 
-    // Handle deletion
     if (this.phase === "delete") {
       if (!appServiceId) {
         console.warn(`No appServiceId found for ${id}, skipping delete`);
@@ -392,7 +387,6 @@ export const AppService = Resource(
         try {
           await clients.appService.webApps.delete(resourceGroupName, name);
         } catch (error: any) {
-          // Ignore 404 errors (already deleted)
           if (error?.statusCode !== 404) {
             console.error(`Error deleting app service ${id}:`, error);
             throw error;
@@ -402,7 +396,6 @@ export const AppService = Resource(
       return this.destroy();
     }
 
-    // Check for immutable property changes
     if (this.phase === "update" && this.output) {
       if (this.output.location !== location) {
         return this.replace();
@@ -412,7 +405,6 @@ export const AppService = Resource(
       }
     }
 
-    // Prepare app settings
     const appSettingsEntries = Object.entries(props.appSettings || {}).map(
       ([key, value]) => [
         key,
@@ -422,7 +414,6 @@ export const AppService = Resource(
     const appSettings: Record<string, string> =
       Object.fromEntries(appSettingsEntries);
 
-    // Prepare site config
     const siteConfig: Record<string, unknown> = {
       appSettings: Object.entries(appSettings).map(([name, value]) => ({
         name,
@@ -435,11 +426,9 @@ export const AppService = Resource(
       localMySqlEnabled: props.localMySqlEnabled ?? false,
     };
 
-    // Set runtime-specific properties based on OS
     if (os === "linux") {
       // Linux uses linuxFxVersion with specific format
       if (runtime === "node") {
-        // Azure requires specific Node.js version format
         siteConfig.linuxFxVersion = `NODE|${runtimeVersion}-lts`;
       } else if (runtime === "python") {
         siteConfig.linuxFxVersion = `PYTHON|${runtimeVersion}`;
@@ -465,7 +454,6 @@ export const AppService = Resource(
       }
     }
 
-    // Prepare identity configuration
     let identityConfig: Record<string, unknown> | undefined = undefined;
     if (props.identity) {
       const identityResourceId =
@@ -481,7 +469,6 @@ export const AppService = Resource(
       };
     }
 
-    // Prepare site envelope
     const siteEnvelope: Site = {
       location,
       tags: props.tags,
@@ -501,7 +488,6 @@ export const AppService = Resource(
         siteEnvelope,
       );
     } catch (error: any) {
-      // Handle name conflicts
       if (error?.code === "WebsiteAlreadyExists" || error?.statusCode === 409) {
         if (!adopt) {
           throw new Error(
@@ -510,7 +496,6 @@ export const AppService = Resource(
           );
         }
 
-        // Adopt existing app service
         try {
           const existing = await clients.appService.webApps.get(
             resourceGroupName,

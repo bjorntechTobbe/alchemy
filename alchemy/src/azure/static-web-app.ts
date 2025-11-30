@@ -302,7 +302,6 @@ export const StaticWebApp = Resource(
         .toLowerCase()
         .replace(/[^a-z0-9-]/g, "");
 
-    // Validate name
     if (name.length < 2 || name.length > 60) {
       throw new Error(
         `Static web app name "${name}" must be between 2 and 60 characters`,
@@ -319,13 +318,11 @@ export const StaticWebApp = Resource(
       );
     }
 
-    // Extract resource group information
     const resourceGroupName =
       typeof props.resourceGroup === "string"
         ? props.resourceGroup
         : props.resourceGroup.name;
 
-    // Get location (inherit from resource group if not specified)
     const location =
       props.location ||
       this.output?.location ||
@@ -340,7 +337,6 @@ export const StaticWebApp = Resource(
       );
     }
 
-    // Local development mode
     if (this.scope.local) {
       return {
         id,
@@ -365,7 +361,6 @@ export const StaticWebApp = Resource(
 
     const clients = await createAzureClients(props);
 
-    // Handle deletion
     if (this.phase === "delete") {
       if (!staticWebAppId) {
         console.warn(`No staticWebAppId found for ${id}, skipping delete`);
@@ -379,7 +374,6 @@ export const StaticWebApp = Resource(
             name,
           );
         } catch (error) {
-          // Ignore 404 errors (already deleted)
           if (error?.statusCode !== 404) {
             console.error(`Error deleting static web app ${id}:`, error);
             throw error;
@@ -389,7 +383,6 @@ export const StaticWebApp = Resource(
       return this.destroy();
     }
 
-    // Check for immutable property changes
     if (this.phase === "update" && this.output) {
       if (this.output.location !== location) {
         return this.replace();
@@ -399,7 +392,6 @@ export const StaticWebApp = Resource(
       }
     }
 
-    // Prepare app settings
     const appSettingsEntries = Object.entries(props.appSettings || {}).map(
       ([key, value]) => [
         key,
@@ -409,14 +401,12 @@ export const StaticWebApp = Resource(
     const appSettings: Record<string, string> =
       Object.fromEntries(appSettingsEntries);
 
-    // Prepare build properties
     const buildProperties: Record<string, unknown> = {
       appLocation: props.appLocation || "/",
       apiLocation: props.apiLocation,
       outputLocation: props.outputLocation,
     };
 
-    // Prepare repository properties
     let repositoryProperties: Record<string, unknown> | undefined = undefined;
     if (props.repositoryUrl) {
       if (!props.repositoryToken) {
@@ -435,7 +425,6 @@ export const StaticWebApp = Resource(
       };
     }
 
-    // Prepare static site envelope
     const staticSiteEnvelope: StaticSiteARMResource = {
       location,
       tags: props.tags,
@@ -460,7 +449,6 @@ export const StaticWebApp = Resource(
           staticSiteEnvelope,
         );
     } catch (error) {
-      // Handle name conflicts
       if (
         error?.code === "StaticSiteAlreadyExists" ||
         error?.statusCode === 409
@@ -472,7 +460,6 @@ export const StaticWebApp = Resource(
           );
         }
 
-        // Adopt existing static web app
         try {
           const existing = await clients.appService.staticSites.getStaticSite(
             resourceGroupName,
@@ -513,7 +500,6 @@ export const StaticWebApp = Resource(
       }
     }
 
-    // Get API key
     let apiKey: string = "";
     try {
       const secrets =

@@ -176,7 +176,6 @@ export const ResourceGroup = Resource(
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
     if (this.scope.local) {
-      // Local development mode - return mock data
       return {
         id,
         name,
@@ -198,11 +197,9 @@ export const ResourceGroup = Resource(
     if (this.phase === "delete") {
       if (props.delete !== false && resourceGroupId) {
         try {
-          // Begin deletion - this is a long-running operation
           const poller =
             await clients.resources.resourceGroups.beginDelete(name);
 
-          // Wait for the deletion to complete
           // This is crucial because Azure returns 202 Accepted immediately
           // but the actual deletion happens asynchronously
           await poller.pollUntilDone();
@@ -222,7 +219,6 @@ export const ResourceGroup = Resource(
       return this.destroy();
     }
 
-    // Validate name format (Azure requirements)
     // Only validate during creation/update, not deletion
     if (!/^[\w\-\.()]{1,90}$/.test(name)) {
       throw new Error(
@@ -230,7 +226,6 @@ export const ResourceGroup = Resource(
       );
     }
 
-    // Check for immutable property changes
     if (this.phase === "update" && this.output) {
       if (this.output.location !== props.location) {
         // Location is immutable - need to replace the resource
@@ -246,14 +241,12 @@ export const ResourceGroup = Resource(
     let result;
 
     try {
-      // Create or update resource group
       // The SDK automatically handles this as a single operation
       result = await clients.resources.resourceGroups.createOrUpdate(
         name,
         resourceGroupParams,
       );
     } catch (error) {
-      // Check if this is a conflict error (resource exists)
       if (
         error?.statusCode === 409 ||
         error?.code === "ResourceGroupAlreadyExists"
@@ -265,7 +258,6 @@ export const ResourceGroup = Resource(
           );
         }
 
-        // Adopt the existing resource group by updating it
         try {
           result = await clients.resources.resourceGroups.createOrUpdate(
             name,

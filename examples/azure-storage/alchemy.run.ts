@@ -8,7 +8,6 @@ import {
 
 const app = await alchemy("azure-storage-example");
 
-// Create a resource group in East US
 const rg = await ResourceGroup("storage-demo", {
   location: "eastus",
   tags: {
@@ -19,7 +18,6 @@ const rg = await ResourceGroup("storage-demo", {
 
 console.log(`✓ Resource Group: ${rg.name}`);
 
-// Create a managed identity for secure access
 const identity = await UserAssignedIdentity("storage-identity", {
   resourceGroup: rg,
   tags: {
@@ -30,7 +28,6 @@ const identity = await UserAssignedIdentity("storage-identity", {
 console.log(`✓ Managed Identity: ${identity.name}`);
 console.log(`  Principal ID: ${identity.principalId}`);
 
-// Create a storage account with locally redundant storage
 const storage = await StorageAccount("storage", {
   resourceGroup: rg,
   sku: "Standard_LRS",
@@ -48,7 +45,6 @@ console.log(`  File Endpoint: ${storage.primaryFileEndpoint}`);
 console.log(`  Queue Endpoint: ${storage.primaryQueueEndpoint}`);
 console.log(`  Table Endpoint: ${storage.primaryTableEndpoint}`);
 
-// Create a private container for user uploads
 const privateContainer = await BlobContainer("uploads", {
   storageAccount: storage,
   publicAccess: "None", // Private - no anonymous access
@@ -62,7 +58,6 @@ console.log(`✓ Private Container: ${privateContainer.name}`);
 console.log(`  URL: ${privateContainer.url}`);
 console.log(`  Public Access: ${privateContainer.publicAccess}`);
 
-// Create a public container for static assets
 const publicContainer = await BlobContainer("assets", {
   storageAccount: storage,
   publicAccess: "Blob", // Anonymous read access to individual blobs
@@ -76,7 +71,6 @@ console.log(`✓ Public Container: ${publicContainer.name}`);
 console.log(`  URL: ${publicContainer.url}`);
 console.log(`  Public Access: ${publicContainer.publicAccess}`);
 
-// Create a container for backups (preserved on destroy)
 const backupContainer = await BlobContainer("backups", {
   storageAccount: storage,
   publicAccess: "None",
@@ -91,7 +85,6 @@ console.log(`✓ Backup Container: ${backupContainer.name}`);
 console.log(`  URL: ${backupContainer.url}`);
 console.log(`  Preserved: true (delete: false)`);
 
-// Create a geo-redundant storage account for critical data
 const geoStorage = await StorageAccount("geo-storage", {
   resourceGroup: rg,
   sku: "Standard_GRS", // Geo-redundant storage

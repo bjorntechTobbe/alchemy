@@ -17,7 +17,7 @@ describe("Azure CDN", () => {
     // NOTE: Azure has deprecated classic CDN SKUs (Standard_Microsoft, Standard_Akamai, etc.)
     // and no longer supports new profile creation. All tests use Azure Front Door SKUs.
     // Azure Front Door requires location: "global" instead of regional locations.
-    
+
     test("create CDN profile with Azure Front Door Standard", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-std-rg`;
       const profileName = `${BRANCH_PREFIX}-cdn-std`;

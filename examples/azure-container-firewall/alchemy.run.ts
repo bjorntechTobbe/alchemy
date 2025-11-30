@@ -19,7 +19,6 @@ import { ContainerInstance } from "../../alchemy/src/azure/container-instance.ts
 
 const app = await alchemy("azure-container-firewall");
 
-// Create a resource group to contain all resources
 const rg = await ResourceGroup("container-rg", {
   location: "eastus",
   tags: {
@@ -28,7 +27,6 @@ const rg = await ResourceGroup("container-rg", {
   },
 });
 
-// Create a Network Security Group (firewall)
 const nsg = await NetworkSecurityGroup("container-nsg", {
   resourceGroup: rg,
   securityRules: [
@@ -74,7 +72,6 @@ const nsg = await NetworkSecurityGroup("container-nsg", {
   },
 });
 
-// Create a public IP address for external access
 const publicIp = await PublicIPAddress("container-ip", {
   resourceGroup: rg,
   allocationMethod: "Dynamic",

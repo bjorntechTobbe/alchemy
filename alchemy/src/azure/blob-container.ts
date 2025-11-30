@@ -257,7 +257,6 @@ export const BlobContainer = Resource(
       .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
     const name = props.name ?? this.output?.name ?? defaultName;
 
-    // Validate name format (Azure requirements)
     if (!/^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?$/.test(name)) {
       throw new Error(
         `Blob container name "${name}" is invalid. Must be 3-63 characters, lowercase letters, numbers, and hyphens only. Cannot start or end with a hyphen or have consecutive hyphens.`,
@@ -282,7 +281,6 @@ export const BlobContainer = Resource(
     }
 
     if (this.scope.local) {
-      // Local development mode - return mock data
       return {
         id,
         name,
@@ -336,7 +334,6 @@ export const BlobContainer = Resource(
     let result;
 
     try {
-      // Create or update container
       result = await clients.storage.blobContainers.create(
         resourceGroupName,
         storageAccountName,
@@ -344,7 +341,6 @@ export const BlobContainer = Resource(
         containerParams,
       );
     } catch (error) {
-      // Check if this is a conflict error (container exists)
       if (
         error?.statusCode === 409 ||
         error?.code === "ContainerAlreadyExists"
@@ -356,7 +352,6 @@ export const BlobContainer = Resource(
           );
         }
 
-        // Adopt the existing container by getting it
         try {
           result = await clients.storage.blobContainers.get(
             resourceGroupName,
@@ -396,7 +391,6 @@ export const BlobContainer = Resource(
       );
     }
 
-    // Build container URL
     const storageAccountInfo =
       typeof props.storageAccount === "object"
         ? props.storageAccount

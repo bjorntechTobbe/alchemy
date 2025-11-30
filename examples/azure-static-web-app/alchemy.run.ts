@@ -24,7 +24,6 @@ const app = await alchemy("azure-static-web-app", {
   password: process.env.ALCHEMY_PASSWORD || "change-me-in-production",
 });
 
-// Create a resource group
 const rg = await ResourceGroup("webapp-rg", {
   location: "eastus2",
   tags: {
@@ -50,7 +49,6 @@ const webapp = await StaticWebApp("my-site", {
   },
 });
 
-// Output deployment information
 console.log("\n✅ Static Web App Deployed!");
 console.log("\n📊 Resource Details:");
 console.log(`   Resource Group: ${rg.name}`);

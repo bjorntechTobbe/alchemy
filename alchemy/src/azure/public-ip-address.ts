@@ -256,7 +256,6 @@ export const PublicIPAddress = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    // Validate name format
     if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,78}[a-zA-Z0-9_]$/.test(name)) {
       throw new Error(
         `Public IP address name "${name}" is invalid. Must be 1-80 characters, start with letter or number, end with letter/number/underscore, and contain only letters, numbers, underscores, periods, and hyphens.`,
@@ -283,7 +282,6 @@ export const PublicIPAddress = Resource(
     }
 
     if (this.scope.local) {
-      // Local development mode - return mock data
       return {
         id,
         name,
@@ -327,7 +325,6 @@ export const PublicIPAddress = Resource(
             name,
           );
         } catch (error) {
-          // Ignore 404 errors - resource already deleted
           if (!isNotFoundError(error)) {
             throw error;
           }
@@ -336,7 +333,6 @@ export const PublicIPAddress = Resource(
       return this.destroy();
     }
 
-    // Check for immutable property changes
     if (this.phase === "update" && this.output) {
       if (this.output.name !== name) {
         return this.replace(); // Name is immutable
@@ -352,7 +348,6 @@ export const PublicIPAddress = Resource(
       }
     }
 
-    // Determine SKU and validate allocation method
     const sku = props.sku || this.output?.sku || "Basic";
     // Default allocation method based on SKU
     const allocationMethod =
@@ -395,7 +390,6 @@ export const PublicIPAddress = Resource(
     let result: AzurePublicIPAddress;
 
     if (publicIpAddressId) {
-      // Update existing public IP address
       result =
         await clients.network.publicIPAddresses.beginCreateOrUpdateAndWait(
           resourceGroupName,
@@ -404,7 +398,6 @@ export const PublicIPAddress = Resource(
         );
     } else {
       try {
-        // Create new public IP address
         result =
           await clients.network.publicIPAddresses.beginCreateOrUpdateAndWait(
             resourceGroupName,

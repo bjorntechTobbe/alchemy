@@ -28,17 +28,17 @@ export interface CDNProfileProps extends AzureClientProps {
 
   /**
    * The pricing tier (SKU) for this CDN profile
-   * 
-   * **IMPORTANT**: Classic CDN SKUs (Standard_Microsoft, Standard_Akamai, Standard_Verizon, Premium_Verizon) 
+   *
+   * **IMPORTANT**: Classic CDN SKUs (Standard_Microsoft, Standard_Akamai, Standard_Verizon, Premium_Verizon)
    * are deprecated by Azure and no longer support new profile creation. Use Azure Front Door SKUs instead.
-   * 
+   *
    * - Standard_AzureFrontDoor: Azure Front Door Standard (recommended, requires location: "global")
    * - Premium_AzureFrontDoor: Azure Front Door Premium with WAF and private link (requires location: "global")
    * - Standard_Microsoft: ⚠️ DEPRECATED - Microsoft CDN (not supported for new profiles)
    * - Standard_Akamai: ⚠️ DEPRECATED - Akamai CDN (not supported for new profiles)
    * - Standard_Verizon: ⚠️ DEPRECATED - Verizon CDN (not supported for new profiles)
    * - Premium_Verizon: ⚠️ DEPRECATED - Premium Verizon CDN (not supported for new profiles)
-   * 
+   *
    * @default "Standard_AzureFrontDoor"
    */
   sku?:
@@ -197,7 +197,6 @@ export const CDNProfile = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    // Validate name format
     if (name.length < 1 || name.length > 260) {
       throw new Error(
         `CDN profile name must be 1-260 characters, got: ${name}`,
@@ -210,23 +209,19 @@ export const CDNProfile = Resource(
       );
     }
 
-    // Get resource group name
     const resourceGroupName =
       typeof props.resourceGroup === "string"
         ? props.resourceGroup
         : props.resourceGroup.name;
 
-    // Determine SKU first (needed for location validation)
     const sku = props.sku ?? this.output?.sku ?? "Standard_AzureFrontDoor";
-    const isFrontDoor = sku === "Standard_AzureFrontDoor" || sku === "Premium_AzureFrontDoor";
+    const isFrontDoor =
+      sku === "Standard_AzureFrontDoor" || sku === "Premium_AzureFrontDoor";
 
-    // Get location - Azure Front Door requires "global", others can use resource group location
     let location: string;
     if (isFrontDoor) {
-      // Azure Front Door SKUs MUST use "global" location
       location = "global";
     } else {
-      // Classic CDN SKUs (deprecated) can use regional locations
       location =
         props.location ||
         this.output?.location ||
@@ -234,7 +229,7 @@ export const CDNProfile = Resource(
           ? undefined
           : props.resourceGroup.location) ||
         "";
-      
+
       if (!location) {
         throw new Error(
           "Location must be specified either directly or via ResourceGroup object for classic CDN SKUs",
@@ -242,7 +237,6 @@ export const CDNProfile = Resource(
       }
     }
 
-    // Local development mode
     if (this.scope.local) {
       return {
         id,
@@ -257,10 +251,8 @@ export const CDNProfile = Resource(
       };
     }
 
-    // Create Azure clients
     const { cdn } = await createAzureClients(props);
 
-    // Handle deletion
     if (this.phase === "delete") {
       if (props.delete === false) {
         // Don't delete the profile, just remove from state
@@ -283,7 +275,6 @@ export const CDNProfile = Resource(
       return this.destroy();
     }
 
-    // Check for replacement due to immutable properties
     if (this.phase === "update" && this.output) {
       if (this.output.name !== name) {
         return this.replace();
@@ -296,7 +287,6 @@ export const CDNProfile = Resource(
       }
     }
 
-    // Prepare profile parameters
     const profileParams: Profile = {
       location,
       sku: {
@@ -308,7 +298,6 @@ export const CDNProfile = Resource(
     let profile: Profile;
 
     if (cdnProfileId) {
-      // Update existing profile
       profile = await cdn.profiles.beginCreateAndWait(
         resourceGroupName,
         name,
@@ -316,14 +305,12 @@ export const CDNProfile = Resource(
       );
     } else {
       try {
-        // Create new profile
         profile = await cdn.profiles.beginCreateAndWait(
           resourceGroupName,
           name,
           profileParams,
         );
       } catch (error: any) {
-        // Handle name conflicts with adoption
         if (error.code === "ProfileAlreadyExists" || error.statusCode === 409) {
           if (!adopt) {
             throw new Error(
@@ -332,10 +319,8 @@ export const CDNProfile = Resource(
             );
           }
 
-          // Try to get existing profile
           try {
             profile = await cdn.profiles.get(resourceGroupName, name);
-            // Update with desired configuration
             profile = await cdn.profiles.beginCreateAndWait(
               resourceGroupName,
               name,

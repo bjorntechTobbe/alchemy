@@ -228,7 +228,6 @@ export const VirtualNetwork = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    // Validate name format
     if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}[a-zA-Z0-9_]$/.test(name)) {
       throw new Error(
         `Virtual network name "${name}" is invalid. Must be 2-64 characters, start with letter or number, end with letter/number/underscore, and contain only letters, numbers, underscores, periods, and hyphens.`,
@@ -275,7 +274,6 @@ export const VirtualNetwork = Resource(
             name,
           );
         } catch (error) {
-          // Ignore 404 errors - resource already deleted
           if (!isNotFoundError(error)) {
             throw error;
           }
@@ -284,7 +282,6 @@ export const VirtualNetwork = Resource(
       return this.destroy();
     }
 
-    // Check for immutable property changes
     if (this.phase === "update" && this.output) {
       if (this.output.name !== name) {
         return this.replace(); // Name is immutable
@@ -297,7 +294,7 @@ export const VirtualNetwork = Resource(
     // Default address space and subnets
     const addressSpace = props.addressSpace ||
       this.output?.addressSpace || ["10.0.0.0/16"];
-    
+
     // Compute default subnet based on the address space
     const defaultSubnet = addressSpace[0].replace(/\/\d+$/, "/24");
     const subnets = props.subnets ||
@@ -327,7 +324,6 @@ export const VirtualNetwork = Resource(
     let result: AzureVirtualNetwork;
 
     if (virtualNetworkId) {
-      // Update existing virtual network
       result = await clients.network.virtualNetworks.beginCreateOrUpdateAndWait(
         resourceGroupName,
         name,
@@ -335,7 +331,6 @@ export const VirtualNetwork = Resource(
       );
     } else {
       try {
-        // Create new virtual network
         result =
           await clients.network.virtualNetworks.beginCreateOrUpdateAndWait(
             resourceGroupName,

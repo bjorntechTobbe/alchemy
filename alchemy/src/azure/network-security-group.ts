@@ -326,7 +326,6 @@ export const NetworkSecurityGroup = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    // Validate name format
     if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,78}[a-zA-Z0-9_]$/.test(name)) {
       throw new Error(
         `Network security group name "${name}" is invalid. Must be 1-80 characters, start with letter or number, end with letter/number/underscore, and contain only letters, numbers, underscores, periods, and hyphens.`,
@@ -334,7 +333,6 @@ export const NetworkSecurityGroup = Resource(
     }
 
     if (this.scope.local) {
-      // Local development mode - return mock data
       return {
         id,
         name,
@@ -368,7 +366,6 @@ export const NetworkSecurityGroup = Resource(
             name,
           );
         } catch (error) {
-          // Ignore 404 errors - resource already deleted
           if (!isNotFoundError(error)) {
             throw error;
           }
@@ -377,7 +374,6 @@ export const NetworkSecurityGroup = Resource(
       return this.destroy();
     }
 
-    // Check for immutable property changes
     if (this.phase === "update" && this.output) {
       if (this.output.name !== name) {
         return this.replace(); // Name is immutable
@@ -412,7 +408,6 @@ export const NetworkSecurityGroup = Resource(
     let result: AzureNetworkSecurityGroup;
 
     if (networkSecurityGroupId) {
-      // Update existing network security group
       await clients.network.networkSecurityGroups.beginCreateOrUpdateAndWait(
         resourceGroupName,
         name,
@@ -420,7 +415,6 @@ export const NetworkSecurityGroup = Resource(
       );
     } else {
       try {
-        // Create new network security group
         await clients.network.networkSecurityGroups.beginCreateOrUpdateAndWait(
           resourceGroupName,
           name,
@@ -454,10 +448,10 @@ export const NetworkSecurityGroup = Resource(
     }
 
     // Fetch the complete NSG with all properties populated
-    result = await clients.network.networkSecurityGroups.get(
+    result = (await clients.network.networkSecurityGroups.get(
       resourceGroupName,
       name,
-    ) as any;
+    )) as any;
 
     return {
       id,

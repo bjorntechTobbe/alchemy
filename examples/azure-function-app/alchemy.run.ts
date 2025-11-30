@@ -23,7 +23,6 @@ const app = await alchemy("azure-function-app", {
   password: process.env.ALCHEMY_PASSWORD || "change-me-in-production",
 });
 
-// Create a resource group to contain all resources
 const rg = await ResourceGroup("function-rg", {
   location: "eastus",
   tags: {
@@ -32,7 +31,6 @@ const rg = await ResourceGroup("function-rg", {
   },
 });
 
-// Create a storage account (required for Azure Functions)
 // Note: Storage account names must be 3-24 characters, lowercase letters and numbers only
 const storage = await StorageAccount("functionstorage", {
   resourceGroup: rg,
@@ -65,7 +63,6 @@ const functionApp = await FunctionApp("my-function", {
   },
 });
 
-// Output deployment information
 console.log("\n✅ Function App Infrastructure Deployed!");
 console.log("\n📊 Resource Details:");
 console.log(`   Resource Group: ${rg.name}`);

@@ -206,21 +206,18 @@ export const UserAssignedIdentity = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    // Validate name format (Azure requirements)
     if (!/^[a-zA-Z0-9_-]{3,128}$/.test(name)) {
       throw new Error(
         `User-assigned identity name "${name}" is invalid. Must be 3-128 characters and contain only alphanumeric characters, hyphens, and underscores.`,
       );
     }
 
-    // Get resource group name
     const resourceGroupName =
       typeof props.resourceGroup === "string"
         ? props.resourceGroup
         : props.resourceGroup.name;
 
     if (this.scope.local) {
-      // Local development mode - return mock data
       return {
         id,
         name,
@@ -261,20 +258,17 @@ export const UserAssignedIdentity = Resource(
       return this.destroy();
     }
 
-    // Determine location from props or resource group
     let location = props.location;
     if (!location) {
       if (typeof props.resourceGroup === "object") {
         location = props.resourceGroup.location;
       } else {
-        // Need to fetch resource group to get location
         const rg =
           await clients.resources.resourceGroups.get(resourceGroupName);
         location = rg.location!;
       }
     }
 
-    // Check for immutable property changes
     if (this.phase === "update" && this.output) {
       if (this.output.location !== location) {
         // Location is immutable - need to replace the resource
@@ -290,14 +284,12 @@ export const UserAssignedIdentity = Resource(
     let result;
 
     try {
-      // Create or update identity
       result = await clients.msi.userAssignedIdentities.createOrUpdate(
         resourceGroupName,
         name,
         identityParams,
       );
     } catch (error: any) {
-      // Check if this is a conflict error (resource exists)
       if (
         error?.statusCode === 409 ||
         error?.code === "ResourceAlreadyExists"
@@ -309,7 +301,6 @@ export const UserAssignedIdentity = Resource(
           );
         }
 
-        // Adopt the existing identity by updating it
         try {
           result = await clients.msi.userAssignedIdentities.createOrUpdate(
             resourceGroupName,

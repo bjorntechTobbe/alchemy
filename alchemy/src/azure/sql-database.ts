@@ -283,7 +283,6 @@ export const SqlDatabase = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    // Validate name
     if (name.length < 1 || name.length > 128) {
       throw new Error(`Database name "${name}" must be 1-128 characters long`);
     }
@@ -295,13 +294,11 @@ export const SqlDatabase = Resource(
       );
     }
 
-    // Get SQL server name
     const sqlServerName =
       typeof props.sqlServer === "string"
         ? props.sqlServer
         : props.sqlServer.name;
 
-    // Local development mode
     if (this.scope.local) {
       const resourceGroupName =
         typeof props.resourceGroup === "string"
@@ -334,7 +331,6 @@ export const SqlDatabase = Resource(
 
     const clients = await createAzureClients(props);
 
-    // Handle deletion
     if (this.phase === "delete") {
       if (!databaseId) {
         console.warn(`No databaseId found for ${id}, skipping delete`);
@@ -383,7 +379,6 @@ export const SqlDatabase = Resource(
       );
     }
 
-    // Prepare database creation parameters
     const databaseParams: Record<string, unknown> = {
       location,
       sku: {
@@ -400,7 +395,6 @@ export const SqlDatabase = Resource(
     let result: Database;
 
     if (databaseId) {
-      // Update existing database
       result = await clients.sql.databases.beginCreateOrUpdateAndWait(
         resourceGroupName,
         sqlServerName,
@@ -408,7 +402,6 @@ export const SqlDatabase = Resource(
         databaseParams,
       );
     } else {
-      // Create new database
       try {
         result = await clients.sql.databases.beginCreateOrUpdateAndWait(
           resourceGroupName,
@@ -448,7 +441,6 @@ export const SqlDatabase = Resource(
       }
     }
 
-    // Build connection string
     const connectionString = `Server=tcp:${sqlServerName}.database.windows.net,1433;Database=${name};`;
 
     return {

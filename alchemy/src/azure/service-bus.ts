@@ -240,13 +240,11 @@ export const ServiceBus = Resource(
         .toLowerCase()
         .replace(/[^a-z0-9-]/g, "-");
 
-    // Get resource group name
     const resourceGroupName =
       typeof props.resourceGroup === "string"
         ? props.resourceGroup
         : props.resourceGroup.name;
 
-    // Get location from resource group if not specified
     const location =
       props.location ||
       this.output?.location ||
@@ -262,7 +260,6 @@ export const ServiceBus = Resource(
 
     const sku = props.sku ?? this.output?.sku ?? "Standard";
 
-    // Local development mode
     if (this.scope.local) {
       return {
         id,
@@ -281,10 +278,8 @@ export const ServiceBus = Resource(
       };
     }
 
-    // Create Azure clients
     const { serviceBus } = await createAzureClients(props);
 
-    // Handle deletion
     if (this.phase === "delete") {
       if (props.delete === false) {
         // Don't delete the namespace, just remove from state
@@ -339,7 +334,6 @@ export const ServiceBus = Resource(
       );
     }
 
-    // Check for replacement due to immutable properties
     if (this.phase === "update" && this.output) {
       if (this.output.name !== name) {
         return this.replace();
@@ -358,7 +352,6 @@ export const ServiceBus = Resource(
       }
     }
 
-    // Prepare namespace parameters
     const namespaceParams: SBNamespace = {
       location,
       sku: {
@@ -378,14 +371,12 @@ export const ServiceBus = Resource(
     let namespace: SBNamespace;
 
     if (serviceBusId) {
-      // Update existing namespace
       namespace = await serviceBus.namespaces.beginCreateOrUpdateAndWait(
         resourceGroupName,
         name,
         namespaceParams,
       );
     } else {
-      // Check if namespace already exists when not adopting
       if (!adopt) {
         try {
           const existing = await serviceBus.namespaces.get(
@@ -416,7 +407,6 @@ export const ServiceBus = Resource(
       );
     }
 
-    // Get connection strings and keys
     const keys = await serviceBus.namespaces.listKeys(
       resourceGroupName,
       name,

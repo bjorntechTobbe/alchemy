@@ -28,7 +28,6 @@ const app = await alchemy("azure-app-service", {
   password: process.env.ALCHEMY_PASSWORD || "change-me-in-production",
 });
 
-// Create a resource group
 const rg = await ResourceGroup("webapp-rg", {
   location: "eastus",
   tags: {
@@ -63,7 +62,6 @@ const webApp = await AppService("my-webapp", {
   },
 });
 
-// Output deployment information
 console.log("\n✅ App Service Deployed!");
 console.log("\n📊 Resource Details:");
 console.log(`   Resource Group: ${rg.name}`);

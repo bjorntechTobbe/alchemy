@@ -381,7 +381,6 @@ export const ContainerInstance = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    // Validate name format
     if (!/^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/.test(name)) {
       throw new Error(
         `Container instance name "${name}" is invalid. Must be 1-63 characters, lowercase, start and end with alphanumeric, and contain only letters, numbers, and hyphens.`,
@@ -389,7 +388,6 @@ export const ContainerInstance = Resource(
     }
 
     if (this.scope.local) {
-      // Local development mode - return mock data
       return {
         id,
         name,
@@ -437,7 +435,6 @@ export const ContainerInstance = Resource(
             name,
           );
         } catch (error) {
-          // Ignore 404 errors - resource already deleted
           if (!isNotFoundError(error)) {
             throw error;
           }
@@ -446,7 +443,6 @@ export const ContainerInstance = Resource(
       return this.destroy();
     }
 
-    // Check for immutable property changes
     if (this.phase === "update" && this.output) {
       if (this.output.name !== name) {
         return this.replace(); // Name is immutable
@@ -463,7 +459,6 @@ export const ContainerInstance = Resource(
       }
     }
 
-    // Build environment variables array
     const environmentVariables: unknown[] = [];
     if (props.environmentVariables) {
       for (const [key, value] of Object.entries(props.environmentVariables)) {
@@ -479,7 +474,6 @@ export const ContainerInstance = Resource(
       }
     }
 
-    // Build container group request body
     const requestBody: Partial<AzureContainerGroup> = {
       location,
       tags: props.tags,
@@ -552,7 +546,6 @@ export const ContainerInstance = Resource(
     let result: AzureContainerGroup;
 
     if (containerGroupId) {
-      // Update existing container instance (most properties are immutable)
       result =
         await clients.containerInstance.containerGroups.beginCreateOrUpdateAndWait(
           resourceGroupName,
@@ -561,7 +554,6 @@ export const ContainerInstance = Resource(
         );
     } else {
       try {
-        // Create new container instance
         result =
           await clients.containerInstance.containerGroups.beginCreateOrUpdateAndWait(
             resourceGroupName,

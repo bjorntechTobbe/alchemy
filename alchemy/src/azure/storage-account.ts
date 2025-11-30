@@ -317,21 +317,18 @@ export const StorageAccount = Resource(
       .slice(0, 24); // Truncate to Azure's 24-character limit
     const name = props.name ?? this.output?.name ?? defaultName;
 
-    // Validate name format (Azure requirements)
     if (!/^[a-z0-9]{3,24}$/.test(name)) {
       throw new Error(
         `Storage account name "${name}" is invalid. Must be 3-24 characters and contain only lowercase letters and numbers.`,
       );
     }
 
-    // Get resource group name
     const resourceGroupName =
       typeof props.resourceGroup === "string"
         ? props.resourceGroup
         : props.resourceGroup.name;
 
     if (this.scope.local) {
-      // Local development mode - return mock data
       return {
         id,
         name,
@@ -370,10 +367,8 @@ export const StorageAccount = Resource(
     if (this.phase === "delete") {
       if (props.delete !== false && storageAccountId) {
         try {
-          // Begin deletion - this is a long-running operation
           await clients.storage.storageAccounts.delete(resourceGroupName, name);
         } catch (error: any) {
-          // If storage account doesn't exist (404), that's fine
           if (error?.statusCode !== 404 && error?.code !== "ResourceNotFound") {
             throw new Error(
               `Failed to delete storage account "${name}": ${error?.message || error}`,
@@ -385,20 +380,17 @@ export const StorageAccount = Resource(
       return this.destroy();
     }
 
-    // Determine location from props or resource group
     let location = props.location;
     if (!location) {
       if (typeof props.resourceGroup === "object") {
         location = props.resourceGroup.location;
       } else {
-        // Need to fetch resource group to get location
         const rg =
           await clients.resources.resourceGroups.get(resourceGroupName);
         location = rg.location!;
       }
     }
 
-    // Check for immutable property changes
     if (this.phase === "update" && this.output) {
       if (this.output.location !== location) {
         // Location is immutable - need to replace the resource
@@ -436,17 +428,14 @@ export const StorageAccount = Resource(
     let result: AzureStorageAccount;
 
     try {
-      // Create or update storage account - this is a long-running operation
       const poller = await clients.storage.storageAccounts.beginCreate(
         resourceGroupName,
         name,
         storageAccountParams,
       );
 
-      // Wait for the creation to complete
       result = await poller.pollUntilDone();
     } catch (error: any) {
-      // Check if this is a conflict error (resource exists)
       if (
         error?.statusCode === 409 ||
         error?.code === "StorageAccountAlreadyExists" ||
@@ -459,7 +448,6 @@ export const StorageAccount = Resource(
           );
         }
 
-        // Adopt the existing storage account by getting it
         try {
           result = await clients.storage.storageAccounts.getProperties(
             resourceGroupName,
@@ -500,7 +488,6 @@ export const StorageAccount = Resource(
       );
     }
 
-    // Get access keys
     const keysResponse = await clients.storage.storageAccounts.listKeys(
       resourceGroupName,
       name,
@@ -515,7 +502,6 @@ export const StorageAccount = Resource(
     const primaryKey = keysResponse.keys[0].value!;
     const secondaryKey = keysResponse.keys[1].value!;
 
-    // Build connection strings
     const primaryConnectionString = `DefaultEndpointsProtocol=https;AccountName=${name};AccountKey=${primaryKey};EndpointSuffix=core.windows.net`;
     const secondaryConnectionString = `DefaultEndpointsProtocol=https;AccountName=${name};AccountKey=${secondaryKey};EndpointSuffix=core.windows.net`;
 
