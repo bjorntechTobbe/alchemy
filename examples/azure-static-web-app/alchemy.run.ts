@@ -4,19 +4,19 @@ import { StaticWebApp } from "../../alchemy/src/azure/static-web-app.ts";
 
 /**
  * Azure Static Web App Example
- * 
+ *
  * This example demonstrates how to deploy a static website to Azure with:
  * - Global CDN distribution
  * - Automatic HTTPS
  * - Custom domains support
  * - Built-in authentication
- * 
+ *
  * Azure Static Web Apps is perfect for:
  * - Static sites (HTML, CSS, JS)
  * - Single Page Applications (React, Vue, Angular)
  * - Jamstack applications
  * - Documentation sites
- * 
+ *
  * Equivalent to Cloudflare Pages, Vercel, Netlify
  */
 
@@ -36,14 +36,14 @@ const rg = await ResourceGroup("webapp-rg", {
 // Deploy the static web app
 const webapp = await StaticWebApp("my-site", {
   resourceGroup: rg,
-  
+
   // Free tier (perfect for getting started)
   sku: "Free",
-  
+
   // Optional: Configure branch for deployment
   // repositoryUrl: "https://github.com/yourusername/your-repo",
   // branch: "main",
-  
+
   tags: {
     app: "static-site",
     purpose: "demo",

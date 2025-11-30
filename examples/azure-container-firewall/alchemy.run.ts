@@ -6,13 +6,13 @@ import { ContainerInstance } from "../../alchemy/src/azure/container-instance.ts
 
 /**
  * Azure Container with Firewall Example
- * 
+ *
  * This example demonstrates how to deploy a Docker container to Azure with:
  * - A public IP address for external access
  * - A Network Security Group (firewall) to control inbound/outbound traffic
  * - A Virtual Network for network isolation
  * - An NGINX web server running in the container
- * 
+ *
  * Architecture:
  * Internet → Public IP → NSG (Firewall) → VNet → Container Instance (NGINX)
  */
@@ -88,13 +88,13 @@ const publicIp = await PublicIPAddress("container-ip", {
 // Deploy a container instance with NGINX web server
 const container = await ContainerInstance("nginx-container", {
   resourceGroup: rg,
-  
+
   // Container configuration
   image: "mcr.microsoft.com/cbl-mariner/base/nginx:1",
   cpu: 1.0,
   memoryInGB: 1.5,
   osType: "Linux",
-  
+
   // Network configuration with public IP
   ipAddress: {
     type: "Public",
@@ -104,19 +104,19 @@ const container = await ContainerInstance("nginx-container", {
     ],
     dnsNameLabel: `nginx-${Date.now()}`, // Globally unique DNS name
   },
-  
+
   // Note: Container deployed without VNet for simplicity
   // In production, use subnet for network isolation
-  
+
   // Environment variables for the container
   environmentVariables: {
     NGINX_HOST: publicIp.fqdn || publicIp.ipAddress || "localhost",
     NGINX_PORT: "80",
   },
-  
+
   // Restart policy
   restartPolicy: "Always",
-  
+
   tags: {
     app: "nginx",
     purpose: "web-server",
@@ -155,9 +155,15 @@ console.log(`   State: ${container.instanceState}`);
 console.log(`   IP Address: ${container.ipAddress}`);
 
 console.log("\n💡 Next Steps:");
-const url = container.fqdn ? `http://${container.fqdn}` : container.ipAddress ? `http://${container.ipAddress}` : "N/A";
+const url = container.fqdn
+  ? `http://${container.fqdn}`
+  : container.ipAddress
+    ? `http://${container.ipAddress}`
+    : "N/A";
 console.log(`   1. Visit ${url} to see the NGINX welcome page`);
-console.log(`   2. Check container logs: az container logs --resource-group ${rg.name} --name ${container.name}`);
+console.log(
+  `   2. Check container logs: az container logs --resource-group ${rg.name} --name ${container.name}`,
+);
 console.log(`   3. Destroy resources: bun ./alchemy.run --destroy`);
 
 await app.finalize();

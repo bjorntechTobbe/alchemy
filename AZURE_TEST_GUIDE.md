@@ -5,17 +5,17 @@
 These tests are **safe to run**, have **minimal costs**, and **clean up automatically**:
 
 ### 1. Foundation Tests (FREE - No ongoing costs)
-- ✅ **ResourceGroup** - Free resource, easy cleanup
-- ✅ **UserAssignedIdentity** - Free resource, easy cleanup
+- ✅ **ResourceGroup** - Free resource, easy cleanup - **PASSING (7/7 tests)**
+- ❌ **UserAssignedIdentity** - Free resource, easy cleanup - **SKIPPED: Subscription not registered for Microsoft.ManagedIdentity**
 
 **Cost:** $0  
 **Cleanup:** Automatic via `destroy(scope)`, no soft-delete complications  
 **Risk:** None
 
 ### 2. Networking Tests (FREE - No data transfer)
-- ✅ **VirtualNetwork** - Free resource (no VMs attached)
-- ✅ **NetworkSecurityGroup** - Free resource (no traffic)
-- ✅ **PublicIPAddress** - **~$0.004/hour** ($0.10/day), only when allocated
+- ❌ **VirtualNetwork** - Free resource (no VMs attached) - **FAILING: Bug in implementation - Address prefix API error**
+- ⚠️ **NetworkSecurityGroup** - Free resource (no traffic) - **PARTIAL: 3/8 tests passing**
+- ⏸️ **PublicIPAddress** - **~$0.004/hour** ($0.10/day), only when allocated - **NOT TESTED YET**
 
 **Cost:** ~$0.10/day max  
 **Cleanup:** Automatic, no dependencies  
@@ -311,16 +311,37 @@ bun vitest alchemy/test/azure/function-app.test.ts
 
 ---
 
-## Summary
+## Test Results Summary (as of Nov 30, 2025)
 
-**✅ Safe for CI/CD (7 test suites):**
-- ResourceGroup, UserAssignedIdentity
-- VirtualNetwork, NetworkSecurityGroup, PublicIPAddress
-- StorageAccount, BlobContainer
+### ✅ Passing Tests
+- **ResourceGroup** - 7/7 tests passing ✅
+- **StorageAccount** - 6/9 tests passing (3 test bugs, not implementation bugs)
 
-**⚠️ Optional/Manual (11 test suites):**
-- FunctionApp, StaticWebApp, AppService (use free tiers)
-- CosmosDB, SqlDatabase (use serverless/basic)
-- CDN, CognitiveServices, ServiceBus, KeyVault, ContainerInstance
+### ❌ Failing Tests (Implementation Bugs)
+- **VirtualNetwork** - 0/9 tests passing
+  - Bug: Address prefix API error - all tests fail with "Address prefix and ipam pool reference are both empty/null"
+  - Needs investigation of Azure SDK structure
+  
+- **NetworkSecurityGroup** - 3/8 tests passing
+  - Bug: Security rules not returned in output (empty array)
+  - Bug: Adoption logic not working correctly
+  - Bug: Validation errors thrown during cleanup phase
+  
+- **PublicIPAddress** - 0/12 tests passing
+  - Bug: Azure subscription policy requires specific configuration for Standard SKU
+  - Even direct Azure SDK calls fail with same error
+  - May be subscription-level or regional policy limitation
 
-**Cost:** $0.11/day for safe tests, ~$1/day for all tests
+### ⏸️ Not Yet Tested
+- **UserAssignedIdentity** - Subscription not registered for Microsoft.ManagedIdentity namespace
+- **BlobContainer** - Not tested yet
+- All compute, database, CDN, AI, messaging tests
+
+### 🐛 Common Test Issues Found
+1. **Test naming**: Tests with colons in names (e.g. "delete: false") cause errors - FIXED
+2. **Validation during cleanup**: Resources throw validation errors during destroy phase
+3. **Default name generation**: Some resources generate names that exceed Azure limits
+4. **Type safety**: Not using Azure SDK types to validate request structures
+
+**Estimated Cost:** Unable to complete full test suite due to bugs
+**Recommendation:** Fix implementation bugs before running expensive tests

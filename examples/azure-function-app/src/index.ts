@@ -1,14 +1,19 @@
-import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import {
+  app,
+  HttpRequest,
+  HttpResponseInit,
+  InvocationContext,
+} from "@azure/functions";
 
 /**
  * HTTP-triggered Azure Function
- * 
+ *
  * This function responds to HTTP requests with a greeting message.
  * It demonstrates basic Azure Function HTTP triggers.
  */
 export async function httpTrigger(
   request: HttpRequest,
-  context: InvocationContext
+  context: InvocationContext,
 ): Promise<HttpResponseInit> {
   context.log(`HTTP function processed request for url "${request.url}"`);
 
