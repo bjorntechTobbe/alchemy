@@ -311,13 +311,11 @@ export const BlobContainer = Resource(
             name,
           );
         } catch (error: unknown) {
-          const azureError = error as { statusCode?: number; code?: string; message?: string };
-          if (
-            azureError.statusCode !== 404 &&
-            azureError.code !== "ContainerNotFound"
-          ) {
+          if (!isNotFoundError(error)) {
+            const message =
+              error instanceof Error ? error.message : String(error);
             throw new Error(
-              `Failed to delete blob container "${name}": ${azureError.message || String(error)}`,
+              `Failed to delete blob container "${name}": ${message}`,
               { cause: error },
             );
           }
@@ -341,11 +339,7 @@ export const BlobContainer = Resource(
         containerParams,
       );
     } catch (error: unknown) {
-      const azureError = error as { statusCode?: number; code?: string; message?: string };
-      if (
-        azureError.statusCode === 409 ||
-        azureError.code === "ContainerAlreadyExists"
-      ) {
+      if (isConflictError(error)) {
         if (!adopt) {
           throw new Error(
             `Blob container "${name}" already exists. Use adopt: true to adopt it.`,
@@ -360,7 +354,6 @@ export const BlobContainer = Resource(
             name,
           );
 
-          // Update properties if needed
           if (props.publicAccess || props.metadata) {
             result = await clients.storage.blobContainers.update(
               resourceGroupName,
@@ -373,15 +366,19 @@ export const BlobContainer = Resource(
             );
           }
         } catch (adoptError: unknown) {
-          const adoptAzureError = adoptError as { message?: string };
+          const message =
+            adoptError instanceof Error
+              ? adoptError.message
+              : String(adoptError);
           throw new Error(
-            `Blob container "${name}" failed to create due to name conflict and could not be adopted: ${adoptAzureError.message || String(adoptError)}`,
+            `Blob container "${name}" failed to create due to name conflict and could not be adopted: ${message}`,
             { cause: adoptError },
           );
         }
       } else {
+        const message = error instanceof Error ? error.message : String(error);
         throw new Error(
-          `Failed to create blob container "${name}": ${azureError.message || String(error)}`,
+          `Failed to create blob container "${name}": ${message}`,
           { cause: error },
         );
       }

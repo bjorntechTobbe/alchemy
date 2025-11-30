@@ -486,8 +486,7 @@ export const CosmosDBAccount = Resource(
             accountParams,
           );
       } catch (error: unknown) {
-        const azureError = error as { code?: string };
-        if (azureError.code === "DatabaseAccountAlreadyExists") {
+        if (isConflictError(error)) {
           if (!adopt) {
             throw new Error(
               `Cosmos DB account "${name}" already exists. Use adopt: true to adopt it.`,

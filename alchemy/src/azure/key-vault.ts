@@ -3,7 +3,10 @@ import { Resource, ResourceKind } from "../resource.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
-import type { Vault as AzureVault, VaultCreateOrUpdateParameters } from "@azure/arm-keyvault";
+import type {
+  Vault as AzureVault,
+  VaultCreateOrUpdateParameters,
+} from "@azure/arm-keyvault";
 import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface AccessPolicyPermissions {
@@ -536,8 +539,8 @@ export const KeyVault = Resource(
 
     if (
       (props.networkAclsDefaultAction === "Deny" ||
-      props.ipRules ||
-      props.virtualNetworkRules) &&
+        props.ipRules ||
+        props.virtualNetworkRules) &&
       requestBody.properties
     ) {
       requestBody.properties.networkAcls = {
@@ -563,7 +566,7 @@ export const KeyVault = Resource(
         createParams,
       );
     } else {
-      try{
+      try {
         result = await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
           resourceGroupName,
           name,
@@ -584,7 +587,7 @@ export const KeyVault = Resource(
           result = await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
             resourceGroupName,
             name,
-            createParams as unknown as VaultCreateOrUpdateParameters,
+            createParams,
           );
         } else {
           throw error;
@@ -618,7 +621,10 @@ export const KeyVault = Resource(
         },
       })),
       networkAclsDefaultAction:
-        (result.properties.networkAcls?.defaultAction as "Allow" | "Deny" | undefined) || "Allow",
+        (result.properties.networkAcls?.defaultAction as
+          | "Allow"
+          | "Deny"
+          | undefined) || "Allow",
       ipRules: result.properties.networkAcls?.ipRules?.map(
         (rule: any) => rule.value,
       ),

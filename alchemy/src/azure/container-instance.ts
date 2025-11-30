@@ -459,10 +459,16 @@ export const ContainerInstance = Resource(
       }
     }
 
-    type EnvironmentVariable = { name: string; value?: string; secureValue?: string };
+    type EnvironmentVariable = {
+      name: string;
+      value?: string;
+      secureValue?: string;
+    };
     const environmentVariables: EnvironmentVariable[] = [];
     if (props.environmentVariables) {
-      for (const [key, value] of Object.entries(props.environmentVariables) as Array<[string, string | Secret]>) {
+      for (const [key, value] of Object.entries(
+        props.environmentVariables,
+      ) as Array<[string, string | Secret]>) {
         if (typeof value === "string") {
           environmentVariables.push({ name: key, value });
         } else {
@@ -474,7 +480,7 @@ export const ContainerInstance = Resource(
       }
     }
 
-    const requestBody = {
+    const requestBody: Partial<AzureContainerGroup> = {
       location,
       tags: props.tags,
       containers: [
@@ -503,7 +509,7 @@ export const ContainerInstance = Resource(
 
     // Add IP address configuration
     if (props.ipAddress) {
-      (requestBody as { ipAddress?: unknown }).ipAddress = {
+      requestBody.ipAddress = {
         type: props.ipAddress.type,
         ports: props.ipAddress.ports.map((p) => ({
           port: p.port,
@@ -536,7 +542,7 @@ export const ContainerInstance = Resource(
         );
       }
 
-      (requestBody as { subnetIds?: unknown }).subnetIds = [
+      requestBody.subnetIds = [
         {
           id: subnet.id,
         },
@@ -550,7 +556,7 @@ export const ContainerInstance = Resource(
         await clients.containerInstance.containerGroups.beginCreateOrUpdateAndWait(
           resourceGroupName,
           name,
-          requestBody as unknown as AzureContainerGroup,
+          requestBody as AzureContainerGroup,
         );
     } else {
       try {
@@ -558,11 +564,10 @@ export const ContainerInstance = Resource(
           await clients.containerInstance.containerGroups.beginCreateOrUpdateAndWait(
             resourceGroupName,
             name,
-            requestBody as unknown as AzureContainerGroup,
+            requestBody as AzureContainerGroup,
           );
       } catch (error: unknown) {
-        const azureError = error as { code?: string };
-        if (azureError.code === "ContainerGroupAlreadyExists") {
+        if (isConflictError(error)) {
           if (!adopt) {
             throw new Error(
               `Container instance "${name}" already exists. Use adopt: true to adopt it.`,
@@ -581,7 +586,7 @@ export const ContainerInstance = Resource(
             await clients.containerInstance.containerGroups.beginCreateOrUpdateAndWait(
               resourceGroupName,
               name,
-              requestBody as unknown as AzureContainerGroup,
+              requestBody as AzureContainerGroup,
             );
         } else {
           throw error;
@@ -597,16 +602,35 @@ export const ContainerInstance = Resource(
       image: props.image,
       cpu: props.cpu || 1,
       memoryInGB: props.memoryInGB || 1.5,
-      osType: (result as { properties?: { osType?: string } }).properties?.osType as "Linux" | "Windows" | undefined,
-      restartPolicy: (result as { properties?: { restartPolicy?: string } }).properties?.restartPolicy as "Always" | "OnFailure" | "Never" | undefined,
+      osType: (result as { properties?: { osType?: string } }).properties
+        ?.osType as "Linux" | "Windows" | undefined,
+      restartPolicy: (result as { properties?: { restartPolicy?: string } })
+        .properties?.restartPolicy as
+        | "Always"
+        | "OnFailure"
+        | "Never"
+        | undefined,
       command: props.command,
       environmentVariables: props.environmentVariables,
-      ipAddress: (result as { properties?: { ipAddress?: { ip?: string } } }).properties?.ipAddress?.ip,
-      fqdn: (result as { properties?: { ipAddress?: { fqdn?: string } } }).properties?.ipAddress?.fqdn,
-      provisioningState: (result as { properties?: { provisioningState?: string } }).properties?.provisioningState,
-      instanceState:
-        (result as { properties?: { containers?: Array<{ properties?: { instanceView?: { currentState?: { state?: string } } } }> } }).properties?.containers?.[0]?.properties?.instanceView
-          ?.currentState?.state,
+      ipAddress: (result as { properties?: { ipAddress?: { ip?: string } } })
+        .properties?.ipAddress?.ip,
+      fqdn: (result as { properties?: { ipAddress?: { fqdn?: string } } })
+        .properties?.ipAddress?.fqdn,
+      provisioningState: (
+        result as { properties?: { provisioningState?: string } }
+      ).properties?.provisioningState,
+      instanceState: (
+        result as {
+          properties?: {
+            containers?: Array<{
+              properties?: {
+                instanceView?: { currentState?: { state?: string } };
+              };
+            }>;
+          };
+        }
+      ).properties?.containers?.[0]?.properties?.instanceView?.currentState
+        ?.state,
       resourceGroup: props.resourceGroup,
       subnet: props.subnet,
       tags: result.tags,

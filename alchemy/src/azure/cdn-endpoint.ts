@@ -470,11 +470,7 @@ export const CDNEndpoint = Resource(
           endpointParams,
         );
       } catch (error: unknown) {
-        const azureError = error as { code?: string; statusCode?: number };
-        if (
-          azureError.code === "EndpointAlreadyExists" ||
-          azureError.statusCode === 409
-        ) {
+        if (isConflictError(error)) {
           if (!adopt) {
             throw new Error(
               `CDN endpoint "${name}" already exists. Use adopt: true to adopt it.`,

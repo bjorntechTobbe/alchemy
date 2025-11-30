@@ -379,7 +379,7 @@ export const SqlDatabase = Resource(
       );
     }
 
-    const databaseParams: Record<string, unknown> = {
+    const databaseParams: Partial<Database> = {
       location,
       sku: {
         name: props.sku || "Basic",
@@ -399,7 +399,7 @@ export const SqlDatabase = Resource(
         resourceGroupName,
         sqlServerName,
         name,
-        databaseParams as unknown as Database,
+        databaseParams as Database,
       );
     } else {
       try {
@@ -407,14 +407,10 @@ export const SqlDatabase = Resource(
           resourceGroupName,
           sqlServerName,
           name,
-          databaseParams as unknown as Database,
+          databaseParams as Database,
         );
       } catch (error: unknown) {
-        const azureError = error as { code?: string };
-        if (
-          azureError.code === "DatabaseAlreadyExists" ||
-          azureError.code === "ConflictingDatabaseOperation"
-        ) {
+        if (isConflictError(error)) {
           if (!adopt) {
             throw new Error(
               `Database "${name}" already exists. Use adopt: true to adopt it.`,
@@ -432,7 +428,7 @@ export const SqlDatabase = Resource(
             resourceGroupName,
             sqlServerName,
             name,
-            databaseParams as unknown as Database,
+            databaseParams as Database,
           );
         } else {
           throw error;

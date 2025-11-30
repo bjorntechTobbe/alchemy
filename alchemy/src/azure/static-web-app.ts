@@ -374,8 +374,7 @@ export const StaticWebApp = Resource(
             name,
           );
         } catch (error: unknown) {
-          const azureError = error as { statusCode?: number };
-          if (azureError.statusCode !== 404) {
+          if (!isNotFoundError(error)) {
             console.error(`Error deleting static web app ${id}:`, error);
             throw error;
           }
@@ -436,7 +435,9 @@ export const StaticWebApp = Resource(
       buildProperties,
       repositoryUrl: repositoryProperties?.repositoryUrl as string | undefined,
       branch: repositoryProperties?.branch as string | undefined,
-      repositoryToken: repositoryProperties?.repositoryToken as string | undefined,
+      repositoryToken: repositoryProperties?.repositoryToken as
+        | string
+        | undefined,
     };
 
     let result: StaticSiteARMResource;
@@ -450,11 +451,7 @@ export const StaticWebApp = Resource(
           staticSiteEnvelope,
         );
     } catch (error: unknown) {
-      const azureError = error as { code?: string; statusCode?: number };
-      if (
-        azureError.code === "StaticSiteAlreadyExists" ||
-        azureError.statusCode === 409
-      ) {
+      if (isConflictError(error)) {
         if (!adopt) {
           throw new Error(
             `Static web app "${name}" already exists. Use adopt: true to adopt it.`,
@@ -495,10 +492,9 @@ export const StaticWebApp = Resource(
           },
         );
       } catch (error: unknown) {
-        const azureError = error as { message?: string };
         console.warn(
           `Warning: Failed to update app settings for ${name}:`,
-          azureError.message,
+          error instanceof Error ? error.message : String(error),
         );
       }
     }

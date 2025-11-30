@@ -480,11 +480,8 @@ export const CognitiveServices = Resource(
             );
           }
         } catch (error: unknown) {
-          if (!isNotFoundError(error)) {
-            const azureError = error as { message?: string };
-            if (azureError.message?.includes("already exists")) {
-              throw error;
-            }
+          if (!isNotFoundError(error) && isConflictError(error)) {
+            throw error;
           }
         }
       }
