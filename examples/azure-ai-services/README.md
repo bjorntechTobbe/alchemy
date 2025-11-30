@@ -16,6 +16,7 @@ This example demonstrates how to provision Azure AI Services (Cognitive Services
    - Visit: https://aka.ms/oai/access
    - Approval typically takes 1-2 business days
    - Required for OpenAI models (GPT-4, GPT-3.5, DALL-E)
+   - **📖 See [GETTING_AZURE_OPENAI_ACCESS.md](./GETTING_AZURE_OPENAI_ACCESS.md) for detailed approval process, costs, and tips**
 
 2. Install dependencies:
    ```bash
