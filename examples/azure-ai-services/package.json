@@ -1,0 +1,16 @@
+{
+  "name": "azure-ai-services-example",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "bun ./alchemy.run.ts",
+    "destroy": "bun ./alchemy.run.ts --destroy"
+  },
+  "dependencies": {
+    "alchemy": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}
