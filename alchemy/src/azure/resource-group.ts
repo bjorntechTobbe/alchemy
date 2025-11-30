@@ -2,6 +2,8 @@ import type { Context } from "../context.ts";
 import { Resource, ResourceKind } from "../resource.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
+import type { ResourceGroup as AzureResourceGroup } from "@azure/arm-resources";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface ResourceGroupProps extends AzureClientProps {
   /**
@@ -204,7 +206,7 @@ export const ResourceGroup = Resource(
           // This is crucial because Azure returns 202 Accepted immediately
           // but the actual deletion happens asynchronously
           await poller.pollUntilDone();
-        } catch (error: any) {
+        } catch (error) {
           // If resource group doesn't exist (404), that's fine
           if (
             error?.statusCode !== 404 &&
@@ -250,7 +252,7 @@ export const ResourceGroup = Resource(
         name,
         resourceGroupParams,
       );
-    } catch (error: any) {
+    } catch (error) {
       // Check if this is a conflict error (resource exists)
       if (
         error?.statusCode === 409 ||
@@ -269,7 +271,7 @@ export const ResourceGroup = Resource(
             name,
             resourceGroupParams,
           );
-        } catch (adoptError: any) {
+        } catch (adoptError) {
           throw new Error(
             `Resource group "${name}" failed to create due to name conflict and could not be adopted: ${adoptError?.message || adoptError}`,
             { cause: adoptError },
@@ -308,6 +310,11 @@ export const ResourceGroup = Resource(
 /**
  * Type guard to check if a resource is a ResourceGroup
  */
-export function isResourceGroup(resource: any): resource is ResourceGroup {
-  return resource?.[ResourceKind] === "azure::ResourceGroup";
+export function isResourceGroup(resource: unknown): resource is ResourceGroup {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::ResourceGroup"
+  );
 }

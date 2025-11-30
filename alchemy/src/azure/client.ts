@@ -153,7 +153,7 @@ export async function createAzureClients(
   if (!credentials.subscriptionId || !credentials.tenantId) {
     try {
       const { exec } = await import("../os/exec.ts");
-      
+
       // Get subscription ID if not provided
       if (!credentials.subscriptionId) {
         const subResult = await exec("az account show --query id -o tsv", {
@@ -167,9 +167,12 @@ export async function createAzureClients(
 
       // Get tenant ID if not provided
       if (!credentials.tenantId) {
-        const tenantResult = await exec("az account show --query tenantId -o tsv", {
-          captureOutput: true,
-        });
+        const tenantResult = await exec(
+          "az account show --query tenantId -o tsv",
+          {
+            captureOutput: true,
+          },
+        );
         if (tenantResult?.stdout?.trim()) {
           const tenantId = tenantResult.stdout.trim();
           credentials = { ...credentials, tenantId };

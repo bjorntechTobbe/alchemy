@@ -5,6 +5,7 @@ import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
 import type { SBNamespace } from "@azure/arm-servicebus";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface ServiceBusProps extends AzureClientProps {
   /**
@@ -158,8 +159,13 @@ export type ServiceBus = Omit<ServiceBusProps, "delete" | "adopt"> & {
 /**
  * Type guard to check if a resource is a ServiceBus namespace
  */
-export function isServiceBus(resource: any): resource is ServiceBus {
-  return resource?.[ResourceKind] === "azure::ServiceBus";
+export function isServiceBus(resource: unknown): resource is ServiceBus {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::ServiceBus"
+  );
 }
 
 /**
@@ -224,8 +230,7 @@ export const ServiceBus = Resource(
     id: string,
     props: ServiceBusProps,
   ): Promise<ServiceBus> {
-    const serviceBusId =
-      props.serviceBusId || this.output?.serviceBusId;
+    const serviceBusId = props.serviceBusId || this.output?.serviceBusId;
     const adopt = props.adopt ?? this.scope.adopt;
     const name =
       props.name ??
@@ -292,12 +297,9 @@ export const ServiceBus = Resource(
       }
 
       try {
-        await serviceBus.namespaces.beginDeleteAndWait(
-          resourceGroupName,
-          name,
-        );
-      } catch (error: any) {
-        if (error.statusCode !== 404) {
+        await serviceBus.namespaces.beginDeleteAndWait(resourceGroupName, name);
+      } catch (error) {
+        if (!isNotFoundError(error)) {
           console.error(`Error deleting Service Bus namespace ${id}:`, error);
           throw error;
         }
@@ -347,7 +349,10 @@ export const ServiceBus = Resource(
       }
       if (this.output.sku !== sku) {
         // SKU can only be upgraded Standard->Premium, not downgraded
-        if (sku === "Basic" || (sku === "Standard" && this.output.sku === "Premium")) {
+        if (
+          sku === "Basic" ||
+          (sku === "Standard" && this.output.sku === "Premium")
+        ) {
           return this.replace();
         }
       }
@@ -392,9 +397,9 @@ export const ServiceBus = Resource(
               `Service Bus namespace "${name}" already exists. Use adopt: true to adopt it.`,
             );
           }
-        } catch (error: any) {
+        } catch (error) {
           // 404 is expected - namespace doesn't exist
-          if (error.statusCode !== 404) {
+          if (!isNotFoundError(error)) {
             // Re-throw if it's not a 404
             if (error.message?.includes("already exists")) {
               throw error;
@@ -426,9 +431,7 @@ export const ServiceBus = Resource(
       serviceBusId: namespace.id!,
       sku,
       endpoint: `https://${namespace.name}.servicebus.windows.net`,
-      primaryConnectionString: Secret.wrap(
-        keys.primaryConnectionString || "",
-      ),
+      primaryConnectionString: Secret.wrap(keys.primaryConnectionString || ""),
       secondaryConnectionString: Secret.wrap(
         keys.secondaryConnectionString || "",
       ),

@@ -5,6 +5,7 @@ import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
 import type { DatabaseAccountGetResults } from "@azure/arm-cosmosdb";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface CosmosDBAccountProps extends AzureClientProps {
   /**
@@ -372,8 +373,8 @@ export const CosmosDBAccount = Resource(
             resourceGroupName,
             name,
           );
-        } catch (error: any) {
-          if (error.statusCode !== 404) {
+        } catch (error) {
+          if (!isNotFoundError(error)) {
             console.error(`Error deleting Cosmos DB account ${name}:`, error);
             throw error;
           }
@@ -419,7 +420,7 @@ export const CosmosDBAccount = Resource(
     }
 
     // Build locations array
-    const locations: any[] = [
+    const locations: unknown[] = [
       {
         locationName: location,
         failoverPriority: 0,
@@ -443,7 +444,7 @@ export const CosmosDBAccount = Resource(
     };
 
     // Build capabilities
-    const capabilities: any[] = [];
+    const capabilities: unknown[] = [];
     if (props.serverless) {
       capabilities.push({ name: "EnableServerless" });
     }
@@ -489,7 +490,7 @@ export const CosmosDBAccount = Resource(
             name,
             accountParams,
           );
-      } catch (error: any) {
+      } catch (error) {
         if (error.code === "DatabaseAccountAlreadyExists") {
           if (!adopt) {
             throw new Error(
@@ -567,6 +568,13 @@ export const CosmosDBAccount = Resource(
 /**
  * Type guard to check if a resource is a CosmosDBAccount
  */
-export function isCosmosDBAccount(resource: any): resource is CosmosDBAccount {
-  return resource?.[ResourceKind] === "azure::CosmosDBAccount";
+export function isCosmosDBAccount(
+  resource: unknown,
+): resource is CosmosDBAccount {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::CosmosDBAccount"
+  );
 }

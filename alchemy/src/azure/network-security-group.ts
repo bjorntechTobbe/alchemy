@@ -3,6 +3,8 @@ import { Resource, ResourceKind } from "../resource.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
+import type { NetworkSecurityGroup as AzureNetworkSecurityGroup } from "@azure/arm-network";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface SecurityRule {
   /**
@@ -365,9 +367,9 @@ export const NetworkSecurityGroup = Resource(
             resourceGroupName,
             name,
           );
-        } catch (error: any) {
+        } catch (error) {
           // Ignore 404 errors - resource already deleted
-          if (error.statusCode !== 404) {
+          if (!isNotFoundError(error)) {
             throw error;
           }
         }
@@ -385,7 +387,7 @@ export const NetworkSecurityGroup = Resource(
       }
     }
 
-    const requestBody: any = {
+    const requestBody: Partial<AzureNetworkSecurityGroup> = {
       location,
       tags: props.tags,
       properties: {
@@ -407,7 +409,7 @@ export const NetworkSecurityGroup = Resource(
       },
     };
 
-    let result: any;
+    let result: AzureNetworkSecurityGroup;
 
     if (networkSecurityGroupId) {
       // Update existing network security group
@@ -426,11 +428,8 @@ export const NetworkSecurityGroup = Resource(
             name,
             requestBody,
           );
-      } catch (error: any) {
-        if (
-          error.code === "ResourceAlreadyExists" ||
-          error.statusCode === 409
-        ) {
+      } catch (error) {
+        if (isConflictError(error)) {
           if (!adopt) {
             throw new Error(
               `Network security group "${name}" already exists. Use adopt: true to adopt it.`,
@@ -486,7 +485,7 @@ export const NetworkSecurityGroup = Resource(
  * Type guard to check if a resource is a NetworkSecurityGroup
  */
 export function isNetworkSecurityGroup(
-  resource: any,
+  resource: unknown,
 ): resource is NetworkSecurityGroup {
   return resource?.[ResourceKind] === "azure::NetworkSecurityGroup";
 }

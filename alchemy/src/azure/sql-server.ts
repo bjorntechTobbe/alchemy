@@ -5,6 +5,7 @@ import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
 import type { Server } from "@azure/arm-sql";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface SqlServerProps extends AzureClientProps {
   /**
@@ -318,8 +319,8 @@ export const SqlServer = Resource(
 
         try {
           await clients.sql.servers.beginDeleteAndWait(resourceGroupName, name);
-        } catch (error: any) {
-          if (error.statusCode !== 404) {
+        } catch (error) {
+          if (!isNotFoundError(error)) {
             console.error(`Error deleting SQL server ${name}:`, error);
             throw error;
           }
@@ -378,7 +379,7 @@ export const SqlServer = Resource(
           name,
           serverParams,
         );
-      } catch (error: any) {
+      } catch (error) {
         if (
           error.code === "ServerAlreadyExists" ||
           error.code === "ConflictingServerOperation"
@@ -436,6 +437,11 @@ export const SqlServer = Resource(
 /**
  * Type guard to check if a resource is a SqlServer
  */
-export function isSqlServer(resource: any): resource is SqlServer {
-  return resource?.[ResourceKind] === "azure::SqlServer";
+export function isSqlServer(resource: unknown): resource is SqlServer {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::SqlServer"
+  );
 }

@@ -306,7 +306,7 @@ describe("Azure CDN", () => {
       }
     });
 
-    test("delete: false preserves CDN profile", async (scope) => {
+    test("delete false preserves CDN profile", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-preserve-rg`;
       const profileName = `${BRANCH_PREFIX}-cdn-preserve`;
 
@@ -344,7 +344,7 @@ describe("Azure CDN", () => {
         const { resources } = await createAzureClients();
         try {
           await resources.resourceGroups.beginDeleteAndWait(resourceGroupName);
-        } catch (error: any) {
+        } catch (error) {
           if (error.statusCode !== 404) {
             throw error;
           }
@@ -365,16 +365,12 @@ describe("Azure CDN", () => {
           location: "eastus",
         });
 
-        await cdn.profiles.beginCreateAndWait(
-          resourceGroupName,
-          profileName,
-          {
-            location: "eastus",
-            sku: {
-              name: "Standard_Microsoft",
-            },
+        await cdn.profiles.beginCreateAndWait(resourceGroupName, profileName, {
+          location: "eastus",
+          sku: {
+            name: "Standard_Microsoft",
           },
-        );
+        });
 
         // Now try to create with Alchemy without adopt flag
         rg = await ResourceGroup("cdn-reject-rg", {
@@ -408,10 +404,8 @@ async function assertCDNProfileDoesNotExist(
 
   try {
     await cdn.profiles.get(resourceGroup, profileName);
-    throw new Error(
-      `CDN profile ${profileName} still exists after deletion`,
-    );
-  } catch (error: any) {
+    throw new Error(`CDN profile ${profileName} still exists after deletion`);
+  } catch (error) {
     expect(error.statusCode).toBe(404);
   }
 }
@@ -424,7 +418,7 @@ async function assertResourceGroupDoesNotExist(resourceGroup: string) {
     throw new Error(
       `Resource group ${resourceGroup} still exists after deletion`,
     );
-  } catch (error: any) {
+  } catch (error) {
     expect(error.statusCode).toBe(404);
   }
 }

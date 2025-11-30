@@ -5,6 +5,7 @@ import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
 import type { StaticSiteARMResource } from "@azure/arm-appservice";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface StaticWebAppProps extends AzureClientProps {
   /**
@@ -377,7 +378,7 @@ export const StaticWebApp = Resource(
             resourceGroupName,
             name,
           );
-        } catch (error: any) {
+        } catch (error) {
           // Ignore 404 errors (already deleted)
           if (error?.statusCode !== 404) {
             console.error(`Error deleting static web app ${id}:`, error);
@@ -409,14 +410,14 @@ export const StaticWebApp = Resource(
       Object.fromEntries(appSettingsEntries);
 
     // Prepare build properties
-    const buildProperties: any = {
+    const buildProperties: Record<string, unknown> = {
       appLocation: props.appLocation || "/",
       apiLocation: props.apiLocation,
       outputLocation: props.outputLocation,
     };
 
     // Prepare repository properties
-    let repositoryProperties: any = undefined;
+    let repositoryProperties: Record<string, unknown> | undefined = undefined;
     if (props.repositoryUrl) {
       if (!props.repositoryToken) {
         throw new Error(
@@ -458,7 +459,7 @@ export const StaticWebApp = Resource(
           name,
           staticSiteEnvelope,
         );
-    } catch (error: any) {
+    } catch (error) {
       // Handle name conflicts
       if (
         error?.code === "StaticSiteAlreadyExists" ||
@@ -483,7 +484,7 @@ export const StaticWebApp = Resource(
               name,
               staticSiteEnvelope,
             );
-        } catch (getError: any) {
+        } catch (getError) {
           throw new Error(
             `Static web app "${name}" failed to create due to name conflict and could not be found for adoption.`,
             { cause: getError },
@@ -504,7 +505,7 @@ export const StaticWebApp = Resource(
             properties: appSettings,
           },
         );
-      } catch (error: any) {
+      } catch (error) {
         console.warn(
           `Warning: Failed to update app settings for ${name}:`,
           error.message,
@@ -521,7 +522,7 @@ export const StaticWebApp = Resource(
           name,
         );
       apiKey = secrets.properties?.apiKey || "";
-    } catch (error: any) {
+    } catch (error) {
       console.warn(`Warning: Failed to retrieve API key for ${name}`);
     }
 
@@ -555,6 +556,11 @@ export const StaticWebApp = Resource(
 /**
  * Type guard to check if a resource is a StaticWebApp
  */
-export function isStaticWebApp(resource: any): resource is StaticWebApp {
-  return resource?.[ResourceKind] === "azure::StaticWebApp";
+export function isStaticWebApp(resource: unknown): resource is StaticWebApp {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::StaticWebApp"
+  );
 }

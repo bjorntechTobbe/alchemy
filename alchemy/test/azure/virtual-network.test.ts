@@ -196,7 +196,7 @@ describe("Azure Networking", () => {
             addressSpace: ["10.2.0.0/16"],
           });
           throw new Error("Expected adoption to fail without adopt flag");
-        } catch (error: any) {
+        } catch (error) {
           expect(error.message).toContain("already exists");
           expect(error.message).toContain("adopt: true");
         }
@@ -233,7 +233,7 @@ describe("Azure Networking", () => {
             resourceGroup: rg,
           });
           throw new Error("Expected name validation to fail");
-        } catch (error: any) {
+        } catch (error) {
           expect(error.message).toContain("invalid");
         }
 
@@ -244,7 +244,7 @@ describe("Azure Networking", () => {
             resourceGroup: rg,
           });
           throw new Error("Expected name validation to fail");
-        } catch (error: any) {
+        } catch (error) {
           expect(error.message).toContain("invalid");
         }
       } finally {
@@ -306,7 +306,7 @@ describe("Azure Networking", () => {
       }
     });
 
-    test("delete: false preserves virtual network", async (scope) => {
+    test("delete false preserves virtual network", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-vnet-preserve-rg`;
       const vnetName = `${BRANCH_PREFIX}-vnet-preserve`;
 
@@ -359,7 +359,7 @@ async function assertVirtualNetworkDoesNotExist(
   try {
     await clients.network.virtualNetworks.get(resourceGroup, vnetName);
     throw new Error(`Virtual network ${vnetName} still exists after deletion`);
-  } catch (error: any) {
+  } catch (error) {
     // 404 is expected - virtual network was deleted
     if (error.statusCode !== 404) {
       throw error;
@@ -374,7 +374,7 @@ async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
     throw new Error(
       `Resource group ${resourceGroupName} still exists after deletion`,
     );
-  } catch (error: any) {
+  } catch (error) {
     // 404 is expected - resource group was deleted
     if (error.statusCode !== 404) {
       throw error;

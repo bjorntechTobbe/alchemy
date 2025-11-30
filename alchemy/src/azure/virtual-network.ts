@@ -3,6 +3,8 @@ import { Resource, ResourceKind } from "../resource.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
+import type { VirtualNetwork as AzureVirtualNetwork } from "@azure/arm-network";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface Subnet {
   /**
@@ -271,9 +273,9 @@ export const VirtualNetwork = Resource(
             resourceGroupName,
             name,
           );
-        } catch (error: any) {
+        } catch (error) {
           // Ignore 404 errors - resource already deleted
-          if (error.statusCode !== 404) {
+          if (!isNotFoundError(error)) {
             throw error;
           }
         }
@@ -292,35 +294,33 @@ export const VirtualNetwork = Resource(
     }
 
     // Default address space and subnets
-    const addressSpace = props.addressSpace || ["10.0.0.0/16"];
-    const subnets = props.subnets || [
-      { name: "default", addressPrefix: "10.0.0.0/24" },
-    ];
+    const addressSpace = props.addressSpace ||
+      this.output?.addressSpace || ["10.0.0.0/16"];
+    const subnets = props.subnets ||
+      this.output?.subnets || [
+        { name: "default", addressPrefix: "10.0.0.0/24" },
+      ];
 
-    const requestBody: any = {
+    const requestBody: Partial<AzureVirtualNetwork> = {
       location,
       tags: props.tags,
-      properties: {
-        addressSpace: {
-          addressPrefixes: addressSpace,
-        },
-        subnets: subnets.map((subnet) => ({
-          name: subnet.name,
-          properties: {
-            addressPrefix: subnet.addressPrefix,
-          },
-        })),
+      addressSpace: {
+        addressPrefixes: addressSpace,
       },
+      subnets: subnets.map((subnet) => ({
+        name: subnet.name,
+        addressPrefix: subnet.addressPrefix,
+      })),
     };
 
     // Add DNS servers if specified
     if (props.dnsServers && props.dnsServers.length > 0) {
-      requestBody.properties.dhcpOptions = {
+      requestBody.dhcpOptions = {
         dnsServers: props.dnsServers,
       };
     }
 
-    let result: any;
+    let result: AzureVirtualNetwork;
 
     if (virtualNetworkId) {
       // Update existing virtual network
@@ -338,11 +338,8 @@ export const VirtualNetwork = Resource(
             name,
             requestBody,
           );
-      } catch (error: any) {
-        if (
-          error.code === "ResourceAlreadyExists" ||
-          error.statusCode === 409
-        ) {
+      } catch (error) {
+        if (isConflictError(error)) {
           if (!adopt) {
             throw new Error(
               `Virtual network "${name}" already exists. Use adopt: true to adopt it.`,
@@ -371,14 +368,14 @@ export const VirtualNetwork = Resource(
       name: result.name!,
       virtualNetworkId: result.id!,
       location: result.location!,
-      addressSpace: result.properties?.addressSpace?.addressPrefixes || [],
+      addressSpace: result.addressSpace?.addressPrefixes || [],
       subnets:
-        result.properties?.subnets?.map((subnet: any) => ({
+        result.subnets?.map((subnet) => ({
           name: subnet.name!,
-          addressPrefix: subnet.properties?.addressPrefix || "",
+          addressPrefix: subnet.addressPrefix || "",
         })) || [],
       resourceGroup: props.resourceGroup,
-      dnsServers: result.properties?.dhcpOptions?.dnsServers,
+      dnsServers: result.dhcpOptions?.dnsServers,
       tags: result.tags,
       type: "azure::VirtualNetwork",
     };
@@ -388,6 +385,13 @@ export const VirtualNetwork = Resource(
 /**
  * Type guard to check if a resource is a VirtualNetwork
  */
-export function isVirtualNetwork(resource: any): resource is VirtualNetwork {
-  return resource?.[ResourceKind] === "azure::VirtualNetwork";
+export function isVirtualNetwork(
+  resource: unknown,
+): resource is VirtualNetwork {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::VirtualNetwork"
+  );
 }

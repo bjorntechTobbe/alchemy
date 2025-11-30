@@ -3,6 +3,8 @@ import { Resource, ResourceKind } from "../resource.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
+import type { Vault as AzureVault } from "@azure/arm-keyvault";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface AccessPolicyPermissions {
   /**
@@ -435,7 +437,7 @@ export const KeyVault = Resource(
 
     // Get tenant ID from clients (auto-detected from Azure CLI if available)
     let tenantId = clients.tenantId || this.output?.outputTenantId;
-    
+
     // If still no tenant ID, try to extract from token as final fallback
     if (!tenantId) {
       try {
@@ -453,7 +455,7 @@ export const KeyVault = Resource(
         // Token parsing failed
       }
     }
-    
+
     if (!tenantId) {
       throw new Error(
         "Tenant ID is required for Key Vault. Please authenticate with Azure CLI (az login) or set AZURE_TENANT_ID environment variable.",
@@ -465,9 +467,9 @@ export const KeyVault = Resource(
         try {
           // Delete the vault (no beginDelete operation, just delete)
           await clients.keyVault.vaults.delete(resourceGroupName, name);
-        } catch (error: any) {
+        } catch (error) {
           // Ignore 404 errors - vault already deleted
-          if (error.statusCode !== 404) {
+          if (!isNotFoundError(error)) {
             throw error;
           }
         }
@@ -498,7 +500,7 @@ export const KeyVault = Resource(
       }
     }
 
-    const requestBody: any = {
+    const requestBody: Partial<AzureVault> = {
       location,
       tags: props.tags,
       properties: {
@@ -553,7 +555,7 @@ export const KeyVault = Resource(
       };
     }
 
-    let result: any;
+    let result: AzureVault;
 
     if (keyVaultId) {
       // Update existing key vault
@@ -570,12 +572,8 @@ export const KeyVault = Resource(
           name,
           requestBody,
         );
-      } catch (error: any) {
-        if (
-          error.code === "VaultAlreadyExists" ||
-          error.statusCode === 409 ||
-          error.message?.includes("already exists")
-        ) {
+      } catch (error) {
+        if (isConflictError(error)) {
           if (!adopt) {
             throw new Error(
               `Key vault "${name}" already exists. Use adopt: true to adopt it.`,
@@ -643,6 +641,11 @@ export const KeyVault = Resource(
 /**
  * Type guard to check if a resource is a KeyVault
  */
-export function isKeyVault(resource: any): resource is KeyVault {
-  return resource?.[ResourceKind] === "azure::KeyVault";
+export function isKeyVault(resource: unknown): resource is KeyVault {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::KeyVault"
+  );
 }

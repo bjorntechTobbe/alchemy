@@ -7,6 +7,7 @@ import type { ResourceGroup } from "./resource-group.ts";
 import type { StorageAccount } from "./storage-account.ts";
 import type { UserAssignedIdentity } from "./user-assigned-identity.ts";
 import type { Site } from "@azure/arm-appservice";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface FunctionAppProps extends AzureClientProps {
   /**
@@ -398,7 +399,7 @@ export const FunctionApp = Resource(
       if (props.delete !== false) {
         try {
           await clients.appService.webApps.delete(resourceGroupName, name);
-        } catch (error: any) {
+        } catch (error) {
           // Ignore 404 errors (already deleted)
           if (error?.statusCode !== 404) {
             console.error(`Error deleting function app ${id}:`, error);
@@ -436,7 +437,7 @@ export const FunctionApp = Resource(
     };
 
     // Prepare site config
-    const siteConfig: any = {
+    const siteConfig: Record<string, unknown> = {
       appSettings: Object.entries(appSettings).map(([name, value]) => ({
         name,
         value,
@@ -455,7 +456,7 @@ export const FunctionApp = Resource(
     }
 
     // Prepare identity configuration
-    let identityConfig: any = undefined;
+    let identityConfig: Record<string, unknown> | undefined = undefined;
     if (props.identity) {
       const identityResourceId =
         `/subscriptions/${clients.subscriptionId}` +
@@ -488,7 +489,7 @@ export const FunctionApp = Resource(
         name,
         siteEnvelope,
       );
-    } catch (error: any) {
+    } catch (error) {
       // Handle name conflicts
       if (error?.code === "WebsiteAlreadyExists" || error?.statusCode === 409) {
         if (!adopt) {
@@ -509,7 +510,7 @@ export const FunctionApp = Resource(
             name,
             siteEnvelope,
           );
-        } catch (getError: any) {
+        } catch (getError) {
           throw new Error(
             `Function app "${name}" failed to create due to name conflict and could not be found for adoption.`,
             { cause: getError },
@@ -556,6 +557,11 @@ export const FunctionApp = Resource(
 /**
  * Type guard to check if a resource is a FunctionApp
  */
-export function isFunctionApp(resource: any): resource is FunctionApp {
-  return resource?.[ResourceKind] === "azure::FunctionApp";
+export function isFunctionApp(resource: unknown): resource is FunctionApp {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::FunctionApp"
+  );
 }

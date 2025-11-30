@@ -275,7 +275,7 @@ describe("Azure AI", () => {
       try {
         // Create resource group and account via Azure SDK directly
         const { resources, cognitiveServices } = await createAzureClients();
-        
+
         await resources.resourceGroups.createOrUpdate(resourceGroupName, {
           location: "eastus",
         });
@@ -430,7 +430,7 @@ describe("Azure AI", () => {
       }
     });
 
-    test("delete: false preserves cognitive services account", async (scope) => {
+    test("delete false preserves cognitive services account", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cs-preserve-rg`;
       const accountName = `${BRANCH_PREFIX}-cs-preserve`
         .toLowerCase()
@@ -475,10 +475,8 @@ describe("Azure AI", () => {
         // Clean up resource group
         const { resources } = await createAzureClients();
         try {
-          await resources.resourceGroups.beginDeleteAndWait(
-            resourceGroupName,
-          );
-        } catch (error: any) {
+          await resources.resourceGroups.beginDeleteAndWait(resourceGroupName);
+        } catch (error) {
           if (error.statusCode !== 404) {
             throw error;
           }
@@ -496,7 +494,7 @@ describe("Azure AI", () => {
       try {
         // Create resource group and account via Azure SDK directly
         const { resources, cognitiveServices } = await createAzureClients();
-        
+
         await resources.resourceGroups.createOrUpdate(resourceGroupName, {
           location: "eastus",
         });
@@ -551,7 +549,7 @@ async function assertCognitiveServicesDoesNotExist(
     throw new Error(
       `Cognitive Services account ${accountName} still exists after deletion`,
     );
-  } catch (error: any) {
+  } catch (error) {
     expect(error.statusCode).toBe(404);
   }
 }
@@ -564,7 +562,7 @@ async function assertResourceGroupDoesNotExist(resourceGroup: string) {
     throw new Error(
       `Resource group ${resourceGroup} still exists after deletion`,
     );
-  } catch (error: any) {
+  } catch (error) {
     expect(error.statusCode).toBe(404);
   }
 }

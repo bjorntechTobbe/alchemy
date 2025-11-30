@@ -365,7 +365,7 @@ async function assertIdentityDoesNotExist(
     throw new Error(
       `User-assigned identity "${identityName}" in resource group "${resourceGroupName}" still exists after deletion: ${result.id}`,
     );
-  } catch (error: any) {
+  } catch (error) {
     // We expect a 404 error, which means the identity doesn't exist
     if (error?.statusCode === 404 || error?.code === "ResourceNotFound") {
       // This is expected - identity doesn't exist

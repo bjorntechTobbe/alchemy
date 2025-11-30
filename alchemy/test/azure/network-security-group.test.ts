@@ -252,7 +252,7 @@ describe("Azure Networking", () => {
             resourceGroup: rg,
           });
           throw new Error("Expected adoption to fail without adopt flag");
-        } catch (error: any) {
+        } catch (error) {
           expect(error.message).toContain("already exists");
           expect(error.message).toContain("adopt: true");
         }
@@ -293,7 +293,7 @@ describe("Azure Networking", () => {
             resourceGroup: rg,
           });
           throw new Error("Expected name validation to fail");
-        } catch (error: any) {
+        } catch (error) {
           expect(error.message).toContain("invalid");
         }
       } finally {
@@ -329,7 +329,7 @@ describe("Azure Networking", () => {
       }
     });
 
-    test("delete: false preserves network security group", async (scope) => {
+    test("delete false preserves network security group", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-nsg-preserve-rg`;
       const nsgName = `${BRANCH_PREFIX}-nsg-preserve`;
 
@@ -383,7 +383,7 @@ async function assertNetworkSecurityGroupDoesNotExist(
     throw new Error(
       `Network security group ${nsgName} still exists after deletion`,
     );
-  } catch (error: any) {
+  } catch (error) {
     // 404 is expected - network security group was deleted
     if (error.statusCode !== 404) {
       throw error;
@@ -398,7 +398,7 @@ async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
     throw new Error(
       `Resource group ${resourceGroupName} still exists after deletion`,
     );
-  } catch (error: any) {
+  } catch (error) {
     // 404 is expected - resource group was deleted
     if (error.statusCode !== 404) {
       throw error;

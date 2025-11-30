@@ -3,6 +3,8 @@ import { Resource, ResourceKind } from "../resource.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
+import type { Identity as AzureIdentity } from "@azure/arm-msi";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface UserAssignedIdentityProps extends AzureClientProps {
   /**
@@ -246,7 +248,7 @@ export const UserAssignedIdentity = Resource(
             resourceGroupName,
             name,
           );
-        } catch (error: any) {
+        } catch (error) {
           // If identity doesn't exist (404), that's fine
           if (error?.statusCode !== 404 && error?.code !== "ResourceNotFound") {
             throw new Error(
@@ -294,7 +296,7 @@ export const UserAssignedIdentity = Resource(
         name,
         identityParams,
       );
-    } catch (error: any) {
+    } catch (error) {
       // Check if this is a conflict error (resource exists)
       if (
         error?.statusCode === 409 ||
@@ -314,7 +316,7 @@ export const UserAssignedIdentity = Resource(
             name,
             identityParams,
           );
-        } catch (adoptError: any) {
+        } catch (adoptError) {
           throw new Error(
             `User-assigned identity "${name}" failed to create due to name conflict and could not be adopted: ${adoptError?.message || adoptError}`,
             { cause: adoptError },
@@ -360,7 +362,7 @@ export const UserAssignedIdentity = Resource(
  * Type guard to check if a resource is a UserAssignedIdentity
  */
 export function isUserAssignedIdentity(
-  resource: any,
+  resource: unknown,
 ): resource is UserAssignedIdentity {
   return resource?.[ResourceKind] === "azure::UserAssignedIdentity";
 }

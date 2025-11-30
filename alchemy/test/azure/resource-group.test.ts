@@ -148,7 +148,7 @@ describe("Azure Resources", () => {
               resourceGroupName,
             );
           await poller.pollUntilDone();
-        } catch (error: any) {
+        } catch (error) {
           // Ignore 404 errors - already deleted
           if (
             error?.statusCode !== 404 &&
@@ -246,7 +246,7 @@ describe("Azure Resources", () => {
               resourceGroupName,
             );
           await poller.pollUntilDone();
-        } catch (error: any) {
+        } catch (error) {
           // Ignore 404 errors - already deleted
           if (
             error?.statusCode !== 404 &&
@@ -290,7 +290,7 @@ describe("Azure Resources", () => {
               resourceGroupName,
             );
           await poller.pollUntilDone();
-        } catch (error: any) {
+        } catch (error) {
           // Ignore 404 errors - already deleted
           if (
             error?.statusCode !== 404 &&
@@ -322,7 +322,7 @@ async function assertResourceGroupDoesNotExist(
     throw new Error(
       `Resource group "${resourceGroupName}" still exists after deletion: ${result.id}`,
     );
-  } catch (error: any) {
+  } catch (error) {
     // We expect a 404 error, which means the resource group doesn't exist
     if (error?.statusCode === 404 || error?.code === "ResourceGroupNotFound") {
       // This is expected - resource group doesn't exist

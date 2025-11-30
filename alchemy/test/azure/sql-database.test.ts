@@ -179,7 +179,7 @@ describe("Azure SQL", () => {
       }
     });
 
-    test("delete: false preserves sql server", async (scope) => {
+    test("delete false preserves sql server", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-sql-server-preserve-rg`;
       const sqlServerName = `${BRANCH_PREFIX}-sql-server-preserve`
         .toLowerCase()
@@ -495,7 +495,7 @@ describe("Azure SQL", () => {
       }
     });
 
-    test("delete: false preserves sql database", async (scope) => {
+    test("delete false preserves sql database", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-sql-db-preserve-rg`;
       const sqlServerName = `${BRANCH_PREFIX}-sql-db-preserve-srv`
         .toLowerCase()
@@ -580,7 +580,7 @@ async function assertSqlServerDoesNotExist(
     throw new Error(
       `SQL server ${sqlServerName} still exists in resource group ${resourceGroupName}`,
     );
-  } catch (error: any) {
+  } catch (error) {
     if (error.statusCode === 404 || error.code === "ResourceNotFound") {
       // Expected - server doesn't exist
       return;
@@ -607,7 +607,7 @@ async function assertSqlDatabaseDoesNotExist(
     throw new Error(
       `SQL database ${databaseName} still exists in server ${sqlServerName}`,
     );
-  } catch (error: any) {
+  } catch (error) {
     if (error.statusCode === 404 || error.code === "ResourceNotFound") {
       // Expected - database doesn't exist
       return;
@@ -624,7 +624,7 @@ async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
   try {
     await clients.resources.resourceGroups.get(resourceGroupName);
     throw new Error(`Resource group ${resourceGroupName} still exists`);
-  } catch (error: any) {
+  } catch (error) {
     if (error.statusCode === 404 || error.code === "ResourceGroupNotFound") {
       // Expected - resource group doesn't exist
       return;

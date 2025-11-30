@@ -533,10 +533,8 @@ async function assertCDNEndpointDoesNotExist(
 
   try {
     await cdn.endpoints.get(resourceGroup, profileName, endpointName);
-    throw new Error(
-      `CDN endpoint ${endpointName} still exists after deletion`,
-    );
-  } catch (error: any) {
+    throw new Error(`CDN endpoint ${endpointName} still exists after deletion`);
+  } catch (error) {
     expect(error.statusCode).toBe(404);
   }
 }
@@ -549,10 +547,8 @@ async function assertCDNProfileDoesNotExist(
 
   try {
     await cdn.profiles.get(resourceGroup, profileName);
-    throw new Error(
-      `CDN profile ${profileName} still exists after deletion`,
-    );
-  } catch (error: any) {
+    throw new Error(`CDN profile ${profileName} still exists after deletion`);
+  } catch (error) {
     expect(error.statusCode).toBe(404);
   }
 }
@@ -565,7 +561,7 @@ async function assertResourceGroupDoesNotExist(resourceGroup: string) {
     throw new Error(
       `Resource group ${resourceGroup} still exists after deletion`,
     );
-  } catch (error: any) {
+  } catch (error) {
     expect(error.statusCode).toBe(404);
   }
 }

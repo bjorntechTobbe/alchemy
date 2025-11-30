@@ -4,6 +4,7 @@ import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { CDNProfile } from "./cdn-profile.ts";
 import type { Endpoint, DeepCreatedOrigin } from "@azure/arm-cdn";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface CDNEndpointProps extends AzureClientProps {
   /**
@@ -158,7 +159,10 @@ export interface CDNEndpointProps extends AzureClientProps {
   cdnEndpointId?: string;
 }
 
-export type CDNEndpoint = Omit<CDNEndpointProps, "delete" | "adopt" | "profile"> & {
+export type CDNEndpoint = Omit<
+  CDNEndpointProps,
+  "delete" | "adopt" | "profile"
+> & {
   /**
    * The Alchemy resource ID
    */
@@ -216,8 +220,13 @@ export type CDNEndpoint = Omit<CDNEndpointProps, "delete" | "adopt" | "profile">
 /**
  * Type guard to check if a resource is a CDN endpoint
  */
-export function isCDNEndpoint(resource: any): resource is CDNEndpoint {
-  return resource?.[ResourceKind] === "azure::CDNEndpoint";
+export function isCDNEndpoint(resource: unknown): resource is CDNEndpoint {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::CDNEndpoint"
+  );
 }
 
 /**
@@ -309,7 +318,9 @@ export const CDNEndpoint = Resource(
 
     // Validate name format
     if (name.length < 1 || name.length > 50) {
-      throw new Error(`CDN endpoint name must be 1-50 characters, got: ${name}`);
+      throw new Error(
+        `CDN endpoint name must be 1-50 characters, got: ${name}`,
+      );
     }
 
     if (!/^[a-z0-9-]+$/.test(name)) {
@@ -325,10 +336,13 @@ export const CDNEndpoint = Resource(
     }
 
     // Get profile and resource group names
-    const profileName = typeof props.profile === "string" ? props.profile : props.profile.name;
+    const profileName =
+      typeof props.profile === "string" ? props.profile : props.profile.name;
     const resourceGroupName =
       props.resourceGroup ||
-      (typeof props.profile === "string" ? undefined : props.profile.resourceGroup);
+      (typeof props.profile === "string"
+        ? undefined
+        : props.profile.resourceGroup);
 
     if (!resourceGroupName) {
       throw new Error(
@@ -387,9 +401,13 @@ export const CDNEndpoint = Resource(
       }
 
       try {
-        await cdn.endpoints.beginDeleteAndWait(resourceGroupName, profileName, name);
-      } catch (error: any) {
-        if (error.statusCode !== 404) {
+        await cdn.endpoints.beginDeleteAndWait(
+          resourceGroupName,
+          profileName,
+          name,
+        );
+      } catch (error) {
+        if (!isNotFoundError(error)) {
           console.error(`Error deleting CDN endpoint ${id}:`, error);
           throw error;
         }
@@ -424,7 +442,8 @@ export const CDNEndpoint = Resource(
       origins,
       isHttpAllowed: props.isHttpAllowed ?? true,
       isHttpsAllowed: props.isHttpsAllowed ?? true,
-      queryStringCachingBehavior: props.queryStringCachingBehavior ?? "IgnoreQueryString",
+      queryStringCachingBehavior:
+        props.queryStringCachingBehavior ?? "IgnoreQueryString",
       optimizationType: props.optimizationType ?? "GeneralWebDelivery",
       isCompressionEnabled: props.isCompressionEnabled ?? true,
       contentTypesToCompress: props.contentTypesToCompress ?? [
@@ -459,9 +478,12 @@ export const CDNEndpoint = Resource(
           name,
           endpointParams,
         );
-      } catch (error: any) {
+      } catch (error) {
         // Handle name conflicts with adoption
-        if (error.code === "EndpointAlreadyExists" || error.statusCode === 409) {
+        if (
+          error.code === "EndpointAlreadyExists" ||
+          error.statusCode === 409
+        ) {
           if (!adopt) {
             throw new Error(
               `CDN endpoint "${name}" already exists. Use adopt: true to adopt it.`,
@@ -471,7 +493,11 @@ export const CDNEndpoint = Resource(
 
           // Try to get existing endpoint
           try {
-            endpoint = await cdn.endpoints.get(resourceGroupName, profileName, name);
+            endpoint = await cdn.endpoints.get(
+              resourceGroupName,
+              profileName,
+              name,
+            );
             // Update with desired configuration
             endpoint = await cdn.endpoints.beginCreateAndWait(
               resourceGroupName,
@@ -479,7 +505,7 @@ export const CDNEndpoint = Resource(
               name,
               endpointParams,
             );
-          } catch (getError: any) {
+          } catch (getError) {
             throw new Error(
               `CDN endpoint "${name}" failed to create due to name conflict and could not be found for adoption.`,
               { cause: getError },

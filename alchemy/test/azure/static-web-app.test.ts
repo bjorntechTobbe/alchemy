@@ -379,7 +379,7 @@ describe("Azure Compute", () => {
       }
     });
 
-    test("delete: false preserves static web app", async (scope) => {
+    test("delete false preserves static web app", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-swa-preserve-rg`;
       const staticWebAppName = `${BRANCH_PREFIX}-swa-preserve`
         .toLowerCase()
@@ -440,7 +440,7 @@ async function assertStaticWebAppDoesNotExist(
     throw new Error(
       `Static web app ${staticWebAppName} should not exist but was found`,
     );
-  } catch (error: any) {
+  } catch (error) {
     if (error.statusCode !== 404) {
       throw error;
     }

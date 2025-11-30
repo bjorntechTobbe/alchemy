@@ -1,10 +1,7 @@
 import { describe, expect } from "vitest";
 import { alchemy } from "../../src/alchemy.ts";
 import { ResourceGroup } from "../../src/azure/resource-group.ts";
-import {
-  ServiceBus,
-  isServiceBus,
-} from "../../src/azure/service-bus.ts";
+import { ServiceBus, isServiceBus } from "../../src/azure/service-bus.ts";
 import { createAzureClients } from "../../src/azure/client.ts";
 import { destroy } from "../../src/destroy.ts";
 import { BRANCH_PREFIX } from "../util.ts";
@@ -44,12 +41,8 @@ describe("Azure Messaging", () => {
         expect(bus.endpoint).toBe(
           `https://${serviceBusName}.servicebus.windows.net`,
         );
-        expect(bus.serviceBusId).toContain(
-          `/subscriptions/`,
-        );
-        expect(bus.serviceBusId).toContain(
-          `/resourceGroups/${rgName}`,
-        );
+        expect(bus.serviceBusId).toContain(`/subscriptions/`);
+        expect(bus.serviceBusId).toContain(`/resourceGroups/${rgName}`);
         expect(bus.serviceBusId).toContain(
           `/providers/Microsoft.ServiceBus/namespaces/${serviceBusName}`,
         );
@@ -61,13 +54,11 @@ describe("Azure Messaging", () => {
       }
     });
 
-    test(
-      "create service bus with premium SKU",
-      async (scope) => {
-        const rgName = `${BRANCH_PREFIX}-sb-premium-rg`;
-        const serviceBusName = `${BRANCH_PREFIX}-sb-premium`;
+    test("create service bus with premium SKU", async (scope) => {
+      const rgName = `${BRANCH_PREFIX}-sb-premium-rg`;
+      const serviceBusName = `${BRANCH_PREFIX}-sb-premium`;
 
-        try {
+      try {
         const rg = await ResourceGroup("sb-premium-rg", {
           name: rgName,
           location: "eastus",
@@ -96,9 +87,7 @@ describe("Azure Messaging", () => {
         await destroy(scope);
         await assertServiceBusDoesNotExist(serviceBusName);
       }
-    },
-    300000 // 5 minutes for Premium tier provisioning
-    );
+    }, 300000); // 5 minutes for Premium tier provisioning
 
     test("create service bus with Azure AD auth only", async (scope) => {
       const rgName = `${BRANCH_PREFIX}-sb-aad-rg`;
@@ -346,7 +335,7 @@ describe("Azure Messaging", () => {
       // Clean up manually
       await serviceBus.namespaces.beginDeleteAndWait(rgName, serviceBusName);
       await assertServiceBusDoesNotExist(serviceBusName);
-      
+
       // Clean up resource group
       const { resources } = await createAzureClients();
       await resources.resourceGroups.beginDeleteAndWait(rgName);
@@ -433,7 +422,7 @@ describe("Azure Messaging", () => {
             rgName,
             serviceBusName,
           );
-        } catch (error: any) {
+        } catch (error) {
           // Ignore errors if already deleted
           if (error.statusCode !== 404) {
             console.error("Error cleaning up Service Bus:", error);

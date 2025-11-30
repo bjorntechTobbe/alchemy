@@ -384,11 +384,10 @@ describe("Azure Security", () => {
         // Clean up manually
         await clients.keyVault.vaults.delete(resourceGroupName, vaultName);
         await assertKeyVaultDoesNotExist(resourceGroupName, vaultName);
-        
+
         // Also delete the resource group
-        const poller = await clients.resources.resourceGroups.beginDelete(
-          resourceGroupName,
-        );
+        const poller =
+          await clients.resources.resourceGroups.beginDelete(resourceGroupName);
         await poller.pollUntilDone();
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
@@ -411,13 +410,13 @@ describe("Azure Security", () => {
 
         // Create key vault directly with Azure SDK
         const clients = await createAzureClients();
-        
+
         // Get tenant ID from clients (now auto-detected)
         const tenantId = clients.tenantId;
         if (!tenantId) {
           throw new Error("Tenant ID is required for Key Vault tests");
         }
-        
+
         await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
           resourceGroupName,
           vaultName,
@@ -470,13 +469,13 @@ describe("Azure Security", () => {
 
         // Create key vault directly with Azure SDK
         const clients = await createAzureClients();
-        
+
         // Get tenant ID from clients (now auto-detected)
         const tenantId = clients.tenantId;
         if (!tenantId) {
           throw new Error("Tenant ID is required for Key Vault tests");
         }
-        
+
         await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
           resourceGroupName,
           vaultName,
@@ -521,13 +520,12 @@ async function assertKeyVaultDoesNotExist(
   try {
     await clients.keyVault.vaults.get(resourceGroup, vaultName);
     throw new Error(`Key vault ${vaultName} still exists after deletion`);
-  } catch (error: any) {
+  } catch (error) {
     // 404 is expected - vault was deleted
     if (error.statusCode !== 404 && error.code !== "VaultNotFound") {
       throw error;
     }
   }
-
 }
 
 async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
@@ -537,7 +535,7 @@ async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
     throw new Error(
       `Resource group ${resourceGroupName} still exists after deletion`,
     );
-  } catch (error: any) {
+  } catch (error) {
     // 404 is expected - resource group was deleted
     if (error.statusCode !== 404) {
       throw error;

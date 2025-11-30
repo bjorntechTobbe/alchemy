@@ -465,7 +465,7 @@ describe("Azure Compute", () => {
       }
     });
 
-    test("delete: false preserves app service", async (scope) => {
+    test("delete false preserves app service", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-as-preserve-rg`;
       const appServiceName = `${BRANCH_PREFIX}-as-preserve`
         .toLowerCase()
@@ -521,7 +521,7 @@ async function assertAppServiceDoesNotExist(
     throw new Error(
       `App service ${appServiceName} should not exist but was found`,
     );
-  } catch (error: any) {
+  } catch (error) {
     if (error.statusCode !== 404) {
       throw error;
     }
@@ -560,7 +560,7 @@ async function assertUserAssignedIdentityDoesNotExist(
     throw new Error(
       `User-assigned identity ${identityName} should not exist but was found`,
     );
-  } catch (error: any) {
+  } catch (error) {
     if (error.statusCode !== 404) {
       throw error;
     }

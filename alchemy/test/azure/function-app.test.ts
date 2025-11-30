@@ -573,7 +573,7 @@ describe("Azure Compute", () => {
       }
     });
 
-    test("delete: false preserves function app", async (scope) => {
+    test("delete false preserves function app", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-fa-preserve-rg`;
       const storageAccountName = `${BRANCH_PREFIX}fapresstorage`
         .toLowerCase()
@@ -644,7 +644,7 @@ async function assertFunctionAppDoesNotExist(
     throw new Error(
       `Function app ${functionAppName} should not exist but was found`,
     );
-  } catch (error: any) {
+  } catch (error) {
     if (error.statusCode !== 404) {
       throw error;
     }
@@ -683,7 +683,7 @@ async function assertStorageAccountDoesNotExist(
     throw new Error(
       `Storage account ${accountName} should not exist but was found`,
     );
-  } catch (error: any) {
+  } catch (error) {
     if (error.statusCode !== 404) {
       throw error;
     }
@@ -706,7 +706,7 @@ async function assertUserAssignedIdentityDoesNotExist(
     throw new Error(
       `User-assigned identity ${identityName} should not exist but was found`,
     );
-  } catch (error: any) {
+  } catch (error) {
     if (error.statusCode !== 404) {
       throw error;
     }

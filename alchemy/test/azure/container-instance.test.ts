@@ -379,7 +379,7 @@ describe("Azure Container", () => {
             image: "mcr.microsoft.com/azuredocs/aci-helloworld",
           });
           throw new Error("Expected adoption to fail without adopt flag");
-        } catch (error: any) {
+        } catch (error) {
           expect(error.message).toContain("already exists");
           expect(error.message).toContain("adopt: true");
         }
@@ -421,7 +421,7 @@ describe("Azure Container", () => {
             image: "nginx:latest",
           });
           throw new Error("Expected name validation to fail");
-        } catch (error: any) {
+        } catch (error) {
           expect(error.message).toContain("invalid");
         }
 
@@ -434,7 +434,7 @@ describe("Azure Container", () => {
             image: "nginx:latest",
           });
           throw new Error("Expected name validation to fail");
-        } catch (error: any) {
+        } catch (error) {
           expect(error.message).toContain("invalid");
         }
       } finally {
@@ -529,7 +529,7 @@ async function assertContainerInstanceDoesNotExist(
     throw new Error(
       `Container instance ${containerName} still exists after deletion`,
     );
-  } catch (error: any) {
+  } catch (error) {
     // 404 is expected - container was deleted
     if (error.statusCode !== 404) {
       throw error;
@@ -545,7 +545,7 @@ async function assertVirtualNetworkDoesNotExist(
   try {
     await clients.network.virtualNetworks.get(resourceGroup, vnetName);
     throw new Error(`Virtual network ${vnetName} still exists after deletion`);
-  } catch (error: any) {
+  } catch (error) {
     // 404 is expected - virtual network was deleted
     if (error.statusCode !== 404) {
       throw error;
@@ -560,7 +560,7 @@ async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
     throw new Error(
       `Resource group ${resourceGroupName} still exists after deletion`,
     );
-  } catch (error: any) {
+  } catch (error) {
     // 404 is expected - resource group was deleted
     if (error.statusCode !== 404) {
       throw error;

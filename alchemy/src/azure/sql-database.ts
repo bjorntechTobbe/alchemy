@@ -6,6 +6,7 @@ import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
 import type { SqlServer } from "./sql-server.ts";
 import type { Database } from "@azure/arm-sql";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface SqlDatabaseProps extends AzureClientProps {
   /**
@@ -352,8 +353,8 @@ export const SqlDatabase = Resource(
             sqlServerName,
             name,
           );
-        } catch (error: any) {
-          if (error.statusCode !== 404) {
+        } catch (error) {
+          if (!isNotFoundError(error)) {
             console.error(`Error deleting database ${name}:`, error);
             throw error;
           }
@@ -383,7 +384,7 @@ export const SqlDatabase = Resource(
     }
 
     // Prepare database creation parameters
-    const databaseParams: any = {
+    const databaseParams: Record<string, unknown> = {
       location,
       sku: {
         name: props.sku || "Basic",
@@ -415,7 +416,7 @@ export const SqlDatabase = Resource(
           name,
           databaseParams,
         );
-      } catch (error: any) {
+      } catch (error) {
         if (
           error.code === "DatabaseAlreadyExists" ||
           error.code === "ConflictingDatabaseOperation"
@@ -489,6 +490,11 @@ function getSkuTier(sku: string): string {
 /**
  * Type guard to check if a resource is a SqlDatabase
  */
-export function isSqlDatabase(resource: any): resource is SqlDatabase {
-  return resource?.[ResourceKind] === "azure::SqlDatabase";
+export function isSqlDatabase(resource: unknown): resource is SqlDatabase {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::SqlDatabase"
+  );
 }

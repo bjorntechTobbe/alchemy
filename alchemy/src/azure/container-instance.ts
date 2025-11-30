@@ -5,6 +5,8 @@ import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
 import type { VirtualNetwork } from "./virtual-network.ts";
+import type { ContainerGroup as AzureContainerGroup } from "@azure/arm-containerinstance";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface ContainerPort {
   /**
@@ -434,9 +436,9 @@ export const ContainerInstance = Resource(
             resourceGroupName,
             name,
           );
-        } catch (error: any) {
+        } catch (error) {
           // Ignore 404 errors - resource already deleted
-          if (error.statusCode !== 404) {
+          if (!isNotFoundError(error)) {
             throw error;
           }
         }
@@ -462,7 +464,7 @@ export const ContainerInstance = Resource(
     }
 
     // Build environment variables array
-    const environmentVariables: any[] = [];
+    const environmentVariables: unknown[] = [];
     if (props.environmentVariables) {
       for (const [key, value] of Object.entries(props.environmentVariables)) {
         if (typeof value === "string") {
@@ -478,7 +480,7 @@ export const ContainerInstance = Resource(
     }
 
     // Build container group request body
-    const requestBody: any = {
+    const requestBody: Partial<AzureContainerGroup> = {
       location,
       tags: props.tags,
       containers: [
@@ -493,9 +495,7 @@ export const ContainerInstance = Resource(
           },
           command: props.command,
           environmentVariables:
-            environmentVariables.length > 0
-              ? environmentVariables
-              : undefined,
+            environmentVariables.length > 0 ? environmentVariables : undefined,
           // Add ports from ipAddress config to container
           ports: props.ipAddress?.ports.map((p) => ({
             port: p.port,
@@ -549,7 +549,7 @@ export const ContainerInstance = Resource(
       ];
     }
 
-    let result: any;
+    let result: AzureContainerGroup;
 
     if (containerGroupId) {
       // Update existing container instance (most properties are immutable)
@@ -568,7 +568,7 @@ export const ContainerInstance = Resource(
             name,
             requestBody,
           );
-      } catch (error: any) {
+      } catch (error) {
         if (error.code === "ContainerGroupAlreadyExists") {
           if (!adopt) {
             throw new Error(
@@ -626,7 +626,7 @@ export const ContainerInstance = Resource(
  * Type guard to check if a resource is a ContainerInstance
  */
 export function isContainerInstance(
-  resource: any,
+  resource: unknown,
 ): resource is ContainerInstance {
   return resource?.[ResourceKind] === "azure::ContainerInstance";
 }

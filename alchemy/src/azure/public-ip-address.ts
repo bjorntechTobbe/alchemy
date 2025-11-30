@@ -3,6 +3,8 @@ import { Resource, ResourceKind } from "../resource.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
+import type { PublicIPAddress as AzurePublicIPAddress } from "@azure/arm-network";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface PublicIPAddressProps extends AzureClientProps {
   /**
@@ -27,16 +29,17 @@ export interface PublicIPAddressProps extends AzureClientProps {
 
   /**
    * SKU tier for the public IP address
-   * Standard SKU is required for zone-redundant deployments
-   * @default "Standard"
+   * Standard SKU is required for zone-redundant deployments and must use Static allocation
+   * Basic SKU supports Dynamic allocation but has limitations
+   * @default "Basic"
    */
   sku?: "Basic" | "Standard";
 
   /**
    * IP address allocation method
-   * - Static: IP address is allocated immediately and doesn't change
+   * - Static: IP address is allocated immediately and doesn't change (required for Standard SKU)
    * - Dynamic: IP address is allocated when resource is attached (Basic SKU only)
-   * @default "Static"
+   * @default "Dynamic" for Basic SKU, "Static" for Standard SKU
    */
   allocationMethod?: "Static" | "Dynamic";
 
@@ -292,8 +295,8 @@ export const PublicIPAddress = Resource(
           : undefined,
         provisioningState: "Succeeded",
         resourceGroup: props.resourceGroup,
-        sku: props.sku || "Standard",
-        allocationMethod: props.allocationMethod || "Static",
+        sku: props.sku || "Basic",
+        allocationMethod: props.allocationMethod || "Dynamic",
         ipVersion: props.ipVersion || "IPv4",
         domainNameLabel: props.domainNameLabel,
         idleTimeoutInMinutes: props.idleTimeoutInMinutes || 4,
@@ -323,9 +326,9 @@ export const PublicIPAddress = Resource(
             resourceGroupName,
             name,
           );
-        } catch (error: any) {
+        } catch (error) {
           // Ignore 404 errors - resource already deleted
-          if (error.statusCode !== 404) {
+          if (!isNotFoundError(error)) {
             throw error;
           }
         }
@@ -349,22 +352,37 @@ export const PublicIPAddress = Resource(
       }
     }
 
-    const requestBody: any = {
+    // Determine SKU and validate allocation method
+    const sku = props.sku || this.output?.sku || "Basic";
+    // Default allocation method based on SKU
+    const allocationMethod =
+      props.allocationMethod ||
+      this.output?.allocationMethod ||
+      (sku === "Standard" ? "Static" : "Dynamic");
+
+    // Azure requirement: Standard SKU must use Static allocation
+    if (sku === "Standard" && allocationMethod === "Dynamic") {
+      throw new Error(
+        "Standard SKU public IP addresses must use Static allocation method. Use Basic SKU for Dynamic allocation.",
+      );
+    }
+
+    const requestBody: Partial<AzurePublicIPAddress> = {
       location,
       tags: props.tags,
       sku: {
-        name: props.sku || "Standard",
+        name: sku,
       },
-      properties: {
-        publicIPAllocationMethod: props.allocationMethod || "Static",
-        publicIPAddressVersion: props.ipVersion || "IPv4",
-        idleTimeoutInMinutes: props.idleTimeoutInMinutes || 4,
-      },
+      publicIPAllocationMethod: allocationMethod,
+      publicIPAddressVersion:
+        props.ipVersion || this.output?.ipVersion || "IPv4",
+      idleTimeoutInMinutes:
+        props.idleTimeoutInMinutes || this.output?.idleTimeoutInMinutes || 4,
     };
 
     // Add DNS settings if domain name label is specified
     if (props.domainNameLabel) {
-      requestBody.properties.dnsSettings = {
+      requestBody.dnsSettings = {
         domainNameLabel: props.domainNameLabel,
       };
     }
@@ -374,7 +392,7 @@ export const PublicIPAddress = Resource(
       requestBody.zones = props.zones;
     }
 
-    let result: any;
+    let result: AzurePublicIPAddress;
 
     if (publicIpAddressId) {
       // Update existing public IP address
@@ -393,11 +411,8 @@ export const PublicIPAddress = Resource(
             name,
             requestBody,
           );
-      } catch (error: any) {
-        if (
-          error.code === "ResourceAlreadyExists" ||
-          error.statusCode === 409
-        ) {
+      } catch (error) {
+        if (isConflictError(error)) {
           if (!adopt) {
             throw new Error(
               `Public IP address "${name}" already exists. Use adopt: true to adopt it.`,
@@ -426,15 +441,18 @@ export const PublicIPAddress = Resource(
       name: result.name!,
       publicIpAddressId: result.id!,
       location: result.location!,
-      ipAddress: result.properties?.ipAddress,
-      fqdn: result.properties?.dnsSettings?.fqdn,
-      provisioningState: result.properties?.provisioningState,
+      ipAddress: result.ipAddress,
+      fqdn: result.dnsSettings?.fqdn,
+      provisioningState: result.provisioningState,
       resourceGroup: props.resourceGroup,
-      sku: result.sku?.name,
-      allocationMethod: result.properties?.publicIPAllocationMethod,
-      ipVersion: result.properties?.publicIPAddressVersion,
-      domainNameLabel: result.properties?.dnsSettings?.domainNameLabel,
-      idleTimeoutInMinutes: result.properties?.idleTimeoutInMinutes,
+      sku: result.sku?.name as "Basic" | "Standard" | undefined,
+      allocationMethod: result.publicIPAllocationMethod as
+        | "Static"
+        | "Dynamic"
+        | undefined,
+      ipVersion: result.publicIPAddressVersion as "IPv4" | "IPv6" | undefined,
+      domainNameLabel: result.dnsSettings?.domainNameLabel,
+      idleTimeoutInMinutes: result.idleTimeoutInMinutes,
       zones: result.zones,
       tags: result.tags,
       type: "azure::PublicIPAddress",
@@ -445,6 +463,13 @@ export const PublicIPAddress = Resource(
 /**
  * Type guard to check if a resource is a PublicIPAddress
  */
-export function isPublicIPAddress(resource: any): resource is PublicIPAddress {
-  return resource?.[ResourceKind] === "azure::PublicIPAddress";
+export function isPublicIPAddress(
+  resource: unknown,
+): resource is PublicIPAddress {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::PublicIPAddress"
+  );
 }

@@ -1,4 +1,7 @@
-import { BlobServiceClient, StorageSharedKeyCredential } from "@azure/storage-blob";
+import {
+  BlobServiceClient,
+  StorageSharedKeyCredential,
+} from "@azure/storage-blob";
 import { ResourceScope } from "../resource.ts";
 import type { Scope } from "../scope.ts";
 import { deserialize, serialize } from "../serde.ts";
@@ -38,12 +41,12 @@ export interface BlobStateStoreOptions {
 /**
  * State store implementation using Azure Blob Storage
  * Provides reliable, scalable state storage with strong consistency
- * 
+ *
  * @example
  * ```typescript
  * import { alchemy } from "alchemy";
  * import { BlobStateStore } from "alchemy/azure";
- * 
+ *
  * const app = await alchemy("my-app", {
  *   stateStore: (scope) => new BlobStateStore(scope, {
  *     accountName: "mystorageaccount",
@@ -124,8 +127,13 @@ export class BlobStateStore implements StateStore {
           `Azure Blob Storage container '${this.containerName}' does not exist. Please create the container first.`,
         );
       }
-    } catch (error: any) {
-      if (error.statusCode === 404) {
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "statusCode" in error &&
+        error.statusCode === 404
+      ) {
         throw new Error(
           `Azure Blob Storage container '${this.containerName}' does not exist. Please create the container first.`,
         );
@@ -209,8 +217,13 @@ export class BlobStateStore implements StateStore {
           [ResourceScope]: this.scope,
         },
       };
-    } catch (error: any) {
-      if (error.statusCode === 404 || error.code === "BlobNotFound") {
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        (("statusCode" in error && error.statusCode === 404) ||
+          ("code" in error && error.code === "BlobNotFound"))
+      ) {
         return undefined;
       }
       throw error;
@@ -288,9 +301,16 @@ export class BlobStateStore implements StateStore {
 
     try {
       await blobClient.delete();
-    } catch (error: any) {
+    } catch (error) {
       // Ignore if blob doesn't exist
-      if (error.statusCode !== 404 && error.code !== "BlobNotFound") {
+      if (
+        error &&
+        typeof error === "object" &&
+        !(
+          ("statusCode" in error && error.statusCode === 404) ||
+          ("code" in error && error.code === "BlobNotFound")
+        )
+      ) {
         throw error;
       }
     }
@@ -339,9 +359,7 @@ export class BlobStateStore implements StateStore {
   /**
    * Helper to convert a ReadableStream to a string
    */
-  private async streamToString(
-    stream: NodeJS.ReadableStream,
-  ): Promise<string> {
+  private async streamToString(stream: NodeJS.ReadableStream): Promise<string> {
     const chunks: Buffer[] = [];
     return new Promise((resolve, reject) => {
       stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));

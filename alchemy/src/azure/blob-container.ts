@@ -3,6 +3,8 @@ import { Resource, ResourceKind } from "../resource.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { StorageAccount } from "./storage-account.ts";
+import type { BlobContainer as AzureBlobContainer } from "@azure/arm-storage";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface BlobContainerProps extends AzureClientProps {
   /**
@@ -310,7 +312,7 @@ export const BlobContainer = Resource(
             storageAccountName,
             name,
           );
-        } catch (error: any) {
+        } catch (error) {
           // If container doesn't exist (404), that's fine
           if (
             error?.statusCode !== 404 &&
@@ -326,7 +328,7 @@ export const BlobContainer = Resource(
       return this.destroy();
     }
 
-    const containerParams: any = {
+    const containerParams: Record<string, unknown> = {
       publicAccess: props.publicAccess || "None",
       metadata: props.metadata,
     };
@@ -341,7 +343,7 @@ export const BlobContainer = Resource(
         name,
         containerParams,
       );
-    } catch (error: any) {
+    } catch (error) {
       // Check if this is a conflict error (container exists)
       if (
         error?.statusCode === 409 ||
@@ -374,7 +376,7 @@ export const BlobContainer = Resource(
               },
             );
           }
-        } catch (adoptError: any) {
+        } catch (adoptError) {
           throw new Error(
             `Blob container "${name}" failed to create due to name conflict and could not be adopted: ${adoptError?.message || adoptError}`,
             { cause: adoptError },
@@ -434,6 +436,11 @@ export const BlobContainer = Resource(
 /**
  * Type guard to check if a resource is a BlobContainer
  */
-export function isBlobContainer(resource: any): resource is BlobContainer {
-  return resource?.[ResourceKind] === "azure::BlobContainer";
+export function isBlobContainer(resource: unknown): resource is BlobContainer {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::BlobContainer"
+  );
 }

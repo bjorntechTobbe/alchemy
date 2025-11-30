@@ -358,7 +358,7 @@ describe("Azure Storage", () => {
       }
     });
 
-    test("delete: false preserves storage account", async (scope) => {
+    test("delete false preserves storage account", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-sa-preserve-rg`;
       const storageAccountName = `${BRANCH_PREFIX}saprsv`
         .toLowerCase()
@@ -422,7 +422,7 @@ async function assertStorageAccountDoesNotExist(
     throw new Error(
       `Storage account ${storageAccountName} still exists in resource group ${resourceGroupName}`,
     );
-  } catch (error: any) {
+  } catch (error) {
     if (error.statusCode === 404 || error.code === "ResourceNotFound") {
       // Expected - storage account doesn't exist
       return;
@@ -439,7 +439,7 @@ async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
   try {
     await clients.resources.resourceGroups.get(resourceGroupName);
     throw new Error(`Resource group ${resourceGroupName} still exists`);
-  } catch (error: any) {
+  } catch (error) {
     if (error.statusCode === 404 || error.code === "ResourceGroupNotFound") {
       // Expected - resource group doesn't exist
       return;

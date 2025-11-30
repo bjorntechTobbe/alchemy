@@ -4,6 +4,7 @@ import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
 import type { Profile } from "@azure/arm-cdn";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface CDNProfileProps extends AzureClientProps {
   /**
@@ -127,8 +128,13 @@ export type CDNProfile = Omit<CDNProfileProps, "delete" | "adopt"> & {
 /**
  * Type guard to check if a resource is a CDN profile
  */
-export function isCDNProfile(resource: any): resource is CDNProfile {
-  return resource?.[ResourceKind] === "azure::CDNProfile";
+export function isCDNProfile(resource: unknown): resource is CDNProfile {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::CDNProfile"
+  );
 }
 
 /**
@@ -263,8 +269,8 @@ export const CDNProfile = Resource(
 
       try {
         await cdn.profiles.beginDeleteAndWait(resourceGroupName, name);
-      } catch (error: any) {
-        if (error.statusCode !== 404) {
+      } catch (error) {
+        if (!isNotFoundError(error)) {
           console.error(`Error deleting CDN profile ${id}:`, error);
           throw error;
         }
@@ -311,7 +317,7 @@ export const CDNProfile = Resource(
           name,
           profileParams,
         );
-      } catch (error: any) {
+      } catch (error) {
         // Handle name conflicts with adoption
         if (error.code === "ProfileAlreadyExists" || error.statusCode === 409) {
           if (!adopt) {
@@ -330,7 +336,7 @@ export const CDNProfile = Resource(
               name,
               profileParams,
             );
-          } catch (getError: any) {
+          } catch (getError) {
             throw new Error(
               `CDN profile "${name}" failed to create due to name conflict and could not be found for adoption.`,
               { cause: getError },

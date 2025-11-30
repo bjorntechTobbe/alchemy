@@ -4,6 +4,8 @@ import { Secret } from "../secret.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
+import type { Account as AzureAccount } from "@azure/arm-cognitiveservices";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface CognitiveServicesProps extends AzureClientProps {
   /**
@@ -27,7 +29,7 @@ export interface CognitiveServicesProps extends AzureClientProps {
 
   /**
    * The kind of Cognitive Services API to create
-   * 
+   *
    * - **CognitiveServices**: Multi-service resource for all APIs
    * - **ComputerVision**: Image analysis and OCR
    * - **Face**: Face detection and recognition
@@ -43,7 +45,7 @@ export interface CognitiveServicesProps extends AzureClientProps {
    * - **FormRecognizer**: Extract data from forms and documents
    * - **TranslatorText**: Text translation
    * - **OpenAI**: Azure OpenAI Service for GPT models
-   * 
+   *
    * @default "CognitiveServices" (multi-service)
    */
   kind?:
@@ -65,14 +67,26 @@ export interface CognitiveServicesProps extends AzureClientProps {
 
   /**
    * The pricing tier for this Cognitive Services account
-   * 
+   *
    * - **F0**: Free tier with limited requests per month (most services)
    * - **S0**: Standard paid tier with pay-as-you-go pricing
    * - **S1-S10**: Service-specific standard tiers
-   * 
+   *
    * @default "S0" (Standard)
    */
-  sku?: "F0" | "S0" | "S1" | "S2" | "S3" | "S4" | "S5" | "S6" | "S7" | "S8" | "S9" | "S10";
+  sku?:
+    | "F0"
+    | "S0"
+    | "S1"
+    | "S2"
+    | "S3"
+    | "S4"
+    | "S5"
+    | "S6"
+    | "S7"
+    | "S8"
+    | "S9"
+    | "S10";
 
   /**
    * Enable public network access
@@ -133,7 +147,10 @@ export interface CognitiveServicesProps extends AzureClientProps {
   cognitiveServicesId?: string;
 }
 
-export type CognitiveServices = Omit<CognitiveServicesProps, "delete" | "adopt"> & {
+export type CognitiveServices = Omit<
+  CognitiveServicesProps,
+  "delete" | "adopt"
+> & {
   /**
    * The Alchemy resource ID
    */
@@ -205,7 +222,7 @@ export type CognitiveServices = Omit<CognitiveServicesProps, "delete" | "adopt">
  * Type guard to check if a resource is a CognitiveServices account
  */
 export function isCognitiveServices(
-  resource: any,
+  resource: unknown,
 ): resource is CognitiveServices {
   return resource?.[ResourceKind] === "azure::CognitiveServices";
 }
@@ -377,8 +394,8 @@ export const CognitiveServices = Resource(
           resourceGroupName,
           name,
         );
-      } catch (error: any) {
-        if (error.statusCode !== 404) {
+      } catch (error) {
+        if (!isNotFoundError(error)) {
           console.error(
             `Error deleting Cognitive Services account ${id}:`,
             error,
@@ -416,7 +433,7 @@ export const CognitiveServices = Resource(
     }
 
     // Prepare account parameters
-    const accountParams: any = {
+    const accountParams: Record<string, unknown> = {
       location,
       kind,
       sku: {
@@ -424,7 +441,8 @@ export const CognitiveServices = Resource(
       },
       properties: {
         customSubDomainName: props.customSubDomain,
-        publicNetworkAccess: props.publicNetworkAccess === false ? "Disabled" : "Enabled",
+        publicNetworkAccess:
+          props.publicNetworkAccess === false ? "Disabled" : "Enabled",
       },
       tags: props.tags,
     };
@@ -441,7 +459,7 @@ export const CognitiveServices = Resource(
       };
     }
 
-    let account: any;
+    let account: unknown;
 
     if (cognitiveServicesId) {
       // Update existing account
@@ -463,9 +481,9 @@ export const CognitiveServices = Resource(
               `Cognitive Services account "${name}" already exists. Use adopt: true to adopt it.`,
             );
           }
-        } catch (error: any) {
+        } catch (error) {
           // 404 is expected - account doesn't exist
-          if (error.statusCode !== 404) {
+          if (!isNotFoundError(error)) {
             // Re-throw if it's not a 404
             if (error.message?.includes("already exists")) {
               throw error;

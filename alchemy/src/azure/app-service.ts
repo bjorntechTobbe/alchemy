@@ -6,6 +6,7 @@ import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
 import type { UserAssignedIdentity } from "./user-assigned-identity.ts";
 import type { Site } from "@azure/arm-appservice";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface AppServiceProps extends AzureClientProps {
   /**
@@ -390,7 +391,7 @@ export const AppService = Resource(
       if (props.delete !== false) {
         try {
           await clients.appService.webApps.delete(resourceGroupName, name);
-        } catch (error: any) {
+        } catch (error) {
           // Ignore 404 errors (already deleted)
           if (error?.statusCode !== 404) {
             console.error(`Error deleting app service ${id}:`, error);
@@ -422,7 +423,7 @@ export const AppService = Resource(
       Object.fromEntries(appSettingsEntries);
 
     // Prepare site config
-    const siteConfig: any = {
+    const siteConfig: Record<string, unknown> = {
       appSettings: Object.entries(appSettings).map(([name, value]) => ({
         name,
         value,
@@ -464,7 +465,7 @@ export const AppService = Resource(
     }
 
     // Prepare identity configuration
-    let identityConfig: any = undefined;
+    let identityConfig: Record<string, unknown> | undefined = undefined;
     if (props.identity) {
       const identityResourceId =
         `/subscriptions/${clients.subscriptionId}` +
@@ -498,7 +499,7 @@ export const AppService = Resource(
         name,
         siteEnvelope,
       );
-    } catch (error: any) {
+    } catch (error) {
       // Handle name conflicts
       if (error?.code === "WebsiteAlreadyExists" || error?.statusCode === 409) {
         if (!adopt) {
@@ -519,7 +520,7 @@ export const AppService = Resource(
             name,
             siteEnvelope,
           );
-        } catch (getError: any) {
+        } catch (getError) {
           throw new Error(
             `App service "${name}" failed to create due to name conflict and could not be found for adoption.`,
             { cause: getError },
@@ -564,6 +565,11 @@ export const AppService = Resource(
 /**
  * Type guard to check if a resource is an AppService
  */
-export function isAppService(resource: any): resource is AppService {
-  return resource?.[ResourceKind] === "azure::AppService";
+export function isAppService(resource: unknown): resource is AppService {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::AppService"
+  );
 }

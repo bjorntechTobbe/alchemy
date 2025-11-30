@@ -382,7 +382,7 @@ describe("Azure Databases", () => {
       }
     });
 
-    test("delete: false preserves cosmos db account", async (scope) => {
+    test("delete false preserves cosmos db account", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cosmos-preserve-rg`;
       const cosmosDBAccountName = `${BRANCH_PREFIX}-cosmos-preserve`
         .toLowerCase()
@@ -445,7 +445,7 @@ async function assertCosmosDBAccountDoesNotExist(
     throw new Error(
       `Cosmos DB account ${cosmosDBAccountName} still exists in resource group ${resourceGroupName}`,
     );
-  } catch (error: any) {
+  } catch (error) {
     if (error.statusCode === 404 || error.code === "NotFound") {
       // Expected - account doesn't exist
       return;
@@ -462,7 +462,7 @@ async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
   try {
     await clients.resources.resourceGroups.get(resourceGroupName);
     throw new Error(`Resource group ${resourceGroupName} still exists`);
-  } catch (error: any) {
+  } catch (error) {
     if (error.statusCode === 404 || error.code === "ResourceGroupNotFound") {
       // Expected - resource group doesn't exist
       return;

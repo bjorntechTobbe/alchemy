@@ -5,6 +5,7 @@ import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
 import type { StorageAccount as AzureStorageAccount } from "@azure/arm-storage";
+import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface StorageAccountProps extends AzureClientProps {
   /**
@@ -370,7 +371,7 @@ export const StorageAccount = Resource(
         try {
           // Begin deletion - this is a long-running operation
           await clients.storage.storageAccounts.delete(resourceGroupName, name);
-        } catch (error: any) {
+        } catch (error) {
           // If storage account doesn't exist (404), that's fine
           if (error?.statusCode !== 404 && error?.code !== "ResourceNotFound") {
             throw new Error(
@@ -443,7 +444,7 @@ export const StorageAccount = Resource(
 
       // Wait for the creation to complete
       result = await poller.pollUntilDone();
-    } catch (error: any) {
+    } catch (error) {
       // Check if this is a conflict error (resource exists)
       if (
         error?.statusCode === 409 ||
@@ -466,7 +467,7 @@ export const StorageAccount = Resource(
 
           // Update properties if needed
           if (props.tags || props.accessTier) {
-            const updateParams: any = {};
+            const updateParams: Record<string, unknown> = {};
             if (props.tags) updateParams.tags = props.tags;
             if (props.accessTier) {
               updateParams.properties = { accessTier: props.accessTier };
@@ -478,7 +479,7 @@ export const StorageAccount = Resource(
               updateParams,
             );
           }
-        } catch (adoptError: any) {
+        } catch (adoptError) {
           throw new Error(
             `Storage account "${name}" failed to create due to name conflict and could not be adopted: ${adoptError?.message || adoptError}`,
             { cause: adoptError },
@@ -551,6 +552,13 @@ export const StorageAccount = Resource(
 /**
  * Type guard to check if a resource is a StorageAccount
  */
-export function isStorageAccount(resource: any): resource is StorageAccount {
-  return resource?.[ResourceKind] === "azure::StorageAccount";
+export function isStorageAccount(
+  resource: unknown,
+): resource is StorageAccount {
+  return (
+    typeof resource === "object" &&
+    resource !== null &&
+    ResourceKind in resource &&
+    resource[ResourceKind] === "azure::StorageAccount"
+  );
 }
