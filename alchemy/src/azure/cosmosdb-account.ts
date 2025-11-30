@@ -415,14 +415,18 @@ export const CosmosDBAccount = Resource(
       }
     }
 
-    const locations: unknown[] = [
+    type Location = {
+      locationName: string;
+      failoverPriority: number;
+      isZoneRedundant: boolean;
+    };
+    const locations: Location[] = [
       {
         locationName: location,
         failoverPriority: 0,
         isZoneRedundant: false,
       },
     ];
-
     if (props.locations) {
       props.locations.forEach((loc, index) => {
         locations.push({
@@ -437,7 +441,8 @@ export const CosmosDBAccount = Resource(
       defaultConsistencyLevel: props.consistencyLevel || "Session",
     };
 
-    const capabilities: unknown[] = [];
+    type Capability = { name: string };
+    const capabilities: Capability[] = [];
     if (props.serverless) {
       capabilities.push({ name: "EnableServerless" });
     }
@@ -480,8 +485,9 @@ export const CosmosDBAccount = Resource(
             name,
             accountParams,
           );
-      } catch (error) {
-        if (error.code === "DatabaseAccountAlreadyExists") {
+      } catch (error: unknown) {
+        const azureError = error as { code?: string };
+        if (azureError.code === "DatabaseAccountAlreadyExists") {
           if (!adopt) {
             throw new Error(
               `Cosmos DB account "${name}" already exists. Use adopt: true to adopt it.`,

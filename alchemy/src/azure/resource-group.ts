@@ -203,7 +203,8 @@ export const ResourceGroup = Resource(
           // This is crucial because Azure returns 202 Accepted immediately
           // but the actual deletion happens asynchronously
           await poller.pollUntilDone();
-        } catch (error) {
+        } catch (error: unknown) {
+        const azureError = error as { statusCode?: number; code?: string; message?: string };
           // If resource group doesn't exist (404), that's fine
           if (
             error?.statusCode !== 404 &&
@@ -246,7 +247,8 @@ export const ResourceGroup = Resource(
         name,
         resourceGroupParams,
       );
-    } catch (error) {
+    } catch (error: unknown) {
+        const azureError = error as { statusCode?: number; code?: string; message?: string };
       if (
         error?.statusCode === 409 ||
         error?.code === "ResourceGroupAlreadyExists"

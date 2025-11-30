@@ -3,7 +3,7 @@ import { Resource, ResourceKind } from "../resource.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
-import type { Vault as AzureVault } from "@azure/arm-keyvault";
+import type { Vault as AzureVault, VaultCreateOrUpdateParameters } from "@azure/arm-keyvault";
 import { isNotFoundError, isConflictError } from "./error.ts";
 
 export interface AccessPolicyPermissions {
@@ -516,13 +516,11 @@ export const KeyVault = Resource(
       },
     };
 
-    // Only set enablePurgeProtection if explicitly true (Azure doesn't allow setting it to false)
-    if (props.enablePurgeProtection === true) {
+    if (props.enablePurgeProtection === true && requestBody.properties) {
       requestBody.properties.enablePurgeProtection = true;
     }
 
-    // Add access policies if provided and RBAC is not enabled
-    if (!props.enableRbacAuthorization) {
+    if (!props.enableRbacAuthorization && requestBody.properties) {
       requestBody.properties.accessPolicies = props.accessPolicies
         ? props.accessPolicies.map((policy) => ({
             tenantId: policy.tenantId,
@@ -536,11 +534,11 @@ export const KeyVault = Resource(
         : [];
     }
 
-    // Add network ACLs if specified
     if (
-      props.networkAclsDefaultAction === "Deny" ||
+      (props.networkAclsDefaultAction === "Deny" ||
       props.ipRules ||
-      props.virtualNetworkRules
+      props.virtualNetworkRules) &&
+      requestBody.properties
     ) {
       requestBody.properties.networkAcls = {
         defaultAction: props.networkAclsDefaultAction || "Allow",
@@ -553,18 +551,23 @@ export const KeyVault = Resource(
 
     let result: AzureVault;
 
+    const createParams: VaultCreateOrUpdateParameters = {
+      ...requestBody,
+      location: location!,
+    } as VaultCreateOrUpdateParameters;
+
     if (keyVaultId) {
       result = await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
         resourceGroupName,
         name,
-        requestBody,
+        createParams,
       );
     } else {
-      try {
+      try{
         result = await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
           resourceGroupName,
           name,
-          requestBody,
+          createParams,
         );
       } catch (error) {
         if (isConflictError(error)) {
@@ -578,11 +581,10 @@ export const KeyVault = Resource(
           // Get existing key vault to verify it exists
           await clients.keyVault.vaults.get(resourceGroupName, name);
 
-          // Update with requested configuration
           result = await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
             resourceGroupName,
             name,
-            requestBody,
+            createParams as unknown as VaultCreateOrUpdateParameters,
           );
         } else {
           throw error;
@@ -616,7 +618,7 @@ export const KeyVault = Resource(
         },
       })),
       networkAclsDefaultAction:
-        result.properties.networkAcls?.defaultAction || "Allow",
+        (result.properties.networkAcls?.defaultAction as "Allow" | "Deny" | undefined) || "Allow",
       ipRules: result.properties.networkAcls?.ipRules?.map(
         (rule: any) => rule.value,
       ),

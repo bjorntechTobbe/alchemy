@@ -293,7 +293,8 @@ export const ServiceBus = Resource(
 
       try {
         await serviceBus.namespaces.beginDeleteAndWait(resourceGroupName, name);
-      } catch (error) {
+      } catch (error: unknown) {
+        const azureError = error as { statusCode?: number; code?: string; message?: string };
         if (!isNotFoundError(error)) {
           console.error(`Error deleting Service Bus namespace ${id}:`, error);
           throw error;
@@ -388,11 +389,12 @@ export const ServiceBus = Resource(
               `Service Bus namespace "${name}" already exists. Use adopt: true to adopt it.`,
             );
           }
-        } catch (error) {
+        } catch (error: unknown) {
+        const azureError = error as { statusCode?: number; code?: string; message?: string };
           // 404 is expected - namespace doesn't exist
           if (!isNotFoundError(error)) {
             // Re-throw if it's not a 404
-            if (error.message?.includes("already exists")) {
+            if (azureError.message?.includes("already exists")) {
               throw error;
             }
           }

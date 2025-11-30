@@ -224,7 +224,14 @@ export type CognitiveServices = Omit<
 export function isCognitiveServices(
   resource: unknown,
 ): resource is CognitiveServices {
-  return resource?.[ResourceKind] === "azure::CognitiveServices";
+  if (typeof resource !== "object" || resource === null) {
+    return false;
+  }
+  if (!(ResourceKind in resource)) {
+    return false;
+  }
+  const resourceWithKind = resource as Record<symbol, unknown>;
+  return resourceWithKind[ResourceKind] === "azure::CognitiveServices";
 }
 
 /**
@@ -426,7 +433,7 @@ export const CognitiveServices = Resource(
       }
     }
 
-    const accountParams: Record<string, unknown> = {
+    const accountParams: AzureAccount = {
       location,
       kind,
       sku: {
@@ -441,7 +448,7 @@ export const CognitiveServices = Resource(
     };
 
     // Add network ACLs if specified
-    if (props.networkAcls) {
+    if (props.networkAcls && accountParams.properties) {
       accountParams.properties.networkAcls = {
         defaultAction: props.networkAcls.defaultAction ?? "Allow",
         ipRules: props.networkAcls.ipRules?.map((ip) => ({ value: ip })) ?? [],
@@ -452,7 +459,7 @@ export const CognitiveServices = Resource(
       };
     }
 
-    let account: unknown;
+    let account: AzureAccount;
 
     if (cognitiveServicesId) {
       account = await cognitiveServices.accounts.beginCreateAndWait(
@@ -472,11 +479,10 @@ export const CognitiveServices = Resource(
               `Cognitive Services account "${name}" already exists. Use adopt: true to adopt it.`,
             );
           }
-        } catch (error) {
-          // 404 is expected - account doesn't exist
+        } catch (error: unknown) {
           if (!isNotFoundError(error)) {
-            // Re-throw if it's not a 404
-            if (error.message?.includes("already exists")) {
+            const azureError = error as { message?: string };
+            if (azureError.message?.includes("already exists")) {
               throw error;
             }
           }
@@ -502,8 +508,8 @@ export const CognitiveServices = Resource(
       resourceGroup: resourceGroupName,
       location: account.location!,
       cognitiveServicesId: account.id!,
-      kind: account.kind!,
-      sku: account.sku!.name!,
+      kind: kind,
+      sku: sku,
       endpoint: account.properties?.endpoint || "",
       primaryKey: Secret.wrap(keys.key1 || ""),
       secondaryKey: Secret.wrap(keys.key2 || ""),

@@ -310,14 +310,14 @@ export const BlobContainer = Resource(
             storageAccountName,
             name,
           );
-        } catch (error) {
-          // If container doesn't exist (404), that's fine
+        } catch (error: unknown) {
+          const azureError = error as { statusCode?: number; code?: string; message?: string };
           if (
-            error?.statusCode !== 404 &&
-            error?.code !== "ContainerNotFound"
+            azureError.statusCode !== 404 &&
+            azureError.code !== "ContainerNotFound"
           ) {
             throw new Error(
-              `Failed to delete blob container "${name}": ${error?.message || error}`,
+              `Failed to delete blob container "${name}": ${azureError.message || String(error)}`,
               { cause: error },
             );
           }
@@ -340,10 +340,11 @@ export const BlobContainer = Resource(
         name,
         containerParams,
       );
-    } catch (error) {
+    } catch (error: unknown) {
+      const azureError = error as { statusCode?: number; code?: string; message?: string };
       if (
-        error?.statusCode === 409 ||
-        error?.code === "ContainerAlreadyExists"
+        azureError.statusCode === 409 ||
+        azureError.code === "ContainerAlreadyExists"
       ) {
         if (!adopt) {
           throw new Error(
@@ -371,15 +372,16 @@ export const BlobContainer = Resource(
               },
             );
           }
-        } catch (adoptError) {
+        } catch (adoptError: unknown) {
+          const adoptAzureError = adoptError as { message?: string };
           throw new Error(
-            `Blob container "${name}" failed to create due to name conflict and could not be adopted: ${adoptError?.message || adoptError}`,
+            `Blob container "${name}" failed to create due to name conflict and could not be adopted: ${adoptAzureError.message || String(adoptError)}`,
             { cause: adoptError },
           );
         }
       } else {
         throw new Error(
-          `Failed to create blob container "${name}": ${error?.message || error}`,
+          `Failed to create blob container "${name}": ${azureError.message || String(error)}`,
           { cause: error },
         );
       }

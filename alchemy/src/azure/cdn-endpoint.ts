@@ -469,11 +469,11 @@ export const CDNEndpoint = Resource(
           name,
           endpointParams,
         );
-      } catch (error) {
-        // Handle name conflicts with adoption
+      } catch (error: unknown) {
+        const azureError = error as { code?: string; statusCode?: number };
         if (
-          error.code === "EndpointAlreadyExists" ||
-          error.statusCode === 409
+          azureError.code === "EndpointAlreadyExists" ||
+          azureError.statusCode === 409
         ) {
           if (!adopt) {
             throw new Error(
