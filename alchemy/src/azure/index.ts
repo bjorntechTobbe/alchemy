@@ -74,6 +74,7 @@ export * from "./cdn-endpoint.ts";
 export * from "./cdn-profile.ts";
 export * from "./client.ts";
 export * from "./client-props.ts";
+export * from "./cognitive-services.ts";
 export * from "./container-instance.ts";
 export * from "./cosmosdb-account.ts";
 export * from "./credentials.ts";

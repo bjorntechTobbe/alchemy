@@ -14,6 +14,7 @@ import { ContainerInstanceManagementClient } from "@azure/arm-containerinstance"
 import { KeyVaultManagementClient } from "@azure/arm-keyvault";
 import { ServiceBusManagementClient } from "@azure/arm-servicebus";
 import { CdnManagementClient } from "@azure/arm-cdn";
+import { CognitiveServicesManagementClient } from "@azure/arm-cognitiveservices";
 import type { AzureClientProps } from "./client-props.ts";
 import { resolveAzureCredentials } from "./credentials.ts";
 
@@ -75,6 +76,11 @@ export interface AzureClients {
    * Client for managing CDN profiles and endpoints
    */
   cdn: CdnManagementClient;
+
+  /**
+   * Client for managing Cognitive Services accounts
+   */
+  cognitiveServices: CognitiveServicesManagementClient;
 
   /**
    * The credential used to authenticate with Azure
@@ -238,6 +244,10 @@ export async function createAzureClients(
       credentials.subscriptionId,
     ),
     cdn: new CdnManagementClient(credential, credentials.subscriptionId),
+    cognitiveServices: new CognitiveServicesManagementClient(
+      credential,
+      credentials.subscriptionId,
+    ),
     credential,
     subscriptionId: credentials.subscriptionId,
     tenantId: credentials.tenantId,
