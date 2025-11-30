@@ -317,12 +317,6 @@ export const StorageAccount = Resource(
       .slice(0, 24); // Truncate to Azure's 24-character limit
     const name = props.name ?? this.output?.name ?? defaultName;
 
-    if (!/^[a-z0-9]{3,24}$/.test(name)) {
-      throw new Error(
-        `Storage account name "${name}" is invalid. Must be 3-24 characters and contain only lowercase letters and numbers.`,
-      );
-    }
-
     const resourceGroupName =
       typeof props.resourceGroup === "string"
         ? props.resourceGroup
@@ -378,6 +372,13 @@ export const StorageAccount = Resource(
         }
       }
       return this.destroy();
+    }
+
+    // Validate name format after delete phase
+    if (!/^[a-z0-9]{3,24}$/.test(name)) {
+      throw new Error(
+        `Storage account name "${name}" is invalid. Must be 3-24 characters and contain only lowercase letters and numbers.`,
+      );
     }
 
     let location = props.location;

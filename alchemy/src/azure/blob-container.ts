@@ -257,12 +257,6 @@ export const BlobContainer = Resource(
       .replace(/^-|-$/g, ""); // Remove leading/trailing hyphens
     const name = props.name ?? this.output?.name ?? defaultName;
 
-    if (!/^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?$/.test(name)) {
-      throw new Error(
-        `Blob container name "${name}" is invalid. Must be 3-63 characters, lowercase letters, numbers, and hyphens only. Cannot start or end with a hyphen or have consecutive hyphens.`,
-      );
-    }
-
     // Get storage account name and resource group
     const storageAccountName =
       typeof props.storageAccount === "string"
@@ -322,6 +316,13 @@ export const BlobContainer = Resource(
         }
       }
       return this.destroy();
+    }
+
+    // Validate name format after delete phase
+    if (!/^[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?$/.test(name)) {
+      throw new Error(
+        `Blob container name "${name}" is invalid. Must be 3-63 characters, lowercase letters, numbers, and hyphens only. Cannot start or end with a hyphen or have consecutive hyphens.`,
+      );
     }
 
     const containerParams: Record<string, unknown> = {
