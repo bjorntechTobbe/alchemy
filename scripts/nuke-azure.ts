@@ -43,6 +43,7 @@ interface ResourceSummary {
     name: string;
     location: string;
     deletionDate: string;
+    resourceGroup?: string;
   }>;
   softDeletedKeyVaults: Array<{
     name: string;
@@ -68,15 +69,27 @@ async function listResources(): Promise<ResourceSummary> {
     name: string;
     location: string;
     deletionDate: string;
+    resourceGroup?: string;
   }> = [];
   console.log("Scanning for soft-deleted Cognitive Services...");
   try {
     for await (const account of clients.cognitiveServices.deletedAccounts.list()) {
       if (account.name && account.name.startsWith(prefix)) {
+        // Extract resource group from ID if available
+        // Format: /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.CognitiveServices/accounts/{name}
+        let resourceGroup: string | undefined;
+        if (account.id) {
+          const match = account.id.match(/resourceGroups\/([^\/]+)/i);
+          if (match) {
+            resourceGroup = match[1];
+          }
+        }
+        
         softDeletedCognitiveServices.push({
           name: account.name,
           location: account.location || "unknown",
           deletionDate: account.properties?.deletionDate || "unknown",
+          resourceGroup,
         });
       }
     }
@@ -154,14 +167,20 @@ async function deleteResources(summary: ResourceSummary) {
     const purgePromises = summary.softDeletedCognitiveServices.map(
       async (account) => {
         try {
+          if (!account.resourceGroup) {
+            console.log(
+              `  ⚠️  Skipping ${account.name}: resource group not found (already purged?)`,
+            );
+            return;
+          }
+          
           console.log(
-            `  🗑️  Purging Cognitive Service: ${account.name} (${account.location})`,
+            `  🗑️  Purging Cognitive Service: ${account.name} (${account.location}, rg: ${account.resourceGroup})`,
           );
           const poller =
             await clients.cognitiveServices.deletedAccounts.beginPurge(
               account.location,
-              process.env
-                .AZURE_RESOURCE_GROUP_NAME /* this is the subscription's resource group */!,
+              account.resourceGroup,
               account.name,
             );
           await poller.pollUntilDone();
@@ -233,8 +252,9 @@ function printSummary(summary: ResourceSummary) {
     console.log("  (none found)");
   } else {
     summary.softDeletedCognitiveServices.forEach((account) => {
+      const rgInfo = account.resourceGroup ? `, rg: ${account.resourceGroup}` : ", rg: unknown";
       console.log(
-        `  - ${account.name} (${account.location}) - deleted: ${account.deletionDate}`,
+        `  - ${account.name} (${account.location}${rgInfo}) - deleted: ${account.deletionDate}`,
       );
     });
   }

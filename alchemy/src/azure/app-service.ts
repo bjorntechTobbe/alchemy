@@ -449,10 +449,8 @@ export const AppService = Resource(
 
     let identityConfig: Record<string, unknown> | undefined = undefined;
     if (props.identity) {
-      const identityResourceId =
-        `/subscriptions/${clients.subscriptionId}` +
-        `/resourceGroups/${resourceGroupName}` +
-        `/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${props.identity.name}`;
+      // Use the actual identityId from the UserAssignedIdentity resource
+      const identityResourceId = props.identity.identityId;
 
       identityConfig = {
         type: "UserAssigned",
