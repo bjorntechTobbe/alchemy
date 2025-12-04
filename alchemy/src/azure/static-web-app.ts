@@ -443,37 +443,25 @@ export const StaticWebApp = Resource(
 
     let result: StaticSiteARMResource;
 
-    if (!staticWebAppId) {
-      // Check if resource already exists (for adoption scenario)
-      let existing: StaticSiteARMResource | undefined;
-      try {
-        existing = await clients.appService.staticSites.getStaticSite(
+    // Create or update the static web app
+    // The Azure API will handle adoption via createOrUpdate
+    try {
+      result =
+        await clients.appService.staticSites.beginCreateOrUpdateStaticSiteAndWait(
           resourceGroupName,
           name,
+          staticSiteEnvelope,
         );
-      } catch (error) {
-        if (!isNotFoundError(error)) {
-          throw error;
-        }
-        // Resource doesn't exist, continue with creation
+    } catch (error) {
+      // Handle specific error cases
+      if (isConflictError(error) && !staticWebAppId && !adopt) {
+        throw new Error(
+          `Static web app "${name}" already exists in resource group "${resourceGroupName}". Use adopt: true to adopt it.`,
+          { cause: error },
+        );
       }
-
-      if (existing) {
-        if (!adopt) {
-          throw new Error(
-            `Static web app "${name}" already exists in resource group "${resourceGroupName}". Use adopt: true to adopt it.`,
-          );
-        }
-        // Adopt existing resource by updating it
-      }
+      throw error;
     }
-
-    result =
-      await clients.appService.staticSites.beginCreateOrUpdateStaticSiteAndWait(
-        resourceGroupName,
-        name,
-        staticSiteEnvelope,
-      );
 
     // Update app settings if provided
     if (Object.keys(appSettings).length > 0) {
