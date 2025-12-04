@@ -88,12 +88,12 @@ describe("Azure Resources", () => {
       let rg: ResourceGroup | undefined;
       try {
         rg = await ResourceGroup("default-name-rg", {
-          location: "eastus2",
+          location: "eastus",
         });
 
         expect(rg.name).toBeTruthy();
         expect(rg.name).toContain(BRANCH_PREFIX);
-        expect(rg.location).toBe("eastus2");
+        expect(rg.location).toBe("eastus");
       } finally {
         await destroy(scope);
         if (rg) {
