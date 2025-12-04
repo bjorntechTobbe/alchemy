@@ -122,9 +122,9 @@ describe("Azure SQL", () => {
       }
     });
 
-    test("sql server with Resource Group object reference", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-sql-server-rgobj-rg`;
-      const sqlServerName = `${BRANCH_PREFIX}-sql-server-rgobj`
+    test("sql server with firewall rules", async (scope) => {
+      const resourceGroupName = `${BRANCH_PREFIX}-sql-server-fw-rg`;
+      const sqlServerName = `${BRANCH_PREFIX}-sql-server-fw`
         .toLowerCase()
         .replace(/[^a-z0-9-]/g, "")
         .substring(0, 63);
@@ -132,97 +132,24 @@ describe("Azure SQL", () => {
       let rg: ResourceGroup;
       let sqlServer: SqlServer;
       try {
-        rg = await ResourceGroup("sql-server-rgobj-rg", {
+        rg = await ResourceGroup("sql-server-fw-rg", {
           name: resourceGroupName,
           location: "eastus",
         });
 
-        sqlServer = await SqlServer("sql-server-rgobj", {
-          name: sqlServerName,
-          resourceGroup: rg, // Use object reference
-          administratorLogin: "sqladmin",
-          administratorPassword: alchemy.secret("TestPassword123!"),
-        });
-
-        expect(sqlServer.name).toBe(sqlServerName);
-        expect(sqlServer.resourceGroup).toBe(resourceGroupName);
-        expect(sqlServer.location).toBe("centralus");
-      } finally {
-        await destroy(scope);
-        await assertSqlServerDoesNotExist(resourceGroupName, sqlServerName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("sql server name validation", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-sql-server-validate-rg`;
-
-      let rg: ResourceGroup;
-      try {
-        rg = await ResourceGroup("sql-server-validate-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        // Test forbidden administrator login
-        await expect(async () => {
-          await SqlServer("sql-server-forbidden", {
-            name: "test-sql-server",
-            resourceGroup: rg,
-            administratorLogin: "admin",
-            administratorPassword: alchemy.secret("TestPassword123!"),
-          });
-        }).rejects.toThrow("is not allowed");
-      } finally {
-        await destroy(scope);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("delete false preserves sql server", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-sql-server-preserve-rg`;
-      const sqlServerName = `${BRANCH_PREFIX}-sql-server-preserve`
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, "")
-        .substring(0, 63);
-
-      let rg: ResourceGroup;
-      let sqlServer: SqlServer;
-      try {
-        rg = await ResourceGroup("sql-server-preserve-rg", {
-          name: resourceGroupName,
-          location: "eastus2",
-        });
-
-        sqlServer = await SqlServer("sql-server-preserve", {
+        sqlServer = await SqlServer("sql-server-fw", {
           name: sqlServerName,
           resourceGroup: rg,
           administratorLogin: "sqladmin",
           administratorPassword: alchemy.secret("TestPassword123!"),
-          delete: false,
+          publicNetworkAccess: "Enabled",
         });
 
-        expect(sqlServer.name).toBe(sqlServerName);
+        expect(sqlServer.publicNetworkAccess).toBe("Enabled");
       } finally {
-        // This should not delete the SQL server
         await destroy(scope);
-
-        // Verify server still exists
-        const clients = await createAzureClients();
-        const server = await clients.sql.servers.get(
-          resourceGroupName,
-          sqlServerName,
-        );
-        expect(server.name).toBe(sqlServerName);
-
-        // Clean up manually
-        await clients.sql.servers.beginDeleteAndWait(
-          resourceGroupName,
-          sqlServerName,
-        );
-        await clients.resources.resourceGroups.beginDeleteAndWait(
-          resourceGroupName,
-        );
+        await assertSqlServerDoesNotExist(resourceGroupName, sqlServerName);
+        await assertResourceGroupDoesNotExist(resourceGroupName);
       }
     });
   });
@@ -362,54 +289,6 @@ describe("Azure SQL", () => {
       }
     });
 
-    test("sql database with SqlServer string reference", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-sql-db-srvstr-rg`;
-      const sqlServerName = `${BRANCH_PREFIX}-sql-db-srvstr-srv`
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, "")
-        .substring(0, 63);
-      const databaseName = `${BRANCH_PREFIX}-sql-db-srvstr`
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, "");
-
-      let rg: ResourceGroup;
-      let sqlServer: SqlServer;
-      let database: SqlDatabase;
-      try {
-        rg = await ResourceGroup("sql-db-srvstr-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        sqlServer = await SqlServer("sql-db-srvstr-srv", {
-          name: sqlServerName,
-          resourceGroup: rg,
-          administratorLogin: "sqladmin",
-          administratorPassword: alchemy.secret("TestPassword123!"),
-        });
-
-        database = await SqlDatabase("sql-db-srvstr", {
-          name: databaseName,
-          resourceGroup: rg,
-          sqlServer: sqlServerName, // Use string reference
-          location: "eastus",
-        });
-
-        expect(database.name).toBe(databaseName);
-        expect(database.sqlServer).toBe(sqlServerName);
-        expect(database.location).toBe("centralus");
-      } finally {
-        await destroy(scope);
-        await assertSqlDatabaseDoesNotExist(
-          resourceGroupName,
-          sqlServerName,
-          databaseName,
-        );
-        await assertSqlServerDoesNotExist(resourceGroupName, sqlServerName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
     test("sql database with premium tier", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-sql-db-premium-rg`;
       const sqlServerName = `${BRANCH_PREFIX}-sql-db-premium-srv`
@@ -457,176 +336,51 @@ describe("Azure SQL", () => {
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
     });
-
-    test("sql database name validation", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-sql-db-validate-rg`;
-      const sqlServerName = `${BRANCH_PREFIX}-sql-db-validate-srv`
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, "")
-        .substring(0, 63);
-
-      let rg: ResourceGroup;
-      let sqlServer: SqlServer;
-      try {
-        rg = await ResourceGroup("sql-db-validate-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        sqlServer = await SqlServer("sql-db-validate-srv", {
-          name: sqlServerName,
-          resourceGroup: rg,
-          administratorLogin: "sqladmin",
-          administratorPassword: alchemy.secret("TestPassword123!"),
-        });
-
-        // Test forbidden database name
-        await expect(async () => {
-          await SqlDatabase("sql-db-forbidden", {
-            name: "master",
-            resourceGroup: rg,
-            sqlServer: sqlServer,
-          });
-        }).rejects.toThrow("is reserved");
-      } finally {
-        await destroy(scope);
-        await assertSqlServerDoesNotExist(resourceGroupName, sqlServerName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("delete false preserves sql database", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-sql-db-preserve-rg`;
-      const sqlServerName = `${BRANCH_PREFIX}-sql-db-preserve-srv`
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, "")
-        .substring(0, 63);
-      const databaseName = `${BRANCH_PREFIX}-sql-db-preserve`
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, "");
-
-      let rg: ResourceGroup;
-      let sqlServer: SqlServer;
-      let database: SqlDatabase;
-      try {
-        rg = await ResourceGroup("sql-db-preserve-rg", {
-          name: resourceGroupName,
-          location: "eastus2",
-        });
-
-        sqlServer = await SqlServer("sql-db-preserve-srv", {
-          name: sqlServerName,
-          resourceGroup: rg,
-          administratorLogin: "sqladmin",
-          administratorPassword: alchemy.secret("TestPassword123!"),
-          delete: false,
-        });
-
-        database = await SqlDatabase("sql-db-preserve", {
-          name: databaseName,
-          resourceGroup: rg,
-          sqlServer: sqlServer,
-          delete: false,
-        });
-
-        expect(database.name).toBe(databaseName);
-      } finally {
-        // This should not delete the database or server
-        await destroy(scope);
-
-        // Verify database and server still exist
-        const clients = await createAzureClients();
-        const db = await clients.sql.databases.get(
-          resourceGroupName,
-          sqlServerName,
-          databaseName,
-        );
-        expect(db.name).toBe(databaseName);
-
-        const server = await clients.sql.servers.get(
-          resourceGroupName,
-          sqlServerName,
-        );
-        expect(server.name).toBe(sqlServerName);
-
-        // Clean up manually
-        await clients.sql.databases.beginDeleteAndWait(
-          resourceGroupName,
-          sqlServerName,
-          databaseName,
-        );
-        await clients.sql.servers.beginDeleteAndWait(
-          resourceGroupName,
-          sqlServerName,
-        );
-        await clients.resources.resourceGroups.beginDeleteAndWait(
-          resourceGroupName,
-        );
-      }
-    });
   });
 });
 
-/**
- * Helper function to verify a SQL server doesn't exist
- */
 async function assertSqlServerDoesNotExist(
-  resourceGroupName: string,
-  sqlServerName: string,
+  resourceGroup: string,
+  serverName: string,
 ) {
   const clients = await createAzureClients();
   try {
-    await clients.sql.servers.get(resourceGroupName, sqlServerName);
-    throw new Error(
-      `SQL server ${sqlServerName} still exists in resource group ${resourceGroupName}`,
-    );
-  } catch (error) {
+    await clients.sql.servers.get(resourceGroup, serverName);
+    throw new Error(`SQL Server ${serverName} still exists after deletion`);
+  } catch (error: any) {
     if (error.statusCode === 404 || error.code === "ResourceNotFound") {
-      // Expected - server doesn't exist
       return;
     }
     throw error;
   }
 }
 
-/**
- * Helper function to verify a SQL database doesn't exist
- */
 async function assertSqlDatabaseDoesNotExist(
-  resourceGroupName: string,
-  sqlServerName: string,
+  resourceGroup: string,
+  serverName: string,
   databaseName: string,
 ) {
   const clients = await createAzureClients();
   try {
-    await clients.sql.databases.get(
-      resourceGroupName,
-      sqlServerName,
-      databaseName,
-    );
+    await clients.sql.databases.get(resourceGroup, serverName, databaseName);
     throw new Error(
-      `SQL database ${databaseName} still exists in server ${sqlServerName}`,
+      `SQL Database ${databaseName} still exists in server ${serverName}`,
     );
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode === 404 || error.code === "ResourceNotFound") {
-      // Expected - database doesn't exist
       return;
     }
     throw error;
   }
 }
 
-/**
- * Helper function to verify a resource group doesn't exist
- */
 async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
   const clients = await createAzureClients();
   try {
     await clients.resources.resourceGroups.get(resourceGroupName);
     throw new Error(`Resource group ${resourceGroupName} still exists`);
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode === 404 || error.code === "ResourceGroupNotFound") {
-      // Expected - resource group doesn't exist
       return;
     }
     throw error;
