@@ -28,7 +28,7 @@ describe("Azure Compute", () => {
       try {
         rg = await ResourceGroup("swa-create-rg", {
           name: resourceGroupName,
-          location: "eastus",
+          location: "eastus2", // Static Web Apps not available in eastus
         });
 
         staticWebApp = await StaticWebApp("swa-create", {
@@ -42,7 +42,7 @@ describe("Azure Compute", () => {
         });
 
         expect(staticWebApp.name).toBe(staticWebAppName);
-        expect(staticWebApp.location).toBe("eastus");
+        expect(staticWebApp.location).toBe("eastus2");
         expect(staticWebApp.resourceGroup).toBe(resourceGroupName);
         expect(staticWebApp.sku).toBe("Free");
         expect(staticWebApp.defaultHostname).toContain("azurestaticapps.net");
@@ -74,7 +74,7 @@ describe("Azure Compute", () => {
       try {
         rg = await ResourceGroup("swa-update-rg", {
           name: resourceGroupName,
-          location: "eastus",
+          location: "eastus2", // Static Web Apps not available in eastus
         });
 
         staticWebApp = await StaticWebApp("swa-update", {
@@ -125,7 +125,7 @@ describe("Azure Compute", () => {
       try {
         rg = await ResourceGroup("swa-settings-rg", {
           name: resourceGroupName,
-          location: "eastus",
+          location: "eastus2", // Static Web Apps not available in eastus
         });
 
         staticWebApp = await StaticWebApp("swa-with-settings", {
