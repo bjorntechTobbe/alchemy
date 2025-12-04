@@ -338,6 +338,9 @@ export const AppService = Resource(
     const os = props.os || "linux";
     const runtime = props.runtime || "node";
     const runtimeVersion = props.runtimeVersion || "20";
+    const sku = props.sku || "B1";
+    // AlwaysOn is only supported on Standard (S*) and Premium (P*) tiers
+    const supportsAlwaysOn = sku.startsWith("S") || sku.startsWith("P");
 
     if (this.scope.local) {
       return {
@@ -350,9 +353,9 @@ export const AppService = Resource(
         runtime,
         runtimeVersion,
         os,
-        sku: props.sku || "B1",
+        sku,
         httpsOnly: props.httpsOnly ?? true,
-        alwaysOn: props.alwaysOn ?? true,
+        alwaysOn: props.alwaysOn ?? supportsAlwaysOn,
         ftpsState: props.ftpsState || "Disabled",
         minTlsVersion: props.minTlsVersion || "1.2",
         type: "azure::AppService",
@@ -421,7 +424,7 @@ export const AppService = Resource(
         value,
       })),
       httpsOnly: props.httpsOnly ?? true,
-      alwaysOn: props.alwaysOn ?? props.sku !== "F1", // Always On not available on Free tier
+      alwaysOn: props.alwaysOn ?? supportsAlwaysOn, // AlwaysOn only on Standard/Premium
       ftpsState: props.ftpsState || "Disabled",
       minTlsVersion: props.minTlsVersion || "1.2",
       localMySqlEnabled: props.localMySqlEnabled ?? false,
@@ -517,9 +520,9 @@ export const AppService = Resource(
       runtime,
       runtimeVersion,
       os,
-      sku: props.sku || "B1",
+      sku,
       httpsOnly: props.httpsOnly ?? true,
-      alwaysOn: props.alwaysOn ?? props.sku !== "F1",
+      alwaysOn: props.alwaysOn ?? supportsAlwaysOn,
       ftpsState: props.ftpsState || "Disabled",
       minTlsVersion: props.minTlsVersion || "1.2",
       localMySqlEnabled: props.localMySqlEnabled ?? false,
