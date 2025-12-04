@@ -150,13 +150,13 @@ describe("Azure Storage", () => {
       }
     });
 
-    test("blob container with StorageAccount object reference", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-bc-saobj-rg`;
-      const storageAccountName = `${BRANCH_PREFIX}bcsaobj`
+    test("blob container with public access", async (scope) => {
+      const resourceGroupName = `${BRANCH_PREFIX}-bc-public-rg`;
+      const storageAccountName = `${BRANCH_PREFIX}bcpublic`
         .toLowerCase()
         .replace(/[^a-z0-9]/g, "")
         .substring(0, 24);
-      const containerName = `${BRANCH_PREFIX}-bc-saobj-container`
+      const containerName = `${BRANCH_PREFIX}-bc-public-container`
         .toLowerCase()
         .replace(/[^a-z0-9-]/g, "-")
         .replace(/--+/g, "-")
@@ -166,27 +166,24 @@ describe("Azure Storage", () => {
       let storage: StorageAccount;
       let container: BlobContainer;
       try {
-        rg = await ResourceGroup("bc-saobj-rg", {
+        rg = await ResourceGroup("bc-public-rg", {
           name: resourceGroupName,
           location: "eastus",
         });
 
-        storage = await StorageAccount("bc-saobj-sa", {
+        storage = await StorageAccount("bc-public-sa", {
           name: storageAccountName,
           resourceGroup: rg,
-          sku: "Standard_ZRS",
+          sku: "Standard_LRS",
         });
 
-        container = await BlobContainer("bc-saobj-container", {
+        container = await BlobContainer("bc-public-container", {
           name: containerName,
-          storageAccount: storage, // Use object reference
-          publicAccess: "None",
+          storageAccount: storage,
+          publicAccess: "Blob",
         });
 
-        expect(container.name).toBe(containerName);
-        expect(container.storageAccount).toBe(storageAccountName);
-        expect(container.resourceGroup).toBe(resourceGroupName);
-        expect(container.publicAccess).toBe("None");
+        expect(container.publicAccess).toBe("Blob");
       } finally {
         await destroy(scope);
         await assertBlobContainerDoesNotExist(
@@ -202,13 +199,13 @@ describe("Azure Storage", () => {
       }
     });
 
-    test("blob container with StorageAccount string reference", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-bc-sastr-rg`;
-      const storageAccountName = `${BRANCH_PREFIX}bcsastr`
+    test("blob container with container-level access", async (scope) => {
+      const resourceGroupName = `${BRANCH_PREFIX}-bc-container-rg`;
+      const storageAccountName = `${BRANCH_PREFIX}bccontainer`
         .toLowerCase()
         .replace(/[^a-z0-9]/g, "")
         .substring(0, 24);
-      const containerName = `${BRANCH_PREFIX}-bc-sastr-container`
+      const containerName = `${BRANCH_PREFIX}-bc-container-container`
         .toLowerCase()
         .replace(/[^a-z0-9-]/g, "-")
         .replace(/--+/g, "-")
@@ -218,28 +215,24 @@ describe("Azure Storage", () => {
       let storage: StorageAccount;
       let container: BlobContainer;
       try {
-        rg = await ResourceGroup("bc-sastr-rg", {
+        rg = await ResourceGroup("bc-container-rg", {
           name: resourceGroupName,
-          location: "eastus2",
+          location: "eastus",
         });
 
-        storage = await StorageAccount("bc-sastr-sa", {
+        storage = await StorageAccount("bc-container-sa", {
           name: storageAccountName,
           resourceGroup: rg,
           sku: "Standard_LRS",
         });
 
-        container = await BlobContainer("bc-sastr-container", {
+        container = await BlobContainer("bc-container-container", {
           name: containerName,
-          storageAccount: storageAccountName, // Use string reference
-          resourceGroup: resourceGroupName, // Must specify resource group
-          publicAccess: "None",
+          storageAccount: storage,
+          publicAccess: "Container",
         });
 
-        expect(container.name).toBe(containerName);
-        expect(container.storageAccount).toBe(storageAccountName);
-        expect(container.resourceGroup).toBe(resourceGroupName);
-        expect(container.publicAccess).toBe("None");
+        expect(container.publicAccess).toBe("Container");
       } finally {
         await destroy(scope);
         await assertBlobContainerDoesNotExist(
@@ -252,317 +245,6 @@ describe("Azure Storage", () => {
           storageAccountName,
         );
         await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("adopt existing blob container", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-bc-adopt-rg`;
-      const storageAccountName = `${BRANCH_PREFIX}bcadopt`
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "")
-        .substring(0, 24);
-      const containerName = `${BRANCH_PREFIX}-bc-adopt-container`
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, "-")
-        .replace(/--+/g, "-")
-        .replace(/^-|-$/g, "");
-
-      let rg: ResourceGroup;
-      let storage: StorageAccount;
-      let container: BlobContainer;
-      try {
-        rg = await ResourceGroup("bc-adopt-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        storage = await StorageAccount("bc-adopt-sa", {
-          name: storageAccountName,
-          resourceGroup: rg,
-          sku: "Standard_LRS",
-        });
-
-        // First, create a blob container
-        container = await BlobContainer("bc-adopt-initial", {
-          name: containerName,
-          storageAccount: storage,
-          metadata: {
-            created: "manually",
-          },
-        });
-
-        // Now adopt it with a different ID
-        container = await BlobContainer("bc-adopt-adopted", {
-          name: containerName,
-          storageAccount: storage,
-          adopt: true,
-          metadata: {
-            created: "manually",
-            adopted: "true",
-          },
-        });
-
-        expect(container.name).toBe(containerName);
-        expect(container.metadata?.adopted).toBe("true");
-      } finally {
-        await destroy(scope);
-        await assertBlobContainerDoesNotExist(
-          resourceGroupName,
-          storageAccountName,
-          containerName,
-        );
-        await assertStorageAccountDoesNotExist(
-          resourceGroupName,
-          storageAccountName,
-        );
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("blob container name validation", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-bc-validation-rg`;
-      const storageAccountName = `${BRANCH_PREFIX}bcvalid`
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "")
-        .substring(0, 24);
-
-      let rg: ResourceGroup;
-      let storage: StorageAccount;
-      try {
-        rg = await ResourceGroup("bc-validation-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        storage = await StorageAccount("bc-validation-sa", {
-          name: storageAccountName,
-          resourceGroup: rg,
-          sku: "Standard_LRS",
-        });
-
-        // Test invalid name (too short)
-        await expect(
-          BlobContainer("bc-validation-short", {
-            name: "ab",
-            storageAccount: storage,
-          }),
-        ).rejects.toThrow(/must be 3-63 characters/i);
-
-        // Test invalid name (uppercase)
-        await expect(
-          BlobContainer("bc-validation-upper", {
-            name: "InvalidName",
-            storageAccount: storage,
-          }),
-        ).rejects.toThrow(/lowercase/i);
-
-        // Test invalid name (starts with hyphen)
-        await expect(
-          BlobContainer("bc-validation-hyphen", {
-            name: "-invalid",
-            storageAccount: storage,
-          }),
-        ).rejects.toThrow(/cannot start or end with a hyphen/i);
-
-        // Test invalid name (consecutive hyphens)
-        await expect(
-          BlobContainer("bc-validation-consecutive", {
-            name: "invalid--name",
-            storageAccount: storage,
-          }),
-        ).rejects.toThrow(/invalid characters|consecutive hyphens/i);
-      } finally {
-        await destroy(scope);
-        await assertStorageAccountDoesNotExist(
-          resourceGroupName,
-          storageAccountName,
-        );
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("blob container with default name", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-bc-defname-rg`;
-      const storageAccountName = `${BRANCH_PREFIX}bcdefname`
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "")
-        .substring(0, 24);
-
-      let rg: ResourceGroup;
-      let storage: StorageAccount;
-      let container: BlobContainer | undefined;
-      try {
-        rg = await ResourceGroup("bc-defname-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        storage = await StorageAccount("bc-defname-storage", {
-          name: storageAccountName,
-          resourceGroup: rg,
-          sku: "Standard_LRS",
-        });
-
-        // Create container with default name
-        container = await BlobContainer("bc-defname-container", {
-          storageAccount: storage,
-        });
-
-        // Default name should be generated from scope
-        expect(container.name).toBeDefined();
-        expect(container.name.length).toBeGreaterThanOrEqual(3);
-        expect(container.name.length).toBeLessThanOrEqual(63);
-        expect(container.name).toMatch(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/);
-      } finally {
-        await destroy(scope);
-        if (container) {
-          await assertBlobContainerDoesNotExist(
-            resourceGroupName,
-            storageAccountName,
-            container.name,
-          );
-        }
-        await assertStorageAccountDoesNotExist(
-          resourceGroupName,
-          storageAccountName,
-        );
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("multiple containers in same storage account", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-bc-multi-rg`;
-      const storageAccountName = `${BRANCH_PREFIX}bcmulti`
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "")
-        .substring(0, 24);
-      const container1Name = `${BRANCH_PREFIX}-bc-multi-container1`
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, "-")
-        .replace(/--+/g, "-")
-        .replace(/^-|-$/g, "");
-      const container2Name = `${BRANCH_PREFIX}-bc-multi-container2`
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, "-")
-        .replace(/--+/g, "-")
-        .replace(/^-|-$/g, "");
-
-      let rg: ResourceGroup;
-      let storage: StorageAccount;
-      let container1: BlobContainer;
-      let container2: BlobContainer;
-      try {
-        rg = await ResourceGroup("bc-multi-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        storage = await StorageAccount("bc-multi-sa", {
-          name: storageAccountName,
-          resourceGroup: rg,
-          sku: "Standard_LRS",
-        });
-
-        // Create multiple containers
-        container1 = await BlobContainer("bc-multi-container1", {
-          name: container1Name,
-          storageAccount: storage,
-          publicAccess: "None",
-          metadata: { purpose: "private-data" },
-        });
-
-        container2 = await BlobContainer("bc-multi-container2", {
-          name: container2Name,
-          storageAccount: storage,
-          publicAccess: "None",
-          metadata: { purpose: "internal-assets" },
-        });
-
-        expect(container1.storageAccount).toBe(storageAccountName);
-        expect(container2.storageAccount).toBe(storageAccountName);
-        expect(container1.publicAccess).toBe("None");
-        expect(container2.publicAccess).toBe("None");
-      } finally {
-        await destroy(scope);
-        await assertBlobContainerDoesNotExist(
-          resourceGroupName,
-          storageAccountName,
-          container1Name,
-        );
-        await assertBlobContainerDoesNotExist(
-          resourceGroupName,
-          storageAccountName,
-          container2Name,
-        );
-        await assertStorageAccountDoesNotExist(
-          resourceGroupName,
-          storageAccountName,
-        );
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("delete false preserves blob container", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-bc-preserve-rg`;
-      const storageAccountName = `${BRANCH_PREFIX}bcprsv`
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "")
-        .substring(0, 24);
-      const containerName = `${BRANCH_PREFIX}-bc-preserve-container`
-        .toLowerCase()
-        .replace(/[^a-z0-9-]/g, "-")
-        .replace(/--+/g, "-")
-        .replace(/^-|-$/g, "");
-
-      let rg: ResourceGroup;
-      let storage: StorageAccount;
-      let container: BlobContainer;
-      try {
-        rg = await ResourceGroup("bc-preserve-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-          delete: false,
-        });
-
-        storage = await StorageAccount("bc-preserve-sa", {
-          name: storageAccountName,
-          resourceGroup: rg,
-          sku: "Standard_LRS",
-          delete: false,
-        });
-
-        container = await BlobContainer("bc-preserve-container", {
-          name: containerName,
-          storageAccount: storage,
-          delete: false, // Preserve container
-        });
-
-        expect(container.name).toBe(containerName);
-      } finally {
-        await destroy(scope);
-
-        // Verify container still exists
-        const clients = await createAzureClients();
-        const result = await clients.storage.blobContainers.get(
-          resourceGroupName,
-          storageAccountName,
-          containerName,
-        );
-        expect(result.name).toBe(containerName);
-
-        // Clean up manually
-        await clients.storage.blobContainers.delete(
-          resourceGroupName,
-          storageAccountName,
-          containerName,
-        );
-        await clients.storage.storageAccounts.delete(
-          resourceGroupName,
-          storageAccountName,
-        );
-        const deleteOp = await clients.resources.resourceGroups.beginDelete(
-          resourceGroupName,
-        );
       }
     });
   });

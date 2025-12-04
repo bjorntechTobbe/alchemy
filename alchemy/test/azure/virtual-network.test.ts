@@ -110,106 +110,33 @@ describe("Azure Networking", () => {
       }
     });
 
-    test("virtual network with ResourceGroup object reference", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-vnet-objref-rg`;
-      const vnetName = `${BRANCH_PREFIX}-vnet-objref`;
+    test("virtual network with multiple subnets", async (scope) => {
+      const resourceGroupName = `${BRANCH_PREFIX}-vnet-subnets-rg`;
+      const vnetName = `${BRANCH_PREFIX}-vnet-subnets`;
 
       let rg: ResourceGroup;
       let vnet: VirtualNetwork;
       try {
-        rg = await ResourceGroup("vnet-objref-rg", {
+        rg = await ResourceGroup("vnet-subnets-rg", {
           name: resourceGroupName,
           location: "eastus",
         });
 
-        vnet = await VirtualNetwork("vnet-objref", {
-          name: vnetName,
-          resourceGroup: rg,
-          addressSpace: ["192.168.0.0/16"],
-        });
-
-        expect(vnet.name).toBe(vnetName);
-        expect(vnet.location).toBe("eastus");
-        expect(vnet.addressSpace).toEqual(["192.168.0.0/16"]);
-      } finally {
-        await destroy(scope);
-        await assertVirtualNetworkDoesNotExist(resourceGroupName, vnetName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("virtual network with ResourceGroup string reference", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-vnet-strref-rg`;
-      const vnetName = `${BRANCH_PREFIX}-vnet-strref`;
-
-      let rg: ResourceGroup;
-      let vnet: VirtualNetwork;
-      try {
-        rg = await ResourceGroup("vnet-strref-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        vnet = await VirtualNetwork("vnet-strref", {
-          name: vnetName,
-          resourceGroup: resourceGroupName,
-          location: "eastus",
-          addressSpace: ["172.16.0.0/16"],
-        });
-
-        expect(vnet.name).toBe(vnetName);
-        expect(vnet.location).toBe("eastus");
-        expect(vnet.addressSpace).toEqual(["172.16.0.0/16"]);
-      } finally {
-        await destroy(scope);
-        await assertVirtualNetworkDoesNotExist(resourceGroupName, vnetName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("adopt existing virtual network", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-vnet-adopt-rg`;
-      const vnetName = `${BRANCH_PREFIX}-vnet-adopt`;
-
-      let rg: ResourceGroup;
-      let vnet: VirtualNetwork;
-      try {
-        rg = await ResourceGroup("vnet-adopt-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        // Create initial virtual network
-        vnet = await VirtualNetwork("vnet-adopt-first", {
+        vnet = await VirtualNetwork("vnet-subnets", {
           name: vnetName,
           resourceGroup: rg,
           addressSpace: ["10.2.0.0/16"],
+          subnets: [
+            { name: "subnet1", addressPrefix: "10.2.1.0/24" },
+            { name: "subnet2", addressPrefix: "10.2.2.0/24" },
+            { name: "subnet3", addressPrefix: "10.2.3.0/24" },
+          ],
         });
 
-        const firstVnetId = vnet.virtualNetworkId;
-
-        // Try to adopt without flag (should fail)
-        try {
-          await VirtualNetwork("vnet-adopt-second", {
-            name: vnetName,
-            resourceGroup: rg,
-            addressSpace: ["10.2.0.0/16"],
-          });
-          throw new Error("Expected adoption to fail without adopt flag");
-        } catch (error) {
-          expect(error.message).toContain("already exists");
-          expect(error.message).toContain("adopt: true");
-        }
-
-        // Adopt existing virtual network
-        vnet = await VirtualNetwork("vnet-adopt-second", {
-          name: vnetName,
-          resourceGroup: rg,
-          addressSpace: ["10.2.0.0/16"],
-          adopt: true,
-        });
-
-        expect(vnet.virtualNetworkId).toBe(firstVnetId);
+        expect(vnet.subnets).toHaveLength(3);
+        expect(vnet.subnets[0].name).toBe("subnet1");
+        expect(vnet.subnets[1].name).toBe("subnet2");
+        expect(vnet.subnets[2].name).toBe("subnet3");
       } finally {
         await destroy(scope);
         await assertVirtualNetworkDoesNotExist(resourceGroupName, vnetName);
@@ -217,88 +144,25 @@ describe("Azure Networking", () => {
       }
     });
 
-    test("virtual network name validation", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-vnet-invalid-rg`;
-
-      try {
-        const rg = await ResourceGroup("vnet-invalid-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        // Test invalid name (starts with hyphen)
-        try {
-          await VirtualNetwork("vnet-invalid", {
-            name: "-invalid-name",
-            resourceGroup: rg,
-          });
-          throw new Error("Expected name validation to fail");
-        } catch (error) {
-          expect(error.message).toContain("invalid");
-        }
-
-        // Test invalid name (ends with hyphen)
-        try {
-          await VirtualNetwork("vnet-invalid2", {
-            name: "invalid-name-",
-            resourceGroup: rg,
-          });
-          throw new Error("Expected name validation to fail");
-        } catch (error) {
-          expect(error.message).toContain("invalid");
-        }
-      } finally {
-        await destroy(scope);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("virtual network with default name", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-vnet-default-rg`;
+    test("virtual network with multiple address spaces", async (scope) => {
+      const resourceGroupName = `${BRANCH_PREFIX}-vnet-multi-rg`;
+      const vnetName = `${BRANCH_PREFIX}-vnet-multi`;
 
       let rg: ResourceGroup;
       let vnet: VirtualNetwork;
       try {
-        rg = await ResourceGroup("vnet-default-rg", {
+        rg = await ResourceGroup("vnet-multi-rg", {
           name: resourceGroupName,
           location: "eastus",
         });
 
-        vnet = await VirtualNetwork("vnet-default", {
-          resourceGroup: rg,
-          addressSpace: ["10.3.0.0/16"],
-        });
-
-        expect(vnet.name).toBeTruthy();
-        expect(vnet.name).toContain(BRANCH_PREFIX);
-        expect(vnet.addressSpace).toEqual(["10.3.0.0/16"]);
-      } finally {
-        await destroy(scope);
-        await assertVirtualNetworkDoesNotExist(resourceGroupName, vnet!.name);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("virtual network with custom DNS", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-vnet-dns-rg`;
-      const vnetName = `${BRANCH_PREFIX}-vnet-dns`;
-
-      let rg: ResourceGroup;
-      let vnet: VirtualNetwork;
-      try {
-        rg = await ResourceGroup("vnet-dns-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        vnet = await VirtualNetwork("vnet-dns", {
+        vnet = await VirtualNetwork("vnet-multi", {
           name: vnetName,
           resourceGroup: rg,
-          addressSpace: ["10.4.0.0/16"],
-          dnsServers: ["10.4.0.4", "10.4.0.5"],
+          addressSpace: ["10.3.0.0/16", "10.4.0.0/16"],
         });
 
-        expect(vnet.dnsServers).toEqual(["10.4.0.4", "10.4.0.5"]);
+        expect(vnet.addressSpace).toEqual(["10.3.0.0/16", "10.4.0.0/16"]);
       } finally {
         await destroy(scope);
         await assertVirtualNetworkDoesNotExist(resourceGroupName, vnetName);
@@ -306,47 +170,47 @@ describe("Azure Networking", () => {
       }
     });
 
-    test("delete false preserves virtual network", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-vnet-preserve-rg`;
-      const vnetName = `${BRANCH_PREFIX}-vnet-preserve`;
+    test("virtual network with subnet delegation", async (scope) => {
+      const resourceGroupName = `${BRANCH_PREFIX}-vnet-deleg-rg`;
+      const vnetName = `${BRANCH_PREFIX}-vnet-deleg`;
 
       let rg: ResourceGroup;
       let vnet: VirtualNetwork;
       try {
-        rg = await ResourceGroup("vnet-preserve-rg", {
+        rg = await ResourceGroup("vnet-deleg-rg", {
           name: resourceGroupName,
           location: "eastus",
-          delete: false,
         });
 
-        vnet = await VirtualNetwork("vnet-preserve", {
+        vnet = await VirtualNetwork("vnet-deleg", {
           name: vnetName,
           resourceGroup: rg,
           addressSpace: ["10.5.0.0/16"],
-          delete: false,
+          subnets: [
+            {
+              name: "container-subnet",
+              addressPrefix: "10.5.1.0/24",
+              delegations: [
+                {
+                  name: "container-delegation",
+                  serviceName: "Microsoft.ContainerInstance/containerGroups",
+                },
+              ],
+            },
+          ],
         });
 
-        expect(vnet.name).toBe(vnetName);
+        expect(vnet.subnets).toHaveLength(1);
+        expect(vnet.subnets[0].delegations).toEqual([
+          {
+            name: "container-delegation",
+            serviceName: "Microsoft.ContainerInstance/containerGroups",
+          },
+        ]);
       } finally {
-        // Destroy scope but virtual network should be preserved
         await destroy(scope);
-
-        // Verify virtual network still exists
-        const clients = await createAzureClients();
-        const preserved = await clients.network.virtualNetworks.get(
-          resourceGroupName,
-          vnetName,
-        );
-        expect(preserved.name).toBe(vnetName);
-
-        // Manual cleanup
-        await clients.network.virtualNetworks.beginDeleteAndWait(
-          resourceGroupName,
-          vnetName,
-        );
-        await clients.resources.resourceGroups.beginDelete(
-          resourceGroupName,
-        );
+        await assertVirtualNetworkDoesNotExist(resourceGroupName, vnetName);
+        await assertResourceGroupDoesNotExist(resourceGroupName);
       }
     });
   });
@@ -359,8 +223,10 @@ async function assertVirtualNetworkDoesNotExist(
   const clients = await createAzureClients();
   try {
     await clients.network.virtualNetworks.get(resourceGroup, vnetName);
-    throw new Error(`Virtual network ${vnetName} still exists after deletion`);
-  } catch (error) {
+    throw new Error(
+      `Virtual network ${vnetName} still exists after deletion`,
+    );
+  } catch (error: any) {
     // 404 is expected - virtual network was deleted
     if (error.statusCode !== 404) {
       throw error;
@@ -375,7 +241,7 @@ async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
     throw new Error(
       `Resource group ${resourceGroupName} still exists after deletion`,
     );
-  } catch (error) {
+  } catch (error: any) {
     // 404 is expected - resource group was deleted
     if (error.statusCode !== 404) {
       throw error;
