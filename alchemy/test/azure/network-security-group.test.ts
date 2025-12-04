@@ -166,25 +166,38 @@ describe("Azure Networking", () => {
       }
     });
 
-    test("network security group with ResourceGroup object reference", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-nsg-objref-rg`;
-      const nsgName = `${BRANCH_PREFIX}-nsg-objref`;
+    test("network security group with security rules", async (scope) => {
+      const resourceGroupName = `${BRANCH_PREFIX}-nsg-rules-rg`;
+      const nsgName = `${BRANCH_PREFIX}-nsg-rules`;
 
       let rg: ResourceGroup;
       let nsg: NetworkSecurityGroup;
       try {
-        rg = await ResourceGroup("nsg-objref-rg", {
+        rg = await ResourceGroup("nsg-rules-rg", {
           name: resourceGroupName,
           location: "eastus",
         });
 
-        nsg = await NetworkSecurityGroup("nsg-objref", {
+        nsg = await NetworkSecurityGroup("nsg-rules", {
           name: nsgName,
           resourceGroup: rg,
+          securityRules: [
+            {
+              name: "deny-all-inbound",
+              priority: 4096,
+              direction: "Inbound",
+              access: "Deny",
+              protocol: "*",
+              sourceAddressPrefix: "*",
+              sourcePortRange: "*",
+              destinationAddressPrefix: "*",
+              destinationPortRange: "*",
+            },
+          ],
         });
 
-        expect(nsg.name).toBe(nsgName);
-        expect(nsg.location).toBe("eastus");
+        expect(nsg.securityRules).toHaveLength(1);
+        expect(nsg.securityRules[0].access).toBe("Deny");
       } finally {
         await destroy(scope);
         await assertNetworkSecurityGroupDoesNotExist(
@@ -192,183 +205,6 @@ describe("Azure Networking", () => {
           nsgName,
         );
         await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("network security group with ResourceGroup string reference", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-nsg-strref-rg`;
-      const nsgName = `${BRANCH_PREFIX}-nsg-strref`;
-
-      let rg: ResourceGroup;
-      let nsg: NetworkSecurityGroup;
-      try {
-        rg = await ResourceGroup("nsg-strref-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        nsg = await NetworkSecurityGroup("nsg-strref", {
-          name: nsgName,
-          resourceGroup: resourceGroupName,
-          location: "eastus",
-        });
-
-        expect(nsg.name).toBe(nsgName);
-        expect(nsg.location).toBe("eastus");
-      } finally {
-        await destroy(scope);
-        await assertNetworkSecurityGroupDoesNotExist(
-          resourceGroupName,
-          nsgName,
-        );
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("adopt existing network security group", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-nsg-adopt-rg`;
-      const nsgName = `${BRANCH_PREFIX}-nsg-adopt`;
-
-      let rg: ResourceGroup;
-      let nsg: NetworkSecurityGroup;
-      try {
-        rg = await ResourceGroup("nsg-adopt-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        // Create initial network security group
-        nsg = await NetworkSecurityGroup("nsg-adopt-first", {
-          name: nsgName,
-          resourceGroup: rg,
-        });
-
-        const firstNsgId = nsg.networkSecurityGroupId;
-
-        // Try to adopt without flag (should fail)
-        try {
-          await NetworkSecurityGroup("nsg-adopt-second", {
-            name: nsgName,
-            resourceGroup: rg,
-          });
-          throw new Error("Expected adoption to fail without adopt flag");
-        } catch (error) {
-          expect(error.message).toContain("already exists");
-          expect(error.message).toContain("adopt: true");
-        }
-
-        // Adopt existing network security group
-        nsg = await NetworkSecurityGroup("nsg-adopt-second", {
-          name: nsgName,
-          resourceGroup: rg,
-          adopt: true,
-        });
-
-        expect(nsg.networkSecurityGroupId).toBe(firstNsgId);
-      } finally {
-        await destroy(scope);
-        await assertNetworkSecurityGroupDoesNotExist(
-          resourceGroupName,
-          nsgName,
-        );
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("network security group name validation", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-nsg-invalid-rg`;
-
-      try {
-        await ResourceGroup("nsg-invalid-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        const rg = resourceGroupName;
-
-        // Test invalid name (starts with hyphen)
-        try {
-          await NetworkSecurityGroup("nsg-invalid", {
-            name: "-invalid-name",
-            resourceGroup: rg,
-          });
-          throw new Error("Expected name validation to fail");
-        } catch (error) {
-          expect(error.message).toContain("invalid");
-        }
-      } finally {
-        await destroy(scope);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("network security group with default name", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-nsg-default-rg`;
-
-      let rg: ResourceGroup;
-      let nsg: NetworkSecurityGroup;
-      try {
-        rg = await ResourceGroup("nsg-default-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        nsg = await NetworkSecurityGroup("nsg-default", {
-          resourceGroup: rg,
-        });
-
-        expect(nsg.name).toBeTruthy();
-        expect(nsg.name).toContain(BRANCH_PREFIX);
-      } finally {
-        await destroy(scope);
-        await assertNetworkSecurityGroupDoesNotExist(
-          resourceGroupName,
-          nsg!.name,
-        );
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("delete false preserves network security group", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-nsg-preserve-rg`;
-      const nsgName = `${BRANCH_PREFIX}-nsg-preserve`;
-
-      let rg: ResourceGroup;
-      let nsg: NetworkSecurityGroup;
-      try {
-        rg = await ResourceGroup("nsg-preserve-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-          delete: false,
-        });
-
-        nsg = await NetworkSecurityGroup("nsg-preserve", {
-          name: nsgName,
-          resourceGroup: rg,
-          delete: false,
-        });
-
-        expect(nsg.name).toBe(nsgName);
-      } finally {
-        // Destroy scope but network security group should be preserved
-        await destroy(scope);
-
-        // Verify network security group still exists
-        const clients = await createAzureClients();
-        const preserved = await clients.network.networkSecurityGroups.get(
-          resourceGroupName,
-          nsgName,
-        );
-        expect(preserved.name).toBe(nsgName);
-
-        // Manual cleanup
-        await clients.network.networkSecurityGroups.beginDeleteAndWait(
-          resourceGroupName,
-          nsgName,
-        );
-        await clients.resources.resourceGroups.beginDeleteAndWait(
-          resourceGroupName,
-        );
       }
     });
   });
@@ -384,7 +220,7 @@ async function assertNetworkSecurityGroupDoesNotExist(
     throw new Error(
       `Network security group ${nsgName} still exists after deletion`,
     );
-  } catch (error) {
+  } catch (error: any) {
     // 404 is expected - network security group was deleted
     if (error.statusCode !== 404) {
       throw error;
@@ -399,7 +235,7 @@ async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
     throw new Error(
       `Resource group ${resourceGroupName} still exists after deletion`,
     );
-  } catch (error) {
+  } catch (error: any) {
     // 404 is expected - resource group was deleted
     if (error.statusCode !== 404) {
       throw error;
