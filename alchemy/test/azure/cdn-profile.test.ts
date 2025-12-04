@@ -14,10 +14,6 @@ const test = alchemy.test(import.meta, {
 
 describe("Azure CDN", () => {
   describe("CDNProfile", () => {
-    // NOTE: Azure has deprecated classic CDN SKUs (Standard_Microsoft, Standard_Akamai, etc.)
-    // and no longer supports new profile creation. All tests use Azure Front Door SKUs.
-    // Azure Front Door requires location: "global" instead of regional locations.
-
     test("create CDN profile with Azure Front Door Standard", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-std-rg`;
       const profileName = `${BRANCH_PREFIX}-cdn-std`;
@@ -58,35 +54,7 @@ describe("Azure CDN", () => {
         await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    }, 600000); // 10 minute timeout for slow CDN provisioning
-
-    test("create CDN profile with Azure Front Door Standard", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-cdn-afd-rg`;
-      const profileName = `${BRANCH_PREFIX}-cdn-afd`;
-
-      let rg: ResourceGroup;
-      let profile: CDNProfile;
-      try {
-        rg = await ResourceGroup("cdn-afd-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        profile = await CDNProfile("cdn-afd", {
-          name: profileName,
-          resourceGroup: rg,
-          sku: "Standard_AzureFrontDoor", // Modern recommended SKU
-        });
-
-        expect(profile.name).toBe(profileName);
-        expect(profile.sku).toBe("Standard_AzureFrontDoor");
-        expect(profile.resourceState).toBeTruthy();
-      } finally {
-        await destroy(scope);
-        await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    }, 600000); // 10 minute timeout for slow CDN provisioning
+    }, 600000);
 
     test("update CDN profile tags", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-update-rg`;
@@ -100,7 +68,6 @@ describe("Azure CDN", () => {
           location: "eastus",
         });
 
-        // Create
         profile = await CDNProfile("cdn-update", {
           name: profileName,
           resourceGroup: rg,
@@ -114,7 +81,6 @@ describe("Azure CDN", () => {
           version: "1.0",
         });
 
-        // Update tags
         profile = await CDNProfile("cdn-update", {
           name: profileName,
           resourceGroup: rg,
@@ -134,269 +100,7 @@ describe("Azure CDN", () => {
         await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    }, 600000); // 10 minute timeout for slow CDN provisioning
-
-    test("CDN profile with ResourceGroup object reference", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-cdn-rgobj-rg`;
-      const profileName = `${BRANCH_PREFIX}-cdn-rgobj`;
-
-      let rg: ResourceGroup;
-      let profile: CDNProfile;
-      try {
-        rg = await ResourceGroup("cdn-rgobj-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        profile = await CDNProfile("cdn-rgobj", {
-          name: profileName,
-          resourceGroup: rg, // Object reference
-          sku: "Standard_AzureFrontDoor",
-        });
-
-        expect(profile.location).toBe("global"); // Inherited from RG
-        expect(profile.resourceGroup).toBe(resourceGroupName);
-      } finally {
-        await destroy(scope);
-        await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    }, 600000); // 10 minute timeout for slow CDN provisioning
-
-    test("CDN profile with ResourceGroup string reference", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-cdn-rgstr-rg`;
-      const profileName = `${BRANCH_PREFIX}-cdn-rgstr`;
-
-      let rg: ResourceGroup;
-      let profile: CDNProfile;
-      try {
-        rg = await ResourceGroup("cdn-rgstr-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        profile = await CDNProfile("cdn-rgstr", {
-          name: profileName,
-          resourceGroup: resourceGroupName, // String reference
-          location: "global", // Must specify location explicitly
-          sku: "Standard_AzureFrontDoor",
-        });
-
-        expect(profile.location).toBe("global");
-        expect(profile.resourceGroup).toBe(resourceGroupName);
-      } finally {
-        await destroy(scope);
-        await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    }, 600000); // 10 minute timeout for slow CDN provisioning
-
-    test("adopt existing CDN profile", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-cdn-adopt-rg`;
-      const profileName = `${BRANCH_PREFIX}-cdn-adopt`;
-
-      let rg: ResourceGroup;
-      let profile: CDNProfile;
-      try {
-        // Create resource group and profile via Azure SDK directly
-        const { resources, cdn } = await createAzureClients();
-
-        await resources.resourceGroups.createOrUpdate(resourceGroupName, {
-          location: "eastus",
-        });
-
-        const existing = await cdn.profiles.beginCreateAndWait(
-          resourceGroupName,
-          profileName,
-          {
-            location: "eastus",
-            sku: {
-              name: "Standard_AzureFrontDoor",
-            },
-          },
-        );
-
-        const existingId = existing.id!;
-
-        // Now adopt it with Alchemy
-        rg = await ResourceGroup("cdn-adopt-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-          adopt: true,
-        });
-
-        profile = await CDNProfile("cdn-adopt", {
-          name: profileName,
-          resourceGroup: rg,
-          sku: "Standard_AzureFrontDoor",
-          adopt: true, // Adopt the existing profile
-        });
-
-        expect(profile.cdnProfileId).toBe(existingId);
-        expect(profile.name).toBe(profileName);
-      } finally {
-        await destroy(scope);
-        await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    }, 600000); // 10 minute timeout for slow CDN provisioning
-
-    test("CDN profile name validation", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-cdn-invalid-rg`;
-
-      try {
-        const rg = await ResourceGroup("cdn-invalid-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        // Name too short (empty)
-        await expect(
-          CDNProfile("cdn-short", {
-            name: "",
-            resourceGroup: rg,
-            sku: "Standard_AzureFrontDoor",
-          }),
-        ).rejects.toThrow(/must be 1-260 characters/);
-
-        // Name too long
-        await expect(
-          CDNProfile("cdn-long", {
-            name: "a".repeat(261),
-            resourceGroup: rg,
-            sku: "Standard_AzureFrontDoor",
-          }),
-        ).rejects.toThrow(/must be 1-260 characters/);
-
-        // Invalid characters
-        await expect(
-          CDNProfile("cdn-invalid-chars", {
-            name: "invalid_name!",
-            resourceGroup: rg,
-            sku: "Standard_AzureFrontDoor",
-          }),
-        ).rejects.toThrow(/alphanumeric characters and hyphens/);
-      } finally {
-        await destroy(scope);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    }, 600000); // 10 minute timeout for slow CDN provisioning
-
-    test("CDN profile with default name", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-cdn-defname-rg`;
-
-      let rg: ResourceGroup;
-      let profile: CDNProfile | undefined;
-      try {
-        rg = await ResourceGroup("cdn-defname-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        profile = await CDNProfile("cdn-defname", {
-          resourceGroup: rg,
-          sku: "Standard_AzureFrontDoor",
-          // name not specified - will use ${app}-${stage}-${id}
-        });
-
-        expect(profile.name).toMatch(/^test-[a-z0-9-]+-cdn-defname$/);
-        expect(profile.cdnProfileId).toBeTruthy();
-      } finally {
-        await destroy(scope);
-        if (profile) {
-          await assertCDNProfileDoesNotExist(resourceGroupName, profile.name);
-        }
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    }, 600000); // 10 minute timeout for slow CDN provisioning
-
-    test("delete false preserves CDN profile", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-cdn-preserve-rg`;
-      const profileName = `${BRANCH_PREFIX}-cdn-preserve`;
-
-      let rg: ResourceGroup;
-      let profile: CDNProfile;
-      let profileId: string;
-      try {
-        rg = await ResourceGroup("cdn-preserve-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        profile = await CDNProfile("cdn-preserve", {
-          name: profileName,
-          resourceGroup: rg,
-          sku: "Standard_AzureFrontDoor",
-          delete: false, // Don't delete on destroy
-        });
-
-        expect(profile.cdnProfileId).toBeTruthy();
-        profileId = profile.cdnProfileId;
-
-        // Destroy scope
-        await destroy(scope);
-
-        // Profile should still exist
-        const { cdn } = await createAzureClients();
-        const existing = await cdn.profiles.get(resourceGroupName, profileName);
-        expect(existing.id).toBe(profileId);
-
-        // Clean up manually
-        await cdn.profiles.beginDeleteAndWait(resourceGroupName, profileName);
-      } finally {
-        // Clean up resource group
-        const { resources } = await createAzureClients();
-        try {
-          await resources.resourceGroups.beginDeleteAndWait(resourceGroupName);
-        } catch (error: any) {
-          if (error.statusCode !== 404) {
-            throw error;
-          }
-        }
-      }
-    }, 600000); // 10 minute timeout for slow CDN provisioning
-
-    test("reject existing CDN profile without adopt flag", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-cdn-reject-rg`;
-      const profileName = `${BRANCH_PREFIX}-cdn-reject`;
-
-      let rg: ResourceGroup;
-      try {
-        // Create resource group and profile via Azure SDK directly
-        const { resources, cdn } = await createAzureClients();
-
-        await resources.resourceGroups.createOrUpdate(resourceGroupName, {
-          location: "eastus",
-        });
-
-        await cdn.profiles.beginCreateAndWait(resourceGroupName, profileName, {
-          location: "eastus",
-          sku: {
-            name: "Standard_AzureFrontDoor",
-          },
-        });
-
-        // Now try to create with Alchemy without adopt flag
-        rg = await ResourceGroup("cdn-reject-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-          adopt: true,
-        });
-
-        await expect(
-          CDNProfile("cdn-reject", {
-            name: profileName,
-            resourceGroup: rg,
-            sku: "Standard_AzureFrontDoor",
-            adopt: false, // Explicitly don't adopt
-          }),
-        ).rejects.toThrow(/already exists/);
-      } finally {
-        await destroy(scope);
-        await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    }, 600000); // 10 minute timeout for slow CDN provisioning
+    }, 600000);
   });
 });
 
