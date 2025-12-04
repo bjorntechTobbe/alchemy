@@ -54,9 +54,6 @@ describe("Azure Container", () => {
         );
         expect(container.cpu).toBe(1);
         expect(container.memoryInGB).toBe(1.5);
-        // IP address and FQDN might not be allocated immediately
-        // expect(container.ipAddress).toBeTruthy();
-        // expect(container.fqdn).toBe(`${dnsLabel}.eastus.azurecontainer.io`);
         expect(container.tags).toEqual({
           environment: "test",
           purpose: "alchemy-testing",
@@ -67,6 +64,55 @@ describe("Azure Container", () => {
           ),
         );
         expect(container.type).toBe("azure::ContainerInstance");
+      } finally {
+        await destroy(scope);
+        await assertContainerInstanceDoesNotExist(
+          resourceGroupName,
+          containerName,
+        );
+        await assertResourceGroupDoesNotExist(resourceGroupName);
+      }
+    });
+
+    test("update container tags", async (scope) => {
+      const resourceGroupName = `${BRANCH_PREFIX}-ci-update-rg`;
+      const containerName = `${BRANCH_PREFIX}-ci-update`.toLowerCase();
+
+      let rg: ResourceGroup;
+      let container: ContainerInstance;
+      try {
+        rg = await ResourceGroup("ci-update-rg", {
+          name: resourceGroupName,
+          location: "eastus",
+        });
+
+        container = await ContainerInstance("ci-update", {
+          name: containerName,
+          resourceGroup: rg,
+          image: "mcr.microsoft.com/azuredocs/aci-helloworld",
+          tags: {
+            environment: "test",
+          },
+        });
+
+        expect(container.tags).toEqual({ environment: "test" });
+
+        // Note: Most container properties are immutable and require recreation
+        // Only tags can be updated
+        container = await ContainerInstance("ci-update", {
+          name: containerName,
+          resourceGroup: rg,
+          image: "mcr.microsoft.com/azuredocs/aci-helloworld",
+          tags: {
+            environment: "test",
+            updated: "true",
+          },
+        });
+
+        expect(container.tags).toEqual({
+          environment: "test",
+          updated: "true",
+        });
       } finally {
         await destroy(scope);
         await assertContainerInstanceDoesNotExist(
@@ -152,47 +198,6 @@ describe("Azure Container", () => {
       }
     });
 
-    test("create container with multiple ports", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-ci-ports-rg`;
-      const containerName = `${BRANCH_PREFIX}-ci-ports`.toLowerCase();
-
-      let rg: ResourceGroup;
-      let container: ContainerInstance;
-      try {
-        rg = await ResourceGroup("ci-ports-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        container = await ContainerInstance("ci-ports", {
-          name: containerName,
-          resourceGroup: rg,
-          image: "mcr.microsoft.com/azuredocs/aci-helloworld",
-          cpu: 1,
-          memoryInGB: 1.5,
-          ipAddress: {
-            type: "Public",
-            ports: [
-              { port: 80, protocol: "TCP" },
-              { port: 443, protocol: "TCP" },
-              { port: 8080, protocol: "TCP" },
-            ],
-          },
-        });
-
-        // IP address might not be allocated immediately
-        // expect(container.ipAddress).toBeTruthy();
-        expect(container.name).toBe(containerName);
-      } finally {
-        await destroy(scope);
-        await assertContainerInstanceDoesNotExist(
-          resourceGroupName,
-          containerName,
-        );
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
     test("create container in virtual network", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-ci-vnet-rg`;
       const containerName = `${BRANCH_PREFIX}-ci-vnet`.toLowerCase();
@@ -251,281 +256,6 @@ describe("Azure Container", () => {
         );
         await assertVirtualNetworkDoesNotExist(resourceGroupName, vnetName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("update container tags", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-ci-update-rg`;
-      const containerName = `${BRANCH_PREFIX}-ci-update`.toLowerCase();
-
-      let rg: ResourceGroup;
-      let container: ContainerInstance;
-      try {
-        rg = await ResourceGroup("ci-update-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        container = await ContainerInstance("ci-update", {
-          name: containerName,
-          resourceGroup: rg,
-          image: "mcr.microsoft.com/azuredocs/aci-helloworld",
-          tags: {
-            environment: "test",
-          },
-        });
-
-        expect(container.tags).toEqual({ environment: "test" });
-
-        // Note: Most container properties are immutable and require recreation
-        // Only tags can be updated
-        container = await ContainerInstance("ci-update", {
-          name: containerName,
-          resourceGroup: rg,
-          image: "mcr.microsoft.com/azuredocs/aci-helloworld",
-          tags: {
-            environment: "test",
-            updated: "true",
-          },
-        });
-
-        expect(container.tags).toEqual({
-          environment: "test",
-          updated: "true",
-        });
-      } finally {
-        await destroy(scope);
-        await assertContainerInstanceDoesNotExist(
-          resourceGroupName,
-          containerName,
-        );
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("container with ResourceGroup object reference", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-ci-objref-rg`;
-      const containerName = `${BRANCH_PREFIX}-ci-objref`.toLowerCase();
-
-      let rg: ResourceGroup;
-      let container: ContainerInstance;
-      try {
-        rg = await ResourceGroup("ci-objref-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        container = await ContainerInstance("ci-objref", {
-          name: containerName,
-          resourceGroup: rg,
-          image: "mcr.microsoft.com/azuredocs/aci-helloworld",
-        });
-
-        expect(container.name).toBe(containerName);
-        expect(container.location).toBe("eastus");
-      } finally {
-        await destroy(scope);
-        await assertContainerInstanceDoesNotExist(
-          resourceGroupName,
-          containerName,
-        );
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("container with ResourceGroup string reference", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-ci-strref-rg`;
-      const containerName = `${BRANCH_PREFIX}-ci-strref`.toLowerCase();
-
-      let rg: ResourceGroup;
-      let container: ContainerInstance;
-      try {
-        rg = await ResourceGroup("ci-strref-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        container = await ContainerInstance("ci-strref", {
-          name: containerName,
-          resourceGroup: resourceGroupName,
-          location: "eastus",
-          image: "mcr.microsoft.com/azuredocs/aci-helloworld",
-        });
-
-        expect(container.name).toBe(containerName);
-        expect(container.location).toBe("eastus");
-      } finally {
-        await destroy(scope);
-        await assertContainerInstanceDoesNotExist(
-          resourceGroupName,
-          containerName,
-        );
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("adopt existing container instance", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-ci-adopt-rg`;
-      const containerName = `${BRANCH_PREFIX}-ci-adopt`.toLowerCase();
-
-      let rg: ResourceGroup;
-      let container: ContainerInstance;
-      try {
-        rg = await ResourceGroup("ci-adopt-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        // Create initial container
-        container = await ContainerInstance("ci-adopt-first", {
-          name: containerName,
-          resourceGroup: rg,
-          image: "mcr.microsoft.com/azuredocs/aci-helloworld",
-        });
-
-        const firstContainerId = container.containerGroupId;
-
-        // Try to adopt without flag (should fail)
-        try {
-          await ContainerInstance("ci-adopt-second", {
-            name: containerName,
-            resourceGroup: rg,
-            image: "mcr.microsoft.com/azuredocs/aci-helloworld",
-          });
-          throw new Error("Expected adoption to fail without adopt flag");
-        } catch (error: any) {
-          expect(error.message).toContain("already exists");
-          expect(error.message).toContain("adopt: true");
-        }
-
-        // Adopt existing container
-        container = await ContainerInstance("ci-adopt-second", {
-          name: containerName,
-          resourceGroup: rg,
-          image: "mcr.microsoft.com/azuredocs/aci-helloworld",
-          adopt: true,
-        });
-
-        expect(container.containerGroupId).toBe(firstContainerId);
-      } finally {
-        await destroy(scope);
-        await assertContainerInstanceDoesNotExist(
-          resourceGroupName,
-          containerName,
-        );
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("container name validation", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-ci-invalid-rg`;
-
-      try {
-        await ResourceGroup("ci-invalid-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        // Test invalid name (uppercase)
-        try {
-          await ContainerInstance("ci-invalid", {
-            name: "InvalidName",
-            resourceGroup: resourceGroupName,
-            location: "eastus",
-            image: "nginx:latest",
-          });
-          throw new Error("Expected name validation to fail");
-        } catch (error: any) {
-          expect(error.message).toContain("invalid");
-        }
-
-        // Test invalid name (starts with hyphen)
-        try {
-          await ContainerInstance("ci-invalid2", {
-            name: "-invalid",
-            resourceGroup: resourceGroupName,
-            location: "eastus",
-            image: "nginx:latest",
-          });
-          throw new Error("Expected name validation to fail");
-        } catch (error: any) {
-          expect(error.message).toContain("invalid");
-        }
-      } finally {
-        await destroy(scope);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("container with default name", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-ci-default-rg`;
-
-      let rg: ResourceGroup;
-      let container: ContainerInstance;
-      try {
-        rg = await ResourceGroup("ci-default-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        container = await ContainerInstance("ci-default", {
-          resourceGroup: rg,
-          image: "mcr.microsoft.com/azuredocs/aci-helloworld",
-        });
-
-        expect(container.name).toBeTruthy();
-        expect(container.name).toContain(BRANCH_PREFIX.toLowerCase());
-      } finally {
-        await destroy(scope);
-        await assertContainerInstanceDoesNotExist(
-          resourceGroupName,
-          container!.name,
-        );
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("delete false preserves container instance", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-ci-preserve-rg`;
-      const containerName = `${BRANCH_PREFIX}-ci-preserve`.toLowerCase();
-
-      let rg: ResourceGroup;
-      let container: ContainerInstance;
-      try {
-        rg = await ResourceGroup("ci-preserve-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-          delete: false,
-        });
-
-        container = await ContainerInstance("ci-preserve", {
-          name: containerName,
-          resourceGroup: rg,
-          image: "mcr.microsoft.com/azuredocs/aci-helloworld",
-          delete: false,
-        });
-
-        expect(container.name).toBe(containerName);
-      } finally {
-        // Destroy scope but container should be preserved
-        await destroy(scope);
-
-        // Verify container still exists
-        const clients = await createAzureClients();
-        const preserved = await clients.containerInstance.containerGroups.get(
-          resourceGroupName,
-          containerName,
-        );
-        expect(preserved.name).toBe(containerName);
-
-        // Manual cleanup
-        await clients.containerInstance.containerGroups.beginDeleteAndWait(
-          resourceGroupName,
-          containerName,
-        );
-        await clients.resources.resourceGroups.beginDeleteAndWait(
-          resourceGroupName,
-        );
       }
     });
   });

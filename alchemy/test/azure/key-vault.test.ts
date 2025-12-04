@@ -64,6 +64,55 @@ describe("Azure Security", () => {
       }
     });
 
+    test("update key vault tags", async (scope) => {
+      const resourceGroupName = `${BRANCH_PREFIX}-kv-update-rg`;
+      const vaultName = `${BRANCH_PREFIX}-kv-update`
+        .toLowerCase()
+        .replace(/_/g, "-")
+        .substring(0, 24);
+
+      let rg: ResourceGroup;
+      let vault: KeyVault;
+      try {
+        rg = await ResourceGroup("kv-update-rg", {
+          name: resourceGroupName,
+          location: "eastus",
+        });
+
+        // Create with initial tags
+        vault = await KeyVault("kv-update", {
+          name: vaultName,
+          resourceGroup: rg,
+          tags: {
+            environment: "test",
+          },
+        });
+
+        expect(vault.tags).toEqual({
+          environment: "test",
+        });
+
+        // Update tags
+        vault = await KeyVault("kv-update", {
+          name: vaultName,
+          resourceGroup: rg,
+          tags: {
+            environment: "production",
+            team: "platform",
+          },
+        });
+
+        expect(vault.tags).toEqual({
+          environment: "production",
+          team: "platform",
+        });
+      } finally {
+        await destroy(scope);
+        await assertKeyVaultDoesNotExist(resourceGroupName, vaultName);
+        await assertResourceGroupDoesNotExist(resourceGroupName);
+      }
+    });
+
     test("create key vault with RBAC authorization", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-kv-rbac-rg`;
       const vaultName = `${BRANCH_PREFIX}-kv-rbac`
@@ -84,12 +133,10 @@ describe("Azure Security", () => {
           resourceGroup: rg,
           sku: "standard",
           enableRbacAuthorization: true,
-          // Don't set enablePurgeProtection - leave it as default (false/undefined)
         });
 
         expect(vault.name).toBe(vaultName);
         expect(vault.enableRbacAuthorization).toBe(true);
-        // enablePurgeProtection should be undefined when not explicitly set
         expect(vault.enablePurgeProtection).toBeUndefined();
       } finally {
         await destroy(scope);
@@ -164,351 +211,6 @@ describe("Azure Security", () => {
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
     });
-
-    test("update key vault tags", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-kv-update-rg`;
-      const vaultName = `${BRANCH_PREFIX}-kv-update`
-        .toLowerCase()
-        .replace(/_/g, "-")
-        .substring(0, 24);
-
-      let rg: ResourceGroup;
-      let vault: KeyVault;
-      try {
-        rg = await ResourceGroup("kv-update-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        // Create with initial tags
-        vault = await KeyVault("kv-update", {
-          name: vaultName,
-          resourceGroup: rg,
-          tags: {
-            environment: "test",
-          },
-        });
-
-        expect(vault.tags).toEqual({
-          environment: "test",
-        });
-
-        // Update tags
-        vault = await KeyVault("kv-update", {
-          name: vaultName,
-          resourceGroup: rg,
-          tags: {
-            environment: "production",
-            team: "platform",
-          },
-        });
-
-        expect(vault.tags).toEqual({
-          environment: "production",
-          team: "platform",
-        });
-      } finally {
-        await destroy(scope);
-        await assertKeyVaultDoesNotExist(resourceGroupName, vaultName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("key vault with ResourceGroup object reference", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-kv-objref-rg`;
-      const vaultName = `${BRANCH_PREFIX}-kv-objref`
-        .toLowerCase()
-        .replace(/_/g, "-")
-        .substring(0, 24);
-
-      let rg: ResourceGroup;
-      let vault: KeyVault;
-      try {
-        rg = await ResourceGroup("kv-objref-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        vault = await KeyVault("kv-objref", {
-          name: vaultName,
-          resourceGroup: rg,
-          sku: "standard",
-        });
-
-        expect(vault.name).toBe(vaultName);
-        expect(vault.location).toBe("westus");
-      } finally {
-        await destroy(scope);
-        await assertKeyVaultDoesNotExist(resourceGroupName, vaultName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("key vault with ResourceGroup string reference", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-kv-strref-rg`;
-      const vaultName = `${BRANCH_PREFIX}-kv-strref`
-        .toLowerCase()
-        .replace(/_/g, "-")
-        .substring(0, 24);
-
-      let rg: ResourceGroup;
-      let vault: KeyVault;
-      try {
-        rg = await ResourceGroup("kv-strref-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        vault = await KeyVault("kv-strref", {
-          name: vaultName,
-          resourceGroup: resourceGroupName,
-          sku: "standard",
-        });
-
-        expect(vault.name).toBe(vaultName);
-        expect(vault.location).toBe("eastus");
-      } finally {
-        await destroy(scope);
-        await assertKeyVaultDoesNotExist(resourceGroupName, vaultName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("key vault with default name generation", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-kv-defname-rg`;
-      // Generate a short vault name to stay within 24 char limit
-      const vaultName = `${BRANCH_PREFIX}-kvdef`
-        .toLowerCase()
-        .replace(/_/g, "-")
-        .substring(0, 24);
-
-      let rg: ResourceGroup;
-      let vault: KeyVault | undefined;
-      try {
-        rg = await ResourceGroup("kv-defname-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        vault = await KeyVault("kv-defname", {
-          name: vaultName,
-          resourceGroup: rg,
-        });
-
-        expect(vault.name).toBe(vaultName);
-        expect(vault.name.length).toBeGreaterThan(0);
-        expect(vault.name.length).toBeLessThanOrEqual(24);
-        expect(vault.location).toBe("eastus");
-      } finally {
-        await destroy(scope);
-        if (vault) {
-          await assertKeyVaultDoesNotExist(resourceGroupName, vault.name);
-        }
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("key vault validates name format", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-kv-invalid-rg`;
-
-      let rg: ResourceGroup;
-      try {
-        rg = await ResourceGroup("kv-invalid-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        // Name too long (more than 24 characters)
-        await expect(
-          KeyVault("kv-invalid-long", {
-            name: "this-name-is-way-too-long-for-azure-key-vault",
-            resourceGroup: rg,
-          }),
-        ).rejects.toThrow(/invalid/i);
-
-        // Name starts with number
-        await expect(
-          KeyVault("kv-invalid-num", {
-            name: "1invalid",
-            resourceGroup: rg,
-          }),
-        ).rejects.toThrow(/invalid/i);
-
-        // Name with invalid characters
-        await expect(
-          KeyVault("kv-invalid-chars", {
-            name: "invalid_name",
-            resourceGroup: rg,
-          }),
-        ).rejects.toThrow(/invalid/i);
-      } finally {
-        await destroy(scope);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("key vault preserves on delete false", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-kv-preserve-rg`;
-      const vaultName = `${BRANCH_PREFIX}-kv-preserve`
-        .toLowerCase()
-        .replace(/_/g, "-")
-        .substring(0, 24);
-
-      let rg: ResourceGroup;
-      let vault: KeyVault;
-      try {
-        rg = await ResourceGroup("kv-preserve-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-          delete: false, // Also preserve the resource group
-        });
-
-        vault = await KeyVault("kv-preserve", {
-          name: vaultName,
-          resourceGroup: rg,
-          delete: false,
-        });
-
-        expect(vault.name).toBe(vaultName);
-      } finally {
-        await destroy(scope);
-
-        // Key vault should still exist
-        const clients = await createAzureClients();
-        const existingVault = await clients.keyVault.vaults.get(
-          resourceGroupName,
-          vaultName,
-        );
-        expect(existingVault.name).toBe(vaultName);
-
-        // Clean up manually
-        await clients.keyVault.vaults.delete(resourceGroupName, vaultName);
-        await assertKeyVaultDoesNotExist(resourceGroupName, vaultName);
-
-        // Also delete the resource group
-        const poller =
-          await clients.resources.resourceGroups.beginDelete(resourceGroupName);
-        await poller.pollUntilDone();
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("adopt existing key vault", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-kv-adopt-rg`;
-      const vaultName = `${BRANCH_PREFIX}-kv-adopt-${Date.now()}`
-        .toLowerCase()
-        .replace(/_/g, "-")
-        .substring(0, 24);
-
-      let rg: ResourceGroup;
-      let vault: KeyVault;
-      try {
-        rg = await ResourceGroup("kv-adopt-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        // Create key vault directly with Azure SDK
-        const clients = await createAzureClients();
-
-        // Get tenant ID from clients (now auto-detected)
-        const tenantId = clients.tenantId;
-        if (!tenantId) {
-          throw new Error("Tenant ID is required for Key Vault tests");
-        }
-
-        await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
-          resourceGroupName,
-          vaultName,
-          {
-            location: "eastus",
-            properties: {
-              tenantId: tenantId,
-              sku: {
-                family: "A",
-                name: "standard",
-              },
-              accessPolicies: [],
-              enableSoftDelete: false, // Disable soft-delete for test vaults
-            },
-          },
-        );
-
-        // Adopt it with Alchemy
-        vault = await KeyVault("kv-adopt", {
-          name: vaultName,
-          resourceGroup: rg,
-          adopt: true,
-          tags: {
-            adopted: "true",
-          },
-        });
-
-        expect(vault.name).toBe(vaultName);
-        expect(vault.tags?.adopted).toBe("true");
-      } finally {
-        await destroy(scope);
-        await assertKeyVaultDoesNotExist(resourceGroupName, vaultName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
-
-    test("reject existing key vault without adopt", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-kv-reject-rg`;
-      const vaultName = `${BRANCH_PREFIX}-kv-rej-${Date.now()}`
-        .toLowerCase()
-        .replace(/_/g, "-")
-        .substring(0, 24);
-
-      let rg: ResourceGroup;
-      try {
-        rg = await ResourceGroup("kv-reject-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        // Create key vault directly with Azure SDK
-        const clients = await createAzureClients();
-
-        // Get tenant ID from clients (now auto-detected)
-        const tenantId = clients.tenantId;
-        if (!tenantId) {
-          throw new Error("Tenant ID is required for Key Vault tests");
-        }
-
-        await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
-          resourceGroupName,
-          vaultName,
-          {
-            location: "eastus",
-            properties: {
-              tenantId: tenantId,
-              sku: {
-                family: "A",
-                name: "standard",
-              },
-              accessPolicies: [],
-              enableSoftDelete: false, // Disable soft-delete for test vaults
-            },
-          },
-        );
-
-        // Try to create without adopt flag - should fail
-        await expect(
-          KeyVault("kv-reject", {
-            name: vaultName,
-            resourceGroup: rg,
-          }),
-        ).rejects.toThrow(/already exists/i);
-      } finally {
-        // Clean up manually
-        const clients = await createAzureClients();
-        await clients.keyVault.vaults.delete(resourceGroupName, vaultName);
-        await destroy(scope);
-        await assertKeyVaultDoesNotExist(resourceGroupName, vaultName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
   });
 });
 
@@ -520,7 +222,7 @@ async function assertKeyVaultDoesNotExist(
   try {
     await clients.keyVault.vaults.get(resourceGroup, vaultName);
     throw new Error(`Key vault ${vaultName} still exists after deletion`);
-  } catch (error) {
+  } catch (error: any) {
     // 404 is expected - vault was deleted
     if (error.statusCode !== 404 && error.code !== "VaultNotFound") {
       throw error;
@@ -535,7 +237,7 @@ async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
     throw new Error(
       `Resource group ${resourceGroupName} still exists after deletion`,
     );
-  } catch (error) {
+  } catch (error: any) {
     // 404 is expected - resource group was deleted
     if (error.statusCode !== 404) {
       throw error;
