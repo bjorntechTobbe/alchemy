@@ -17,6 +17,31 @@ export interface Subnet {
    * @example "10.0.1.0/24"
    */
   addressPrefix: string;
+
+  /**
+   * Subnet delegations to Azure services
+   * Allows specific Azure services to create service-specific resources in the subnet
+   * @example
+   * ```typescript
+   * delegations: [{
+   *   name: "container-delegation",
+   *   serviceName: "Microsoft.ContainerInstance/containerGroups"
+   * }]
+   * ```
+   */
+  delegations?: Array<{
+    /**
+     * Name of the delegation
+     */
+    name: string;
+    /**
+     * Service name to delegate to
+     * @example "Microsoft.ContainerInstance/containerGroups"
+     * @example "Microsoft.Web/serverFarms"
+     * @example "Microsoft.Sql/managedInstances"
+     */
+    serviceName: string;
+  }>;
 }
 
 export interface VirtualNetworkProps extends AzureClientProps {
@@ -312,6 +337,10 @@ export const VirtualNetwork = Resource(
       subnets: subnets.map((subnet) => ({
         name: subnet.name,
         addressPrefix: subnet.addressPrefix,
+        delegations: subnet.delegations?.map((delegation) => ({
+          name: delegation.name,
+          serviceName: delegation.serviceName,
+        })),
       })),
     };
 
@@ -368,6 +397,10 @@ export const VirtualNetwork = Resource(
         result.subnets?.map((subnet) => ({
           name: subnet.name!,
           addressPrefix: subnet.addressPrefix || "",
+          delegations: subnet.delegations?.map((delegation) => ({
+            name: delegation.name!,
+            serviceName: delegation.serviceName!,
+          })),
         })) || [],
       resourceGroup: props.resourceGroup,
       dnsServers: result.dhcpOptions?.dnsServers,
