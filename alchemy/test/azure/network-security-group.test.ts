@@ -175,7 +175,7 @@ describe("Azure Networking", () => {
       try {
         rg = await ResourceGroup("nsg-objref-rg", {
           name: resourceGroupName,
-          location: "westus",
+          location: "eastus",
         });
 
         nsg = await NetworkSecurityGroup("nsg-objref", {
@@ -184,7 +184,7 @@ describe("Azure Networking", () => {
         });
 
         expect(nsg.name).toBe(nsgName);
-        expect(nsg.location).toBe("westus");
+        expect(nsg.location).toBe("eastus");
       } finally {
         await destroy(scope);
         await assertNetworkSecurityGroupDoesNotExist(
@@ -339,6 +339,7 @@ describe("Azure Networking", () => {
         rg = await ResourceGroup("nsg-preserve-rg", {
           name: resourceGroupName,
           location: "eastus",
+          delete: false,
         });
 
         nsg = await NetworkSecurityGroup("nsg-preserve", {

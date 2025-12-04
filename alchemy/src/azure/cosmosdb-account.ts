@@ -307,17 +307,6 @@ export const CosmosDBAccount = Resource(
         .replace(/[^a-z0-9-]/g, "")
         .slice(0, 44);
 
-    if (name.length < 3 || name.length > 44) {
-      throw new Error(
-        `Cosmos DB account name "${name}" must be 3-44 characters long`,
-      );
-    }
-    if (!/^[a-z0-9-]+$/.test(name)) {
-      throw new Error(
-        `Cosmos DB account name "${name}" must contain only lowercase letters, numbers, and hyphens`,
-      );
-    }
-
     if (this.scope.local) {
       return {
         id,
@@ -379,6 +368,18 @@ export const CosmosDBAccount = Resource(
         }
       }
       return this.destroy();
+    }
+
+    // Validate name format
+    if (name.length < 3 || name.length > 44) {
+      throw new Error(
+        `Cosmos DB account name "${name}" must be 3-44 characters long`,
+      );
+    }
+    if (!/^[a-z0-9-]+$/.test(name)) {
+      throw new Error(
+        `Cosmos DB account name "${name}" must contain only lowercase letters, numbers, and hyphens`,
+      );
     }
 
     // Get resource group name and location
@@ -478,39 +479,35 @@ export const CosmosDBAccount = Resource(
           accountParams,
         );
     } else {
+      // Check if resource already exists (for adoption scenario)
+      let existing: DatabaseAccountGetResults | undefined;
       try {
-        result =
-          await clients.cosmosDB.databaseAccounts.beginCreateOrUpdateAndWait(
-            resourceGroupName,
-            name,
-            accountParams,
-          );
-      } catch (error: unknown) {
-        if (isConflictError(error)) {
-          if (!adopt) {
-            throw new Error(
-              `Cosmos DB account "${name}" already exists. Use adopt: true to adopt it.`,
-              { cause: error },
-            );
-          }
-
-          // Fetch existing account
-          result = await clients.cosmosDB.databaseAccounts.get(
-            resourceGroupName,
-            name,
-          );
-
-          // Update it with new configuration
-          result =
-            await clients.cosmosDB.databaseAccounts.beginCreateOrUpdateAndWait(
-              resourceGroupName,
-              name,
-              accountParams,
-            );
-        } else {
+        existing = await clients.cosmosDB.databaseAccounts.get(
+          resourceGroupName,
+          name,
+        );
+      } catch (error) {
+        if (!isNotFoundError(error)) {
           throw error;
         }
+        // Resource doesn't exist, continue with creation
       }
+
+      if (existing) {
+        if (!adopt) {
+          throw new Error(
+            `Cosmos DB account "${name}" already exists in resource group "${resourceGroupName}". Use adopt: true to adopt it.`,
+          );
+        }
+        // Adopt existing resource by updating it
+      }
+
+      result =
+        await clients.cosmosDB.databaseAccounts.beginCreateOrUpdateAndWait(
+          resourceGroupName,
+          name,
+          accountParams,
+        );
     }
 
     const keys = await clients.cosmosDB.databaseAccounts.listKeys(

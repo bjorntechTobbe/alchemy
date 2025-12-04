@@ -316,22 +316,6 @@ export const AppService = Resource(
         .toLowerCase()
         .replace(/[^a-z0-9-]/g, "");
 
-    if (name.length < 2 || name.length > 60) {
-      throw new Error(
-        `App service name "${name}" must be between 2 and 60 characters`,
-      );
-    }
-    if (!/^[a-z0-9-]+$/.test(name)) {
-      throw new Error(
-        `App service name "${name}" must contain only lowercase letters, numbers, and hyphens`,
-      );
-    }
-    if (name.startsWith("-") || name.endsWith("-")) {
-      throw new Error(
-        `App service name "${name}" cannot start or end with a hyphen`,
-      );
-    }
-
     const resourceGroupName =
       typeof props.resourceGroup === "string"
         ? props.resourceGroup
@@ -396,6 +380,23 @@ export const AppService = Resource(
       return this.destroy();
     }
 
+    // Validate name format
+    if (name.length < 2 || name.length > 60) {
+      throw new Error(
+        `App service name "${name}" must be between 2 and 60 characters`,
+      );
+    }
+    if (!/^[a-z0-9-]+$/.test(name)) {
+      throw new Error(
+        `App service name "${name}" must contain only lowercase letters, numbers, and hyphens`,
+      );
+    }
+    if (name.startsWith("-") || name.endsWith("-")) {
+      throw new Error(
+        `App service name "${name}" cannot start or end with a hyphen`,
+      );
+    }
+
     if (this.phase === "update" && this.output) {
       if (this.output.location !== location) {
         return this.replace();
@@ -428,19 +429,8 @@ export const AppService = Resource(
 
     if (os === "linux") {
       // Linux uses linuxFxVersion with specific format
-      if (runtime === "node") {
-        siteConfig.linuxFxVersion = `NODE|${runtimeVersion}-lts`;
-      } else if (runtime === "python") {
-        siteConfig.linuxFxVersion = `PYTHON|${runtimeVersion}`;
-      } else if (runtime === "dotnet") {
-        siteConfig.linuxFxVersion = `DOTNETCORE|${runtimeVersion}`;
-      } else if (runtime === "java") {
-        siteConfig.linuxFxVersion = `JAVA|${runtimeVersion}`;
-      } else if (runtime === "php") {
-        siteConfig.linuxFxVersion = `PHP|${runtimeVersion}`;
-      } else if (runtime === "ruby") {
-        siteConfig.linuxFxVersion = `RUBY|${runtimeVersion}`;
-      }
+      // Don't set linuxFxVersion - let Azure App Service use defaults based on the kind
+      // The runtime stack should be set via the 'kind' property instead
     } else {
       // Windows uses specific version properties
       if (runtime === "node") {
@@ -480,42 +470,33 @@ export const AppService = Resource(
 
     let result: Site;
 
-    try {
-      // Try to create the app service
-      result = await clients.appService.webApps.beginCreateOrUpdateAndWait(
-        resourceGroupName,
-        name,
-        siteEnvelope,
-      );
-    } catch (error: any) {
-      if (error?.code === "WebsiteAlreadyExists" || error?.statusCode === 409) {
+    if (!appServiceId) {
+      // Check if resource already exists (for adoption scenario)
+      let existing: Site | undefined;
+      try {
+        existing = await clients.appService.webApps.get(resourceGroupName, name);
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          throw error;
+        }
+        // Resource doesn't exist, continue with creation
+      }
+
+      if (existing) {
         if (!adopt) {
           throw new Error(
-            `App service "${name}" already exists. Use adopt: true to adopt it.`,
-            { cause: error },
+            `App service "${name}" already exists in resource group "${resourceGroupName}". Use adopt: true to adopt it.`,
           );
         }
-
-        try {
-          const existing = await clients.appService.webApps.get(
-            resourceGroupName,
-            name,
-          );
-          result = await clients.appService.webApps.beginCreateOrUpdateAndWait(
-            resourceGroupName,
-            name,
-            siteEnvelope,
-          );
-        } catch (getError) {
-          throw new Error(
-            `App service "${name}" failed to create due to name conflict and could not be found for adoption.`,
-            { cause: getError },
-          );
-        }
-      } else {
-        throw error;
+        // Adopt existing resource by updating it
       }
     }
+
+    result = await clients.appService.webApps.beginCreateOrUpdateAndWait(
+      resourceGroupName,
+      name,
+      siteEnvelope,
+    );
 
     // Construct output
     const defaultHostname =

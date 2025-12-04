@@ -80,7 +80,7 @@ describe("Azure Compute", () => {
       try {
         rg = await ResourceGroup("as-update-rg", {
           name: resourceGroupName,
-          location: "westus2",
+          location: "eastus",
         });
 
         // Create app service
@@ -477,6 +477,7 @@ describe("Azure Compute", () => {
         rg = await ResourceGroup("as-preserve-rg", {
           name: resourceGroupName,
           location: "eastus",
+          delete: false,
         });
 
         appService = await AppService("as-preserve", {
@@ -521,7 +522,7 @@ async function assertAppServiceDoesNotExist(
     throw new Error(
       `App service ${appServiceName} should not exist but was found`,
     );
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode !== 404) {
       throw error;
     }
@@ -560,7 +561,7 @@ async function assertUserAssignedIdentityDoesNotExist(
     throw new Error(
       `User-assigned identity ${identityName} should not exist but was found`,
     );
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode !== 404) {
       throw error;
     }

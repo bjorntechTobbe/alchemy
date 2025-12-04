@@ -58,7 +58,7 @@ describe("Azure CDN", () => {
         await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 600000); // 10 minute timeout for slow CDN provisioning
 
     test("create CDN profile with Azure Front Door Standard", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-afd-rg`;
@@ -86,7 +86,7 @@ describe("Azure CDN", () => {
         await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 600000); // 10 minute timeout for slow CDN provisioning
 
     test("update CDN profile tags", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-update-rg`;
@@ -134,7 +134,7 @@ describe("Azure CDN", () => {
         await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 600000); // 10 minute timeout for slow CDN provisioning
 
     test("CDN profile with ResourceGroup object reference", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-rgobj-rg`;
@@ -145,7 +145,7 @@ describe("Azure CDN", () => {
       try {
         rg = await ResourceGroup("cdn-rgobj-rg", {
           name: resourceGroupName,
-          location: "westus",
+          location: "eastus",
         });
 
         profile = await CDNProfile("cdn-rgobj", {
@@ -161,7 +161,7 @@ describe("Azure CDN", () => {
         await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 600000); // 10 minute timeout for slow CDN provisioning
 
     test("CDN profile with ResourceGroup string reference", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-rgstr-rg`;
@@ -189,7 +189,7 @@ describe("Azure CDN", () => {
         await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 600000); // 10 minute timeout for slow CDN provisioning
 
     test("adopt existing CDN profile", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-adopt-rg`;
@@ -239,7 +239,7 @@ describe("Azure CDN", () => {
         await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 600000); // 10 minute timeout for slow CDN provisioning
 
     test("CDN profile name validation", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-invalid-rg`;
@@ -280,7 +280,7 @@ describe("Azure CDN", () => {
         await destroy(scope);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 600000); // 10 minute timeout for slow CDN provisioning
 
     test("CDN profile with default name", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-defname-rg`;
@@ -308,7 +308,7 @@ describe("Azure CDN", () => {
         }
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 600000); // 10 minute timeout for slow CDN provisioning
 
     test("delete false preserves CDN profile", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-preserve-rg`;
@@ -348,13 +348,13 @@ describe("Azure CDN", () => {
         const { resources } = await createAzureClients();
         try {
           await resources.resourceGroups.beginDeleteAndWait(resourceGroupName);
-        } catch (error) {
+        } catch (error: any) {
           if (error.statusCode !== 404) {
             throw error;
           }
         }
       }
-    });
+    }, 600000); // 10 minute timeout for slow CDN provisioning
 
     test("reject existing CDN profile without adopt flag", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-reject-rg`;
@@ -396,7 +396,7 @@ describe("Azure CDN", () => {
         await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 600000); // 10 minute timeout for slow CDN provisioning
   });
 });
 
@@ -409,7 +409,7 @@ async function assertCDNProfileDoesNotExist(
   try {
     await cdn.profiles.get(resourceGroup, profileName);
     throw new Error(`CDN profile ${profileName} still exists after deletion`);
-  } catch (error) {
+  } catch (error: any) {
     expect(error.statusCode).toBe(404);
   }
 }
@@ -422,7 +422,7 @@ async function assertResourceGroupDoesNotExist(resourceGroup: string) {
     throw new Error(
       `Resource group ${resourceGroup} still exists after deletion`,
     );
-  } catch (error) {
+  } catch (error: any) {
     expect(error.statusCode).toBe(404);
   }
 }

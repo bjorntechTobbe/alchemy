@@ -566,33 +566,31 @@ export const KeyVault = Resource(
         createParams,
       );
     } else {
+      // Check if resource already exists (for adoption scenario)
+      let existing: AzureVault | undefined;
       try {
-        result = await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
-          resourceGroupName,
-          name,
-          createParams,
-        );
+        existing = await clients.keyVault.vaults.get(resourceGroupName, name);
       } catch (error) {
-        if (isConflictError(error)) {
-          if (!adopt) {
-            throw new Error(
-              `Key vault "${name}" already exists. Use adopt: true to adopt it.`,
-              { cause: error },
-            );
-          }
-
-          // Get existing key vault to verify it exists
-          await clients.keyVault.vaults.get(resourceGroupName, name);
-
-          result = await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
-            resourceGroupName,
-            name,
-            createParams,
-          );
-        } else {
+        if (!isNotFoundError(error)) {
           throw error;
         }
+        // Resource doesn't exist, continue with creation
       }
+
+      if (existing) {
+        if (!adopt) {
+          throw new Error(
+            `Key vault "${name}" already exists in resource group "${resourceGroupName}". Use adopt: true to adopt it.`,
+          );
+        }
+        // Adopt existing resource by updating it
+      }
+
+      result = await clients.keyVault.vaults.beginCreateOrUpdateAndWait(
+        resourceGroupName,
+        name,
+        createParams,
+      );
     }
 
     return {

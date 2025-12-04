@@ -189,7 +189,7 @@ describe("Azure Messaging", () => {
       try {
         const rg = await ResourceGroup("sb-objref-rg", {
           name: rgName,
-          location: "westus",
+          location: "eastus",
         });
 
         const bus = await ServiceBus("sb-objref", {
@@ -202,7 +202,7 @@ describe("Azure Messaging", () => {
           id: "sb-objref",
           name: serviceBusName,
           resourceGroup: rgName,
-          location: "westus", // Inherited from resource group
+          location: "eastus", // Inherited from resource group
         });
       } finally {
         await destroy(scope);

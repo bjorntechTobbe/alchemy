@@ -302,22 +302,6 @@ export const StaticWebApp = Resource(
         .toLowerCase()
         .replace(/[^a-z0-9-]/g, "");
 
-    if (name.length < 2 || name.length > 60) {
-      throw new Error(
-        `Static web app name "${name}" must be between 2 and 60 characters`,
-      );
-    }
-    if (!/^[a-z0-9-]+$/.test(name)) {
-      throw new Error(
-        `Static web app name "${name}" must contain only lowercase letters, numbers, and hyphens`,
-      );
-    }
-    if (name.startsWith("-") || name.endsWith("-")) {
-      throw new Error(
-        `Static web app name "${name}" cannot start or end with a hyphen`,
-      );
-    }
-
     const resourceGroupName =
       typeof props.resourceGroup === "string"
         ? props.resourceGroup
@@ -383,6 +367,23 @@ export const StaticWebApp = Resource(
       return this.destroy();
     }
 
+    // Validate name format
+    if (name.length < 2 || name.length > 60) {
+      throw new Error(
+        `Static web app name "${name}" must be between 2 and 60 characters`,
+      );
+    }
+    if (!/^[a-z0-9-]+$/.test(name)) {
+      throw new Error(
+        `Static web app name "${name}" must contain only lowercase letters, numbers, and hyphens`,
+      );
+    }
+    if (name.startsWith("-") || name.endsWith("-")) {
+      throw new Error(
+        `Static web app name "${name}" cannot start or end with a hyphen`,
+      );
+    }
+
     if (this.phase === "update" && this.output) {
       if (this.output.location !== location) {
         return this.replace();
@@ -442,44 +443,37 @@ export const StaticWebApp = Resource(
 
     let result: StaticSiteARMResource;
 
-    try {
-      // Try to create the static web app
-      result =
-        await clients.appService.staticSites.beginCreateOrUpdateStaticSiteAndWait(
+    if (!staticWebAppId) {
+      // Check if resource already exists (for adoption scenario)
+      let existing: StaticSiteARMResource | undefined;
+      try {
+        existing = await clients.appService.staticSites.getStaticSite(
           resourceGroupName,
           name,
-          staticSiteEnvelope,
         );
-    } catch (error: unknown) {
-      if (isConflictError(error)) {
+      } catch (error) {
+        if (!isNotFoundError(error)) {
+          throw error;
+        }
+        // Resource doesn't exist, continue with creation
+      }
+
+      if (existing) {
         if (!adopt) {
           throw new Error(
-            `Static web app "${name}" already exists. Use adopt: true to adopt it.`,
-            { cause: error },
+            `Static web app "${name}" already exists in resource group "${resourceGroupName}". Use adopt: true to adopt it.`,
           );
         }
-
-        try {
-          const existing = await clients.appService.staticSites.getStaticSite(
-            resourceGroupName,
-            name,
-          );
-          result =
-            await clients.appService.staticSites.beginCreateOrUpdateStaticSiteAndWait(
-              resourceGroupName,
-              name,
-              staticSiteEnvelope,
-            );
-        } catch (getError) {
-          throw new Error(
-            `Static web app "${name}" failed to create due to name conflict and could not be found for adoption.`,
-            { cause: getError },
-          );
-        }
-      } else {
-        throw error;
+        // Adopt existing resource by updating it
       }
     }
+
+    result =
+      await clients.appService.staticSites.beginCreateOrUpdateStaticSiteAndWait(
+        resourceGroupName,
+        name,
+        staticSiteEnvelope,
+      );
 
     // Update app settings if provided
     if (Object.keys(appSettings).length > 0) {
@@ -515,11 +509,14 @@ export const StaticWebApp = Resource(
     const defaultHostname =
       result.defaultHostname || `${name}.azurestaticapps.net`;
 
+    // Normalize location from display name (e.g., "East US 2") to internal format (e.g., "eastus2")
+    const normalizedLocation = result.location!.toLowerCase().replace(/\s+/g, "");
+
     return {
       id,
       name: result.name!,
       resourceGroup: resourceGroupName,
-      location: result.location!,
+      location: normalizedLocation,
       defaultHostname,
       url: `https://${defaultHostname}`,
       apiKey: Secret.wrap(apiKey),

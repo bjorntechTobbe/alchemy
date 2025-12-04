@@ -256,31 +256,6 @@ export const PublicIPAddress = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,78}[a-zA-Z0-9_]$/.test(name)) {
-      throw new Error(
-        `Public IP address name "${name}" is invalid. Must be 1-80 characters, start with letter or number, end with letter/number/underscore, and contain only letters, numbers, underscores, periods, and hyphens.`,
-      );
-    }
-
-    // Validate domain name label if provided
-    if (props.domainNameLabel) {
-      if (!/^[a-z][a-z0-9-]{1,61}[a-z0-9]$/.test(props.domainNameLabel)) {
-        throw new Error(
-          `Domain name label "${props.domainNameLabel}" is invalid. Must be 3-63 characters, lowercase, start with letter, end with letter or number, and contain only letters, numbers, and hyphens.`,
-        );
-      }
-    }
-
-    // Validate idle timeout
-    if (
-      props.idleTimeoutInMinutes &&
-      (props.idleTimeoutInMinutes < 4 || props.idleTimeoutInMinutes > 30)
-    ) {
-      throw new Error(
-        `Idle timeout must be between 4 and 30 minutes, got ${props.idleTimeoutInMinutes}`,
-      );
-    }
-
     if (this.scope.local) {
       return {
         id,
@@ -331,6 +306,34 @@ export const PublicIPAddress = Resource(
         }
       }
       return this.destroy();
+    }
+
+    // Validate name format
+    if (!/^[a-zA-Z0-9]([a-zA-Z0-9_\-\.]){0,78}[a-zA-Z0-9_]$/.test(name)) {
+      throw new Error(
+        `Public IP address name "${name}" is invalid. Must be 1-80 characters, start with letter or number, end with letter/number/underscore, and contain only letters, numbers, underscores, periods, and hyphens.`,
+      );
+    }
+
+    // Validate domain name label format if specified
+    if (props.domainNameLabel) {
+      if (
+        !/^[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?$/.test(props.domainNameLabel)
+      ) {
+        throw new Error(
+          `Domain name label "${props.domainNameLabel}" is invalid. Must be 3-63 characters, lowercase letters, numbers, and hyphens only.`,
+        );
+      }
+    }
+
+    // Validate idle timeout range
+    if (
+      props.idleTimeoutInMinutes !== undefined &&
+      (props.idleTimeoutInMinutes < 4 || props.idleTimeoutInMinutes > 30)
+    ) {
+      throw new Error(
+        `Idle timeout must be between 4 and 30 minutes. Got: ${props.idleTimeoutInMinutes}`,
+      );
     }
 
     if (this.phase === "update" && this.output) {
@@ -397,36 +400,35 @@ export const PublicIPAddress = Resource(
           requestBody,
         );
     } else {
+      // Check if resource already exists
+      let existing: AzurePublicIPAddress | undefined;
       try {
-        result =
-          await clients.network.publicIPAddresses.beginCreateOrUpdateAndWait(
-            resourceGroupName,
-            name,
-            requestBody,
-          );
+        existing = await clients.network.publicIPAddresses.get(
+          resourceGroupName,
+          name,
+        );
       } catch (error) {
-        if (isConflictError(error)) {
-          if (!adopt) {
-            throw new Error(
-              `Public IP address "${name}" already exists. Use adopt: true to adopt it.`,
-              { cause: error },
-            );
-          }
-
-          // Get existing public IP address to verify it exists
-          await clients.network.publicIPAddresses.get(resourceGroupName, name);
-
-          // Update with requested configuration
-          result =
-            await clients.network.publicIPAddresses.beginCreateOrUpdateAndWait(
-              resourceGroupName,
-              name,
-              requestBody,
-            );
-        } else {
+        if (!isNotFoundError(error)) {
           throw error;
         }
+        // Resource doesn't exist, continue with creation
       }
+
+      if (existing) {
+        if (!adopt) {
+          throw new Error(
+            `Public IP address "${name}" already exists in resource group "${resourceGroupName}". Use adopt: true to adopt it.`,
+          );
+        }
+        // Adopt existing resource by updating it
+      }
+
+      result =
+        await clients.network.publicIPAddresses.beginCreateOrUpdateAndWait(
+          resourceGroupName,
+          name,
+          requestBody,
+        );
     }
 
     return {

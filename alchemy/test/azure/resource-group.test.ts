@@ -54,7 +54,7 @@ describe("Azure Resources", () => {
         // Create resource group
         rg = await ResourceGroup("test-update-rg", {
           name: resourceGroupName,
-          location: "westus2",
+          location: "eastus",
           tags: {
             environment: "test",
           },
@@ -67,7 +67,7 @@ describe("Azure Resources", () => {
         // Update tags
         rg = await ResourceGroup("test-update-rg", {
           name: resourceGroupName,
-          location: "westus2",
+          location: "eastus",
           tags: {
             environment: "test",
             updated: "true",
@@ -96,7 +96,7 @@ describe("Azure Resources", () => {
         // First, create a resource group
         rg = await ResourceGroup("test-adopt-rg-initial", {
           name: resourceGroupName,
-          location: "centralus",
+          location: "eastus",
           tags: {
             created: "manually",
           },
@@ -107,7 +107,7 @@ describe("Azure Resources", () => {
         // Destroy the scope but keep the resource group (set delete: false)
         await ResourceGroup("test-adopt-rg-initial", {
           name: resourceGroupName,
-          location: "centralus",
+          location: "eastus",
           delete: false,
         });
         await destroy(scope);
@@ -126,7 +126,7 @@ describe("Azure Resources", () => {
 
         const adoptedRg = await ResourceGroup("test-adopt-rg-adopted", {
           name: resourceGroupName,
-          location: "centralus",
+          location: "eastus",
           adopt: true,
           tags: {
             created: "manually",
@@ -213,7 +213,7 @@ describe("Azure Resources", () => {
         // Create first resource group
         rg = await ResourceGroup("test-conflict-rg-1", {
           name: resourceGroupName,
-          location: "southcentralus",
+          location: "eastus",
         });
 
         expect(rg.name).toBe(resourceGroupName);
@@ -231,7 +231,7 @@ describe("Azure Resources", () => {
         // This will succeed in Azure but should be tracked as separate resource in state
         const rg2 = await ResourceGroup("test-conflict-rg-2", {
           name: resourceGroupName,
-          location: "southcentralus",
+          location: "eastus",
         });
 
         // Both resources point to the same Azure resource
@@ -267,7 +267,7 @@ describe("Azure Resources", () => {
         // Create resource group with delete: false
         await ResourceGroup("test-preserve-rg", {
           name: resourceGroupName,
-          location: "northcentralus",
+          location: "eastus",
           delete: false,
         });
 

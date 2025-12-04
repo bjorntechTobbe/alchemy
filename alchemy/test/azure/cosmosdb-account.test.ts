@@ -83,7 +83,7 @@ describe("Azure Databases", () => {
       try {
         rg = await ResourceGroup("cosmos-update-rg", {
           name: resourceGroupName,
-          location: "westus2",
+          location: "eastus",
         });
 
         // Create Cosmos DB account
@@ -137,7 +137,7 @@ describe("Azure Databases", () => {
       try {
         rg = await ResourceGroup("cosmos-rgobj-rg", {
           name: resourceGroupName,
-          location: "centralus",
+          location: "eastus",
         });
 
         cosmosDB = await CosmosDBAccount("cosmos-rgobj", {
@@ -148,7 +148,7 @@ describe("Azure Databases", () => {
 
         expect(cosmosDB.name).toBe(cosmosDBAccountName);
         expect(cosmosDB.resourceGroup).toBe(resourceGroupName);
-        expect(cosmosDB.location).toBe("centralus");
+        expect(cosmosDB.location).toBe("eastus");
       } finally {
         await destroy(scope);
         await assertCosmosDBAccountDoesNotExist(
@@ -171,13 +171,13 @@ describe("Azure Databases", () => {
       try {
         rg = await ResourceGroup("cosmos-rgstr-rg", {
           name: resourceGroupName,
-          location: "northeurope",
+          location: "eastus",
         });
 
         cosmosDB = await CosmosDBAccount("cosmos-rgstr", {
           name: cosmosDBAccountName,
           resourceGroup: resourceGroupName, // Use string reference
-          location: "northeurope",
+          location: "eastus",
         });
 
         expect(cosmosDB.name).toBe(cosmosDBAccountName);
@@ -253,7 +253,7 @@ describe("Azure Databases", () => {
       try {
         rg = await ResourceGroup("cosmos-validate-rg", {
           name: resourceGroupName,
-          location: "westus",
+          location: "eastus",
         });
 
         // Test name too short
@@ -295,7 +295,7 @@ describe("Azure Databases", () => {
       try {
         rg = await ResourceGroup("cosmos-default-rg", {
           name: resourceGroupName,
-          location: "southcentralus",
+          location: "eastus",
         });
 
         cosmosDB = await CosmosDBAccount("cosmos-default", {
@@ -362,7 +362,7 @@ describe("Azure Databases", () => {
       try {
         rg = await ResourceGroup("cosmos-serverless-rg", {
           name: resourceGroupName,
-          location: "westus",
+          location: "eastus",
         });
 
         cosmosDB = await CosmosDBAccount("cosmos-serverless", {
@@ -394,7 +394,8 @@ describe("Azure Databases", () => {
       try {
         rg = await ResourceGroup("cosmos-preserve-rg", {
           name: resourceGroupName,
-          location: "centralus",
+          location: "eastus",
+          delete: false,
         });
 
         cosmosDB = await CosmosDBAccount("cosmos-preserve", {
@@ -445,7 +446,7 @@ async function assertCosmosDBAccountDoesNotExist(
     throw new Error(
       `Cosmos DB account ${cosmosDBAccountName} still exists in resource group ${resourceGroupName}`,
     );
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode === 404 || error.code === "NotFound") {
       // Expected - account doesn't exist
       return;
@@ -462,7 +463,7 @@ async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
   try {
     await clients.resources.resourceGroups.get(resourceGroupName);
     throw new Error(`Resource group ${resourceGroupName} still exists`);
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode === 404 || error.code === "ResourceGroupNotFound") {
       // Expected - resource group doesn't exist
       return;

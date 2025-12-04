@@ -84,7 +84,7 @@ describe("Azure Storage", () => {
       try {
         rg = await ResourceGroup("sa-update-rg", {
           name: resourceGroupName,
-          location: "westus2",
+          location: "eastus",
         });
 
         // Create storage account
@@ -140,7 +140,7 @@ describe("Azure Storage", () => {
       try {
         rg = await ResourceGroup("sa-rgobj-rg", {
           name: resourceGroupName,
-          location: "centralus",
+          location: "eastus",
         });
 
         storage = await StorageAccount("sa-rgobj", {
@@ -210,7 +210,7 @@ describe("Azure Storage", () => {
       try {
         rg = await ResourceGroup("sa-adopt-rg", {
           name: resourceGroupName,
-          location: "westeurope",
+          location: "eastus",
         });
 
         // First, create a storage account
@@ -254,7 +254,7 @@ describe("Azure Storage", () => {
       try {
         rg = await ResourceGroup("sa-validation-rg", {
           name: resourceGroupName,
-          location: "northeurope",
+          location: "eastus",
         });
 
         // Test invalid name (too short)
@@ -297,7 +297,7 @@ describe("Azure Storage", () => {
       try {
         rg = await ResourceGroup("sa-defname-rg", {
           name: resourceGroupName,
-          location: "uksouth",
+          location: "eastus",
         });
 
         storage = await StorageAccount("sa-defname", {
@@ -334,7 +334,7 @@ describe("Azure Storage", () => {
       try {
         rg = await ResourceGroup("sa-grs-rg", {
           name: resourceGroupName,
-          location: "southcentralus",
+          location: "eastus",
         });
 
         storage = await StorageAccount("sa-grs", {
@@ -370,7 +370,7 @@ describe("Azure Storage", () => {
       try {
         rg = await ResourceGroup("sa-preserve-rg", {
           name: resourceGroupName,
-          location: "francecentral",
+          location: "eastus",
           delete: false, // Preserve resource group
         });
 

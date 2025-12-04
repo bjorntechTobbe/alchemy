@@ -206,12 +206,6 @@ export const UserAssignedIdentity = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    if (!/^[a-zA-Z0-9_-]{3,128}$/.test(name)) {
-      throw new Error(
-        `User-assigned identity name "${name}" is invalid. Must be 3-128 characters and contain only alphanumeric characters, hyphens, and underscores.`,
-      );
-    }
-
     const resourceGroupName =
       typeof props.resourceGroup === "string"
         ? props.resourceGroup
@@ -258,6 +252,13 @@ export const UserAssignedIdentity = Resource(
       return this.destroy();
     }
 
+    // Validate name format after delete phase
+    if (!/^[a-zA-Z0-9_-]{3,128}$/.test(name)) {
+      throw new Error(
+        `User-assigned identity name "${name}" is invalid. Must be 3-128 characters and contain only alphanumeric characters, hyphens, and underscores.`,
+      );
+    }
+
     let location = props.location;
     if (!location) {
       if (typeof props.resourceGroup === "object") {
@@ -283,6 +284,34 @@ export const UserAssignedIdentity = Resource(
 
     let result;
 
+    // Check if identity already exists (only when creating, not updating)
+    if (!identityId && this.phase !== "update") {
+      try {
+        const existing = await clients.msi.userAssignedIdentities.get(
+          resourceGroupName,
+          name,
+        );
+        
+        // Identity exists
+        if (existing && !adopt) {
+          throw new Error(
+            `User-assigned identity "${name}" already exists. Use adopt: true to adopt it.`,
+          );
+        }
+        // If adopt=true, we'll proceed to update it below
+      } catch (error: any) {
+        // If 404/NotFound, the identity doesn't exist - that's fine, we'll create it
+        if (error?.statusCode !== 404 && error?.code !== "ResourceNotFound") {
+          // Some other error occurred
+          throw new Error(
+            `Failed to check if user-assigned identity "${name}" exists: ${error?.message || error}`,
+            { cause: error },
+          );
+        }
+      }
+    }
+
+    // Create or update the identity
     try {
       result = await clients.msi.userAssignedIdentities.createOrUpdate(
         resourceGroupName,
@@ -290,35 +319,10 @@ export const UserAssignedIdentity = Resource(
         identityParams,
       );
     } catch (error: any) {
-      if (
-        error?.statusCode === 409 ||
-        error?.code === "ResourceAlreadyExists"
-      ) {
-        if (!adopt) {
-          throw new Error(
-            `User-assigned identity "${name}" already exists. Use adopt: true to adopt it.`,
-            { cause: error },
-          );
-        }
-
-        try {
-          result = await clients.msi.userAssignedIdentities.createOrUpdate(
-            resourceGroupName,
-            name,
-            identityParams,
-          );
-        } catch (adoptError: any) {
-          throw new Error(
-            `User-assigned identity "${name}" failed to create due to name conflict and could not be adopted: ${adoptError?.message || adoptError}`,
-            { cause: adoptError },
-          );
-        }
-      } else {
-        throw new Error(
-          `Failed to create user-assigned identity "${name}": ${error?.message || error}`,
-          { cause: error },
-        );
-      }
+      throw new Error(
+        `Failed to create user-assigned identity "${name}": ${error?.message || error}`,
+        { cause: error },
+      );
     }
 
     if (!result.name || !result.id) {

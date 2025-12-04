@@ -325,10 +325,15 @@ export const BlobContainer = Resource(
       );
     }
 
-    const containerParams: Record<string, unknown> = {
-      publicAccess: props.publicAccess || "None",
-      metadata: props.metadata,
-    };
+    // Build container params - only include publicAccess if explicitly set
+    // Some Azure subscriptions have policies that prevent public access
+    const containerParams: Record<string, unknown> = {};
+    if (props.publicAccess !== undefined) {
+      containerParams.publicAccess = props.publicAccess;
+    }
+    if (props.metadata) {
+      containerParams.metadata = props.metadata;
+    }
 
     let result;
 

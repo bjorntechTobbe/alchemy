@@ -228,12 +228,6 @@ export const VirtualNetwork = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}[a-zA-Z0-9_]$/.test(name)) {
-      throw new Error(
-        `Virtual network name "${name}" is invalid. Must be 2-64 characters, start with letter or number, end with letter/number/underscore, and contain only letters, numbers, underscores, periods, and hyphens.`,
-      );
-    }
-
     if (this.scope.local) {
       const addressSpace = props.addressSpace || ["10.0.0.0/16"];
       const defaultSubnet = addressSpace[0].replace(/\/\d+$/, "/24");
@@ -282,6 +276,13 @@ export const VirtualNetwork = Resource(
       return this.destroy();
     }
 
+    // Validate name format after delete phase
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,62}[a-zA-Z0-9_]$/.test(name)) {
+      throw new Error(
+        `Virtual network name "${name}" is invalid. Must be 2-64 characters, start with letter or number, end with letter/number/underscore, and contain only letters, numbers, underscores, periods, and hyphens.`,
+      );
+    }
+
     if (this.phase === "update" && this.output) {
       if (this.output.name !== name) {
         return this.replace(); // Name is immutable
@@ -323,44 +324,39 @@ export const VirtualNetwork = Resource(
 
     let result: AzureVirtualNetwork;
 
-    if (virtualNetworkId) {
-      result = await clients.network.virtualNetworks.beginCreateOrUpdateAndWait(
-        resourceGroupName,
-        name,
-        requestBody,
-      );
-    } else {
+    // Check if virtual network already exists (only when creating, not updating)
+    if (!virtualNetworkId && this.phase !== "update") {
       try {
-        result =
-          await clients.network.virtualNetworks.beginCreateOrUpdateAndWait(
-            resourceGroupName,
-            name,
-            requestBody,
+        const existing = await clients.network.virtualNetworks.get(
+          resourceGroupName,
+          name,
+        );
+        
+        // Virtual network exists
+        if (existing && !adopt) {
+          throw new Error(
+            `Virtual network "${name}" already exists. Use adopt: true to adopt it.`,
           );
-      } catch (error) {
-        if (isConflictError(error)) {
-          if (!adopt) {
-            throw new Error(
-              `Virtual network "${name}" already exists. Use adopt: true to adopt it.`,
-              { cause: error },
-            );
-          }
-
-          // Get existing virtual network to verify it exists
-          await clients.network.virtualNetworks.get(resourceGroupName, name);
-
-          // Update with requested configuration
-          result =
-            await clients.network.virtualNetworks.beginCreateOrUpdateAndWait(
-              resourceGroupName,
-              name,
-              requestBody,
-            );
-        } else {
-          throw error;
+        }
+        // If adopt=true, we'll proceed to update it below
+      } catch (error: any) {
+        // If 404/NotFound, the virtual network doesn't exist - that's fine, we'll create it
+        if (!isNotFoundError(error)) {
+          // Some other error occurred
+          throw new Error(
+            `Failed to check if virtual network "${name}" exists: ${error?.message || error}`,
+            { cause: error },
+          );
         }
       }
     }
+
+    // Create or update the virtual network
+    result = await clients.network.virtualNetworks.beginCreateOrUpdateAndWait(
+      resourceGroupName,
+      name,
+      requestBody,
+    );
 
     return {
       id,

@@ -326,12 +326,6 @@ export const NetworkSecurityGroup = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,78}[a-zA-Z0-9_]$/.test(name)) {
-      throw new Error(
-        `Network security group name "${name}" is invalid. Must be 1-80 characters, start with letter or number, end with letter/number/underscore, and contain only letters, numbers, underscores, periods, and hyphens.`,
-      );
-    }
-
     if (this.scope.local) {
       return {
         id,
@@ -374,6 +368,13 @@ export const NetworkSecurityGroup = Resource(
       return this.destroy();
     }
 
+    // Validate name format after delete phase
+    if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,78}[a-zA-Z0-9_]$/.test(name)) {
+      throw new Error(
+        `Network security group name "${name}" is invalid. Must be 1-80 characters, start with letter or number, end with letter/number/underscore, and contain only letters, numbers, underscores, periods, and hyphens.`,
+      );
+    }
+
     if (this.phase === "update" && this.output) {
       if (this.output.name !== name) {
         return this.replace(); // Name is immutable
@@ -386,109 +387,96 @@ export const NetworkSecurityGroup = Resource(
     const requestBody: any = {
       location,
       tags: props.tags,
-      properties: {
-        securityRules:
-          props.securityRules?.map((rule) => ({
-            name: rule.name,
-            properties: {
-              priority: rule.priority,
-              direction: rule.direction,
-              access: rule.access,
-              protocol: rule.protocol,
-              sourceAddressPrefix: rule.sourceAddressPrefix || "*",
-              sourcePortRange: rule.sourcePortRange || "*",
-              destinationAddressPrefix: rule.destinationAddressPrefix || "*",
-              destinationPortRange: rule.destinationPortRange || "*",
-              description: rule.description,
-            },
-          })) || [],
-      },
     };
 
     let result: AzureNetworkSecurityGroup;
 
-    if (networkSecurityGroupId) {
-      await clients.network.networkSecurityGroups.beginCreateOrUpdateAndWait(
-        resourceGroupName,
-        name,
-        requestBody,
-      );
-    } else {
+    // Check if NSG already exists (only when creating, not updating)
+    if (!networkSecurityGroupId && this.phase !== "update") {
       try {
-        await clients.network.networkSecurityGroups.beginCreateOrUpdateAndWait(
+        const existing = await clients.network.networkSecurityGroups.get(
           resourceGroupName,
           name,
-          requestBody,
         );
+        
+        // NSG exists
+        if (existing && !adopt) {
+          throw new Error(
+            `Network security group "${name}" already exists. Use adopt: true to adopt it.`,
+          );
+        }
+        // If adopt=true, we'll proceed to update it below
       } catch (error: any) {
-        if (isConflictError(error)) {
-          if (!adopt) {
-            throw new Error(
-              `Network security group "${name}" already exists. Use adopt: true to adopt it.`,
-              { cause: error },
-            );
-          }
-
-          // Get existing network security group to verify it exists
-          await clients.network.networkSecurityGroups.get(
-            resourceGroupName,
-            name,
+        // If 404/NotFound, the NSG doesn't exist - that's fine, we'll create it
+        if (!isNotFoundError(error)) {
+          // Some other error occurred
+          throw new Error(
+            `Failed to check if network security group "${name}" exists: ${error?.message || error}`,
+            { cause: error },
           );
-
-          // Update with requested configuration
-          await clients.network.networkSecurityGroups.beginCreateOrUpdateAndWait(
-            resourceGroupName,
-            name,
-            requestBody,
-          );
-        } else {
-          throw error;
         }
       }
     }
 
-    // Fetch the complete NSG with all properties populated
-    result = (await clients.network.networkSecurityGroups.get(
+    // Create or update the network security group (without security rules)
+    result = await clients.network.networkSecurityGroups.beginCreateOrUpdateAndWait(
       resourceGroupName,
       name,
-    )) as any;
+      requestBody,
+    );
+
+    // Add or update security rules separately
+    if (props.securityRules && props.securityRules.length > 0) {
+      for (const rule of props.securityRules) {
+        await clients.network.securityRules.beginCreateOrUpdateAndWait(
+          resourceGroupName,
+          name,
+          rule.name,
+          {
+            priority: rule.priority,
+            direction: rule.direction,
+            access: rule.access,
+            protocol: rule.protocol,
+            sourceAddressPrefix: rule.sourceAddressPrefix || "*",
+            sourcePortRange: rule.sourcePortRange || "*",
+            destinationAddressPrefix: rule.destinationAddressPrefix || "*",
+            destinationPortRange: rule.destinationPortRange || "*",
+            description: rule.description,
+          },
+        );
+      }
+      
+      // Fetch the updated NSG with security rules
+      result = await clients.network.networkSecurityGroups.get(
+        resourceGroupName,
+        name,
+      );
+    }
+
+    // Security rules are returned at the top level
+    const securityRulesRaw = result.securityRules || [];
 
     return {
       id,
       name: result.name!,
       networkSecurityGroupId: result.id!,
       location: result.location!,
-      securityRules:
-        (
-          result as { properties?: { securityRules?: Array<unknown> } }
-        ).properties?.securityRules?.map((rule: unknown) => {
-          const r = rule as {
-            name?: string;
-            properties?: {
-              priority?: number;
-              direction?: string;
-              access?: string;
-              protocol?: string;
-              sourceAddressPrefix?: string;
-              sourcePortRange?: string;
-              destinationAddressPrefix?: string;
-              destinationPortRange?: string;
-              description?: string;
-            };
-          };
-          return {
-            name: r.name!,
-            priority: r.properties?.priority!,
-            direction: r.properties?.direction as "Inbound" | "Outbound",
-            access: r.properties?.access as "Allow" | "Deny",
-            protocol: r.properties?.protocol as "*" | "Tcp" | "Udp" | "Icmp",
-            sourceAddressPrefix: r.properties?.sourceAddressPrefix,
-            sourcePortRange: r.properties?.sourcePortRange,
-            destinationAddressPrefix: r.properties?.destinationAddressPrefix,
-            destinationPortRange: r.properties?.destinationPortRange,
-            description: r.properties?.description,
-          };
-        }) || [],
+      securityRules: securityRulesRaw.map((rule: any) => {
+        // Rule properties might be at rule or rule.properties
+        const ruleProps = rule.properties || rule;
+        return {
+          name: rule.name!,
+          priority: ruleProps.priority!,
+          direction: ruleProps.direction as "Inbound" | "Outbound",
+          access: ruleProps.access as "Allow" | "Deny",
+          protocol: ruleProps.protocol as "*" | "Tcp" | "Udp" | "Icmp",
+          sourceAddressPrefix: ruleProps.sourceAddressPrefix,
+          sourcePortRange: ruleProps.sourcePortRange,
+          destinationAddressPrefix: ruleProps.destinationAddressPrefix,
+          destinationPortRange: ruleProps.destinationPortRange,
+          description: ruleProps.description,
+        };
+      }),
       resourceGroup: props.resourceGroup,
       tags: result.tags,
       type: "azure::NetworkSecurityGroup",

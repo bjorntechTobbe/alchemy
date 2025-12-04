@@ -226,7 +226,7 @@ describe("Azure Security", () => {
       try {
         rg = await ResourceGroup("kv-objref-rg", {
           name: resourceGroupName,
-          location: "westus",
+          location: "eastus",
         });
 
         vault = await KeyVault("kv-objref", {

@@ -48,7 +48,7 @@ describe("Azure Resources", () => {
         });
         expect(identity.identityId).toMatch(
           new RegExp(
-            `/subscriptions/[a-f0-9-]+/resourceGroups/${resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${identityName}`,
+            `/subscriptions/[a-f0-9-]+/resource[Gg]roups/${resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/${identityName}`,
           ),
         );
         expect(identity.principalId).toMatch(/^[a-f0-9-]+$/);
@@ -72,7 +72,7 @@ describe("Azure Resources", () => {
         // Create resource group
         rg = await ResourceGroup("test-update-identity-rg", {
           name: resourceGroupName,
-          location: "westus2",
+          location: "eastus",
         });
 
         // Create identity
@@ -126,7 +126,7 @@ describe("Azure Resources", () => {
         // Create resource group
         rg = await ResourceGroup("test-ref-identity-rg", {
           name: resourceGroupName,
-          location: "centralus",
+          location: "eastus",
         });
 
         // Create identity using ResourceGroup object (not string)
@@ -138,7 +138,7 @@ describe("Azure Resources", () => {
 
         expect(identity.name).toBe(identityName);
         expect(identity.resourceGroup).toBe(resourceGroupName);
-        expect(identity.location).toBe("centralus"); // Inherited from RG
+        expect(identity.location).toBe("eastus"); // Inherited from RG
       } finally {
         await destroy(scope);
         await assertIdentityDoesNotExist(resourceGroupName, identityName);
@@ -186,7 +186,7 @@ describe("Azure Resources", () => {
         // Create resource group
         rg = await ResourceGroup("test-adopt-identity-rg", {
           name: resourceGroupName,
-          location: "southcentralus",
+          location: "eastus",
         });
 
         // Create identity
@@ -241,7 +241,7 @@ describe("Azure Resources", () => {
       try {
         rg = await ResourceGroup("test-validation-rg", {
           name: resourceGroupName,
-          location: "northcentralus",
+          location: "eastus",
         });
 
         // Test name too short (less than 3 characters)
@@ -281,7 +281,7 @@ describe("Azure Resources", () => {
       try {
         rg = await ResourceGroup("test-default-identity-rg", {
           name: resourceGroupName,
-          location: "westeurope",
+          location: "eastus",
         });
 
         // Create identity without specifying name
@@ -312,7 +312,7 @@ describe("Azure Resources", () => {
       try {
         rg = await ResourceGroup("test-shared-identity-rg", {
           name: resourceGroupName,
-          location: "uksouth",
+          location: "eastus",
         });
 
         // Create a single identity

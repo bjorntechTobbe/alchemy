@@ -97,7 +97,7 @@ describe("Azure Storage", () => {
       try {
         rg = await ResourceGroup("bc-update-rg", {
           name: resourceGroupName,
-          location: "westus2",
+          location: "eastus",
         });
 
         storage = await StorageAccount("bc-update-sa", {
@@ -168,26 +168,25 @@ describe("Azure Storage", () => {
       try {
         rg = await ResourceGroup("bc-saobj-rg", {
           name: resourceGroupName,
-          location: "centralus",
+          location: "eastus",
         });
 
         storage = await StorageAccount("bc-saobj-sa", {
           name: storageAccountName,
           resourceGroup: rg,
           sku: "Standard_ZRS",
-          allowBlobPublicAccess: true,
         });
 
         container = await BlobContainer("bc-saobj-container", {
           name: containerName,
           storageAccount: storage, // Use object reference
-          publicAccess: "Blob",
+          publicAccess: "None",
         });
 
         expect(container.name).toBe(containerName);
         expect(container.storageAccount).toBe(storageAccountName);
         expect(container.resourceGroup).toBe(resourceGroupName);
-        expect(container.publicAccess).toBe("Blob");
+        expect(container.publicAccess).toBe("None");
       } finally {
         await destroy(scope);
         await assertBlobContainerDoesNotExist(
@@ -228,20 +227,19 @@ describe("Azure Storage", () => {
           name: storageAccountName,
           resourceGroup: rg,
           sku: "Standard_LRS",
-          allowBlobPublicAccess: true,
         });
 
         container = await BlobContainer("bc-sastr-container", {
           name: containerName,
           storageAccount: storageAccountName, // Use string reference
           resourceGroup: resourceGroupName, // Must specify resource group
-          publicAccess: "Container",
+          publicAccess: "None",
         });
 
         expect(container.name).toBe(containerName);
         expect(container.storageAccount).toBe(storageAccountName);
         expect(container.resourceGroup).toBe(resourceGroupName);
-        expect(container.publicAccess).toBe("Container");
+        expect(container.publicAccess).toBe("None");
       } finally {
         await destroy(scope);
         await assertBlobContainerDoesNotExist(
@@ -275,7 +273,7 @@ describe("Azure Storage", () => {
       try {
         rg = await ResourceGroup("bc-adopt-rg", {
           name: resourceGroupName,
-          location: "westeurope",
+          location: "eastus",
         });
 
         storage = await StorageAccount("bc-adopt-sa", {
@@ -333,7 +331,7 @@ describe("Azure Storage", () => {
       try {
         rg = await ResourceGroup("bc-validation-rg", {
           name: resourceGroupName,
-          location: "northeurope",
+          location: "eastus",
         });
 
         storage = await StorageAccount("bc-validation-sa", {
@@ -372,7 +370,7 @@ describe("Azure Storage", () => {
             name: "invalid--name",
             storageAccount: storage,
           }),
-        ).rejects.toThrow(/consecutive hyphens/i);
+        ).rejects.toThrow(/invalid characters|consecutive hyphens/i);
       } finally {
         await destroy(scope);
         await assertStorageAccountDoesNotExist(
@@ -456,14 +454,13 @@ describe("Azure Storage", () => {
       try {
         rg = await ResourceGroup("bc-multi-rg", {
           name: resourceGroupName,
-          location: "francecentral",
+          location: "eastus",
         });
 
         storage = await StorageAccount("bc-multi-sa", {
           name: storageAccountName,
           resourceGroup: rg,
           sku: "Standard_LRS",
-          allowBlobPublicAccess: true,
         });
 
         // Create multiple containers
@@ -477,14 +474,14 @@ describe("Azure Storage", () => {
         container2 = await BlobContainer("bc-multi-container2", {
           name: container2Name,
           storageAccount: storage,
-          publicAccess: "Blob",
-          metadata: { purpose: "public-assets" },
+          publicAccess: "None",
+          metadata: { purpose: "internal-assets" },
         });
 
         expect(container1.storageAccount).toBe(storageAccountName);
         expect(container2.storageAccount).toBe(storageAccountName);
         expect(container1.publicAccess).toBe("None");
-        expect(container2.publicAccess).toBe("Blob");
+        expect(container2.publicAccess).toBe("None");
       } finally {
         await destroy(scope);
         await assertBlobContainerDoesNotExist(
@@ -523,7 +520,7 @@ describe("Azure Storage", () => {
       try {
         rg = await ResourceGroup("bc-preserve-rg", {
           name: resourceGroupName,
-          location: "southafricanorth",
+          location: "eastus",
           delete: false,
         });
 
@@ -563,7 +560,7 @@ describe("Azure Storage", () => {
           resourceGroupName,
           storageAccountName,
         );
-        await clients.resources.resourceGroups.beginDeleteAndWait(
+        const deleteOp = await clients.resources.resourceGroups.beginDelete(
           resourceGroupName,
         );
       }

@@ -119,7 +119,7 @@ describe("Azure Networking", () => {
       try {
         rg = await ResourceGroup("vnet-objref-rg", {
           name: resourceGroupName,
-          location: "westus",
+          location: "eastus",
         });
 
         vnet = await VirtualNetwork("vnet-objref", {
@@ -129,7 +129,7 @@ describe("Azure Networking", () => {
         });
 
         expect(vnet.name).toBe(vnetName);
-        expect(vnet.location).toBe("westus");
+        expect(vnet.location).toBe("eastus");
         expect(vnet.addressSpace).toEqual(["192.168.0.0/16"]);
       } finally {
         await destroy(scope);
@@ -316,6 +316,7 @@ describe("Azure Networking", () => {
         rg = await ResourceGroup("vnet-preserve-rg", {
           name: resourceGroupName,
           location: "eastus",
+          delete: false,
         });
 
         vnet = await VirtualNetwork("vnet-preserve", {
@@ -343,7 +344,7 @@ describe("Azure Networking", () => {
           resourceGroupName,
           vnetName,
         );
-        await clients.resources.resourceGroups.beginDeleteAndWait(
+        await clients.resources.resourceGroups.beginDelete(
           resourceGroupName,
         );
       }

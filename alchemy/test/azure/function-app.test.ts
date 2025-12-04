@@ -103,7 +103,7 @@ describe("Azure Compute", () => {
       try {
         rg = await ResourceGroup("fa-update-rg", {
           name: resourceGroupName,
-          location: "westus2",
+          location: "eastus",
         });
 
         storage = await StorageAccount("fa-up-storage", {

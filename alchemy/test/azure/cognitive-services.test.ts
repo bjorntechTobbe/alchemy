@@ -210,7 +210,7 @@ describe("Azure AI", () => {
       try {
         rg = await ResourceGroup("cs-rgobj-rg", {
           name: resourceGroupName,
-          location: "westus",
+          location: "eastus",
         });
 
         cognitive = await CognitiveServices("cs-rgobj", {

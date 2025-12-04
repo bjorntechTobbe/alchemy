@@ -139,7 +139,7 @@ describe("Azure Networking", () => {
       try {
         rg = await ResourceGroup("pip-objref-rg", {
           name: resourceGroupName,
-          location: "westus",
+          location: "eastus",
         });
 
         pip = await PublicIPAddress("pip-objref", {
@@ -148,7 +148,7 @@ describe("Azure Networking", () => {
         });
 
         expect(pip.name).toBe(pipName);
-        expect(pip.location).toBe("westus");
+        expect(pip.location).toBe("eastus");
       } finally {
         await destroy(scope);
         await assertPublicIPAddressDoesNotExist(resourceGroupName, pipName);
@@ -238,7 +238,7 @@ describe("Azure Networking", () => {
             resourceGroup: rg,
           });
           throw new Error("Expected adoption to fail without adopt flag");
-        } catch (error) {
+        } catch (error: any) {
           expect(error.message).toContain("already exists");
           expect(error.message).toContain("adopt: true");
         }
@@ -275,7 +275,7 @@ describe("Azure Networking", () => {
             location: "eastus",
           });
           throw new Error("Expected name validation to fail");
-        } catch (error) {
+        } catch (error: any) {
           expect(error.message).toContain("invalid");
         }
       } finally {
@@ -300,7 +300,7 @@ describe("Azure Networking", () => {
             domainNameLabel: "123invalid",
           });
           throw new Error("Expected DNS label validation to fail");
-        } catch (error) {
+        } catch (error: any) {
           expect(error.message).toContain("invalid");
         }
 
@@ -311,7 +311,7 @@ describe("Azure Networking", () => {
             domainNameLabel: "InvalidLabel",
           });
           throw new Error("Expected DNS label validation to fail");
-        } catch (error) {
+        } catch (error: any) {
           expect(error.message).toContain("invalid");
         }
       } finally {
@@ -380,6 +380,7 @@ describe("Azure Networking", () => {
         rg = await ResourceGroup("pip-preserve-rg", {
           name: resourceGroupName,
           location: "eastus",
+          delete: false,
         });
 
         pip = await PublicIPAddress("pip-preserve", {
@@ -422,7 +423,7 @@ async function assertPublicIPAddressDoesNotExist(
   try {
     await clients.network.publicIPAddresses.get(resourceGroup, pipName);
     throw new Error(`Public IP address ${pipName} still exists after deletion`);
-  } catch (error) {
+  } catch (error: any) {
     // 404 is expected - public IP address was deleted
     if (error.statusCode !== 404) {
       throw error;
@@ -437,7 +438,7 @@ async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
     throw new Error(
       `Resource group ${resourceGroupName} still exists after deletion`,
     );
-  } catch (error) {
+  } catch (error: any) {
     // 404 is expected - resource group was deleted
     if (error.statusCode !== 404) {
       throw error;

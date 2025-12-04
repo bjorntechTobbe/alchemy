@@ -381,12 +381,6 @@ export const ContainerInstance = Resource(
     const name =
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
-    if (!/^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/.test(name)) {
-      throw new Error(
-        `Container instance name "${name}" is invalid. Must be 1-63 characters, lowercase, start and end with alphanumeric, and contain only letters, numbers, and hyphens.`,
-      );
-    }
-
     if (this.scope.local) {
       return {
         id,
@@ -441,6 +435,13 @@ export const ContainerInstance = Resource(
         }
       }
       return this.destroy();
+    }
+
+    // Validate name format
+    if (!/^[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/.test(name)) {
+      throw new Error(
+        `Container instance name "${name}" is invalid. Must be 1-63 characters, lowercase, start and end with alphanumeric, and contain only letters, numbers, and hyphens.`,
+      );
     }
 
     if (this.phase === "update" && this.output) {
@@ -531,9 +532,10 @@ export const ContainerInstance = Resource(
         vnetName,
       );
 
-      const subnets = (vnetResponse as any).properties?.subnets || [];
+      // Azure SDK returns subnets at the top level of vnetResponse
+      const subnets = vnetResponse.subnets || [];
       const subnet = subnets.find(
-        (s: any) => s.name === props.subnet!.subnetName,
+        (s) => s.name === props.subnet!.subnetName,
       );
 
       if (!subnet || !subnet.id) {
@@ -559,39 +561,35 @@ export const ContainerInstance = Resource(
           requestBody as AzureContainerGroup,
         );
     } else {
+      // Check if resource already exists
+      let existing: AzureContainerGroup | undefined;
       try {
-        result =
-          await clients.containerInstance.containerGroups.beginCreateOrUpdateAndWait(
-            resourceGroupName,
-            name,
-            requestBody as AzureContainerGroup,
-          );
-      } catch (error: unknown) {
-        if (isConflictError(error)) {
-          if (!adopt) {
-            throw new Error(
-              `Container instance "${name}" already exists. Use adopt: true to adopt it.`,
-              { cause: error },
-            );
-          }
-
-          // Get existing container instance to verify it exists
-          await clients.containerInstance.containerGroups.get(
-            resourceGroupName,
-            name,
-          );
-
-          // Update with requested configuration
-          result =
-            await clients.containerInstance.containerGroups.beginCreateOrUpdateAndWait(
-              resourceGroupName,
-              name,
-              requestBody as AzureContainerGroup,
-            );
-        } else {
+        existing = await clients.containerInstance.containerGroups.get(
+          resourceGroupName,
+          name,
+        );
+      } catch (error) {
+        if (!isNotFoundError(error)) {
           throw error;
         }
+        // Resource doesn't exist, continue with creation
       }
+
+      if (existing) {
+        if (!adopt) {
+          throw new Error(
+            `Container instance "${name}" already exists in resource group "${resourceGroupName}". Use adopt: true to adopt it.`,
+          );
+        }
+        // Adopt existing resource by updating it
+      }
+
+      result =
+        await clients.containerInstance.containerGroups.beginCreateOrUpdateAndWait(
+          resourceGroupName,
+          name,
+          requestBody as AzureContainerGroup,
+        );
     }
 
     return {

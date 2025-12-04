@@ -79,7 +79,7 @@ describe("Azure SQL", () => {
       try {
         rg = await ResourceGroup("sql-server-update-rg", {
           name: resourceGroupName,
-          location: "westus2",
+          location: "eastus",
         });
 
         // Create SQL server
@@ -134,7 +134,7 @@ describe("Azure SQL", () => {
       try {
         rg = await ResourceGroup("sql-server-rgobj-rg", {
           name: resourceGroupName,
-          location: "centralus",
+          location: "eastus",
         });
 
         sqlServer = await SqlServer("sql-server-rgobj", {
@@ -161,7 +161,7 @@ describe("Azure SQL", () => {
       try {
         rg = await ResourceGroup("sql-server-validate-rg", {
           name: resourceGroupName,
-          location: "westus",
+          location: "eastus",
         });
 
         // Test forbidden administrator login
@@ -309,7 +309,7 @@ describe("Azure SQL", () => {
       try {
         rg = await ResourceGroup("sql-db-update-rg", {
           name: resourceGroupName,
-          location: "westus2",
+          location: "eastus",
         });
 
         sqlServer = await SqlServer("sql-db-update-srv", {
@@ -378,7 +378,7 @@ describe("Azure SQL", () => {
       try {
         rg = await ResourceGroup("sql-db-srvstr-rg", {
           name: resourceGroupName,
-          location: "centralus",
+          location: "eastus",
         });
 
         sqlServer = await SqlServer("sql-db-srvstr-srv", {
@@ -392,7 +392,7 @@ describe("Azure SQL", () => {
           name: databaseName,
           resourceGroup: rg,
           sqlServer: sqlServerName, // Use string reference
-          location: "centralus",
+          location: "eastus",
         });
 
         expect(database.name).toBe(databaseName);
@@ -470,7 +470,7 @@ describe("Azure SQL", () => {
       try {
         rg = await ResourceGroup("sql-db-validate-rg", {
           name: resourceGroupName,
-          location: "westus",
+          location: "eastus",
         });
 
         sqlServer = await SqlServer("sql-db-validate-srv", {

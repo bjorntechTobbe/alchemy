@@ -71,7 +71,7 @@ describe("Azure Compute", () => {
       try {
         rg = await ResourceGroup("swa-update-rg", {
           name: resourceGroupName,
-          location: "westus2",
+          location: "eastus2",
         });
 
         // Create static web app
@@ -391,6 +391,7 @@ describe("Azure Compute", () => {
         rg = await ResourceGroup("swa-preserve-rg", {
           name: resourceGroupName,
           location: "eastus2",
+          delete: false,
         });
 
         staticWebApp = await StaticWebApp("swa-preserve", {
@@ -412,6 +413,9 @@ describe("Azure Compute", () => {
         await clients.appService.staticSites.beginDeleteStaticSiteAndWait(
           resourceGroupName,
           staticWebAppName,
+        );
+        await clients.resources.resourceGroups.beginDeleteAndWait(
+          resourceGroupName,
         );
 
         await assertStaticWebAppDoesNotExist(
@@ -440,7 +444,7 @@ async function assertStaticWebAppDoesNotExist(
     throw new Error(
       `Static web app ${staticWebAppName} should not exist but was found`,
     );
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode !== 404) {
       throw error;
     }
