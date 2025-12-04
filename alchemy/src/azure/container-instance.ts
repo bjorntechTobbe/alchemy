@@ -534,9 +534,7 @@ export const ContainerInstance = Resource(
 
       // Azure SDK returns subnets at the top level of vnetResponse
       const subnets = vnetResponse.subnets || [];
-      const subnet = subnets.find(
-        (s) => s.name === props.subnet!.subnetName,
-      );
+      const subnet = subnets.find((s) => s.name === props.subnet!.subnetName);
 
       if (!subnet || !subnet.id) {
         throw new Error(

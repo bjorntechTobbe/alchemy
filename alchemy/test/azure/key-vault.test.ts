@@ -2,9 +2,12 @@ import { describe, expect } from "vitest";
 import { alchemy } from "../../src/alchemy.ts";
 import { ResourceGroup } from "../../src/azure/resource-group.ts";
 import { KeyVault } from "../../src/azure/key-vault.ts";
-import { createAzureClients } from "../../src/azure/client.ts";
 import { destroy } from "../../src/destroy.ts";
 import { BRANCH_PREFIX } from "../util.ts";
+import {
+  assertKeyVaultDoesNotExist,
+  assertResourceGroupDoesNotExist,
+} from "./test-helpers.ts";
 
 import "../../src/test/vitest.ts";
 
@@ -213,34 +216,3 @@ describe("Azure Security", () => {
     });
   });
 });
-
-async function assertKeyVaultDoesNotExist(
-  resourceGroup: string,
-  vaultName: string,
-) {
-  const clients = await createAzureClients();
-  try {
-    await clients.keyVault.vaults.get(resourceGroup, vaultName);
-    throw new Error(`Key vault ${vaultName} still exists after deletion`);
-  } catch (error: any) {
-    // 404 is expected - vault was deleted
-    if (error.statusCode !== 404 && error.code !== "VaultNotFound") {
-      throw error;
-    }
-  }
-}
-
-async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
-  const clients = await createAzureClients();
-  try {
-    await clients.resources.resourceGroups.get(resourceGroupName);
-    throw new Error(
-      `Resource group ${resourceGroupName} still exists after deletion`,
-    );
-  } catch (error: any) {
-    // 404 is expected - resource group was deleted
-    if (error.statusCode !== 404) {
-      throw error;
-    }
-  }
-}

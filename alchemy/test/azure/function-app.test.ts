@@ -4,9 +4,14 @@ import { ResourceGroup } from "../../src/azure/resource-group.ts";
 import { StorageAccount } from "../../src/azure/storage-account.ts";
 import { FunctionApp } from "../../src/azure/function-app.ts";
 import { UserAssignedIdentity } from "../../src/azure/user-assigned-identity.ts";
-import { createAzureClients } from "../../src/azure/client.ts";
 import { destroy } from "../../src/destroy.ts";
 import { BRANCH_PREFIX } from "../util.ts";
+import {
+  assertFunctionAppDoesNotExist,
+  assertStorageAccountDoesNotExist,
+  assertUserAssignedIdentityDoesNotExist,
+  assertResourceGroupDoesNotExist,
+} from "./test-helpers.ts";
 
 import "../../src/test/vitest.ts";
 
@@ -214,79 +219,3 @@ describe("Azure Compute", () => {
     });
   });
 });
-
-/**
- * Assert that a function app does not exist
- */
-async function assertFunctionAppDoesNotExist(
-  resourceGroupName: string,
-  functionAppName: string,
-) {
-  const clients = await createAzureClients();
-  try {
-    await clients.appService.webApps.get(resourceGroupName, functionAppName);
-    throw new Error(
-      `Function app ${functionAppName} should not exist but was found`,
-    );
-  } catch (error: any) {
-    if (error.statusCode !== 404) {
-      throw error;
-    }
-  }
-}
-
-/**
- * Assert that a storage account does not exist
- */
-async function assertStorageAccountDoesNotExist(
-  resourceGroupName: string,
-  accountName: string,
-) {
-  const clients = await createAzureClients();
-  try {
-    await clients.storage.storageAccounts.getProperties(
-      resourceGroupName,
-      accountName,
-    );
-    throw new Error(
-      `Storage account ${accountName} should not exist but was found`,
-    );
-  } catch (error: any) {
-    if (error.statusCode !== 404) {
-      throw error;
-    }
-  }
-}
-
-/**
- * Assert that a user-assigned identity does not exist
- */
-async function assertUserAssignedIdentityDoesNotExist(
-  resourceGroupName: string,
-  identityName: string,
-) {
-  const clients = await createAzureClients();
-  try {
-    await clients.msi.userAssignedIdentities.get(
-      resourceGroupName,
-      identityName,
-    );
-    throw new Error(
-      `User-assigned identity ${identityName} should not exist but was found`,
-    );
-  } catch (error: any) {
-    if (error.statusCode !== 404) {
-      throw error;
-    }
-  }
-}
-
-/**
- * Assert that a resource group does not exist
- */
-async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
-  const clients = await createAzureClients();
-  const exists =
-    await clients.resources.resourceGroups.checkExistence(resourceGroupName);
-  expect(exists.body).toBe(false);
-}

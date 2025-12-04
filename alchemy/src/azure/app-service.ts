@@ -474,7 +474,10 @@ export const AppService = Resource(
       // Check if resource already exists (for adoption scenario)
       let existing: Site | undefined;
       try {
-        existing = await clients.appService.webApps.get(resourceGroupName, name);
+        existing = await clients.appService.webApps.get(
+          resourceGroupName,
+          name,
+        );
       } catch (error) {
         if (!isNotFoundError(error)) {
           throw error;

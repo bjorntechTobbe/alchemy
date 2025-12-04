@@ -2,9 +2,12 @@ import { describe, expect } from "vitest";
 import { alchemy } from "../../src/alchemy.ts";
 import { ResourceGroup } from "../../src/azure/resource-group.ts";
 import { StaticWebApp } from "../../src/azure/static-web-app.ts";
-import { createAzureClients } from "../../src/azure/client.ts";
 import { destroy } from "../../src/destroy.ts";
 import { BRANCH_PREFIX } from "../util.ts";
+import {
+  assertStaticWebAppDoesNotExist,
+  assertResourceGroupDoesNotExist,
+} from "./test-helpers.ts";
 
 import "../../src/test/vitest.ts";
 
@@ -153,22 +156,3 @@ describe("Azure Compute", () => {
     });
   });
 });
-
-async function assertStaticWebAppDoesNotExist(
-  resourceGroupName: string,
-  staticWebAppName: string,
-) {
-  const clients = await createAzureClients();
-  const exists = await clients.appService.staticSites.getStaticSite(
-    resourceGroupName,
-    staticWebAppName,
-  );
-  expect(exists).toBeUndefined();
-}
-
-async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
-  const clients = await createAzureClients();
-  const exists =
-    await clients.resources.resourceGroups.checkExistence(resourceGroupName);
-  expect(exists.body).toBe(false);
-}

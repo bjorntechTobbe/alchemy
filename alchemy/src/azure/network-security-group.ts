@@ -398,7 +398,7 @@ export const NetworkSecurityGroup = Resource(
           resourceGroupName,
           name,
         );
-        
+
         // NSG exists
         if (existing && !adopt) {
           throw new Error(
@@ -419,11 +419,12 @@ export const NetworkSecurityGroup = Resource(
     }
 
     // Create or update the network security group (without security rules)
-    result = await clients.network.networkSecurityGroups.beginCreateOrUpdateAndWait(
-      resourceGroupName,
-      name,
-      requestBody,
-    );
+    result =
+      await clients.network.networkSecurityGroups.beginCreateOrUpdateAndWait(
+        resourceGroupName,
+        name,
+        requestBody,
+      );
 
     // Add or update security rules separately
     if (props.securityRules && props.securityRules.length > 0) {
@@ -445,7 +446,7 @@ export const NetworkSecurityGroup = Resource(
           },
         );
       }
-      
+
       // Fetch the updated NSG with security rules
       result = await clients.network.networkSecurityGroups.get(
         resourceGroupName,

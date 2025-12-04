@@ -3,9 +3,13 @@ import { alchemy } from "../../src/alchemy.ts";
 import { ResourceGroup } from "../../src/azure/resource-group.ts";
 import { AppService } from "../../src/azure/app-service.ts";
 import { UserAssignedIdentity } from "../../src/azure/user-assigned-identity.ts";
-import { createAzureClients } from "../../src/azure/client.ts";
 import { destroy } from "../../src/destroy.ts";
 import { BRANCH_PREFIX } from "../util.ts";
+import {
+  assertAppServiceDoesNotExist,
+  assertUserAssignedIdentityDoesNotExist,
+  assertResourceGroupDoesNotExist,
+} from "./test-helpers.ts";
 
 import "../../src/test/vitest.ts";
 
@@ -237,56 +241,3 @@ describe("Azure Compute", () => {
     });
   });
 });
-
-/**
- * Assert that an app service does not exist
- */
-async function assertAppServiceDoesNotExist(
-  resourceGroupName: string,
-  appServiceName: string,
-) {
-  const clients = await createAzureClients();
-  try {
-    await clients.appService.webApps.get(resourceGroupName, appServiceName);
-    throw new Error(
-      `App service ${appServiceName} should not exist but was found`,
-    );
-  } catch (error: any) {
-    if (error.statusCode !== 404) {
-      throw error;
-    }
-  }
-}
-
-/**
- * Assert that a user-assigned identity does not exist
- */
-async function assertUserAssignedIdentityDoesNotExist(
-  resourceGroupName: string,
-  identityName: string,
-) {
-  const clients = await createAzureClients();
-  try {
-    await clients.msi.userAssignedIdentities.get(
-      resourceGroupName,
-      identityName,
-    );
-    throw new Error(
-      `User-assigned identity ${identityName} should not exist but was found`,
-    );
-  } catch (error: any) {
-    if (error.statusCode !== 404) {
-      throw error;
-    }
-  }
-}
-
-/**
- * Assert that a resource group does not exist
- */
-async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
-  const clients = await createAzureClients();
-  const exists =
-    await clients.resources.resourceGroups.checkExistence(resourceGroupName);
-  expect(exists.body).toBe(false);
-}

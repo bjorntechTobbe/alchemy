@@ -3,9 +3,13 @@ import { alchemy } from "../../src/alchemy.ts";
 import { ResourceGroup } from "../../src/azure/resource-group.ts";
 import { StorageAccount } from "../../src/azure/storage-account.ts";
 import { BlobContainer } from "../../src/azure/blob-container.ts";
-import { createAzureClients } from "../../src/azure/client.ts";
 import { destroy } from "../../src/destroy.ts";
 import { BRANCH_PREFIX } from "../util.ts";
+import {
+  assertBlobContainerDoesNotExist,
+  assertStorageAccountDoesNotExist,
+  assertResourceGroupDoesNotExist,
+} from "./test-helpers.ts";
 
 import "../../src/test/vitest.ts";
 
@@ -249,72 +253,3 @@ describe("Azure Storage", () => {
     });
   });
 });
-
-/**
- * Helper function to verify a blob container doesn't exist
- */
-async function assertBlobContainerDoesNotExist(
-  resourceGroupName: string,
-  storageAccountName: string,
-  containerName: string,
-) {
-  const clients = await createAzureClients();
-  try {
-    await clients.storage.blobContainers.get(
-      resourceGroupName,
-      storageAccountName,
-      containerName,
-    );
-    throw new Error(
-      `Blob container ${containerName} still exists in storage account ${storageAccountName}`,
-    );
-  } catch (error: any) {
-    if (error.statusCode === 404 || error.code === "ContainerNotFound") {
-      // Expected - container doesn't exist
-      return;
-    }
-    throw error;
-  }
-}
-
-/**
- * Helper function to verify a storage account doesn't exist
- */
-async function assertStorageAccountDoesNotExist(
-  resourceGroupName: string,
-  storageAccountName: string,
-) {
-  const clients = await createAzureClients();
-  try {
-    await clients.storage.storageAccounts.getProperties(
-      resourceGroupName,
-      storageAccountName,
-    );
-    throw new Error(
-      `Storage account ${storageAccountName} still exists in resource group ${resourceGroupName}`,
-    );
-  } catch (error: any) {
-    if (error.statusCode === 404 || error.code === "ResourceNotFound") {
-      // Expected - storage account doesn't exist
-      return;
-    }
-    throw error;
-  }
-}
-
-/**
- * Helper function to verify a resource group doesn't exist
- */
-async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
-  const clients = await createAzureClients();
-  try {
-    await clients.resources.resourceGroups.get(resourceGroupName);
-    throw new Error(`Resource group ${resourceGroupName} still exists`);
-  } catch (error: any) {
-    if (error.statusCode === 404 || error.code === "ResourceGroupNotFound") {
-      // Expected - resource group doesn't exist
-      return;
-    }
-    throw error;
-  }
-}

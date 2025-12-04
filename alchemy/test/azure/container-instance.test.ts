@@ -3,9 +3,13 @@ import { alchemy } from "../../src/alchemy.ts";
 import { ResourceGroup } from "../../src/azure/resource-group.ts";
 import { ContainerInstance } from "../../src/azure/container-instance.ts";
 import { VirtualNetwork } from "../../src/azure/virtual-network.ts";
-import { createAzureClients } from "../../src/azure/client.ts";
 import { destroy } from "../../src/destroy.ts";
 import { BRANCH_PREFIX } from "../util.ts";
+import {
+  assertContainerInstanceDoesNotExist,
+  assertVirtualNetworkDoesNotExist,
+  assertResourceGroupDoesNotExist,
+} from "./test-helpers.ts";
 
 import "../../src/test/vitest.ts";
 
@@ -260,55 +264,3 @@ describe("Azure Container", () => {
     });
   });
 });
-
-async function assertContainerInstanceDoesNotExist(
-  resourceGroup: string,
-  containerName: string,
-) {
-  const clients = await createAzureClients();
-  try {
-    await clients.containerInstance.containerGroups.get(
-      resourceGroup,
-      containerName,
-    );
-    throw new Error(
-      `Container instance ${containerName} still exists after deletion`,
-    );
-  } catch (error: any) {
-    // 404 is expected - container was deleted
-    if (error.statusCode !== 404) {
-      throw error;
-    }
-  }
-}
-
-async function assertVirtualNetworkDoesNotExist(
-  resourceGroup: string,
-  vnetName: string,
-) {
-  const clients = await createAzureClients();
-  try {
-    await clients.network.virtualNetworks.get(resourceGroup, vnetName);
-    throw new Error(`Virtual network ${vnetName} still exists after deletion`);
-  } catch (error: any) {
-    // 404 is expected - virtual network was deleted
-    if (error.statusCode !== 404) {
-      throw error;
-    }
-  }
-}
-
-async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
-  const clients = await createAzureClients();
-  try {
-    await clients.resources.resourceGroups.get(resourceGroupName);
-    throw new Error(
-      `Resource group ${resourceGroupName} still exists after deletion`,
-    );
-  } catch (error: any) {
-    // 404 is expected - resource group was deleted
-    if (error.statusCode !== 404) {
-      throw error;
-    }
-  }
-}

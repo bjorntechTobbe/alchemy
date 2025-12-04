@@ -2,9 +2,12 @@ import { describe, expect } from "vitest";
 import { alchemy } from "../../src/alchemy.ts";
 import { ResourceGroup } from "../../src/azure/resource-group.ts";
 import { PublicIPAddress } from "../../src/azure/public-ip-address.ts";
-import { createAzureClients } from "../../src/azure/client.ts";
 import { destroy } from "../../src/destroy.ts";
 import { BRANCH_PREFIX } from "../util.ts";
+import {
+  assertPublicIPAddressDoesNotExist,
+  assertResourceGroupDoesNotExist,
+} from "./test-helpers.ts";
 
 import "../../src/test/vitest.ts";
 
@@ -131,34 +134,3 @@ describe("Azure Networking", () => {
     });
   });
 });
-
-async function assertPublicIPAddressDoesNotExist(
-  resourceGroup: string,
-  pipName: string,
-) {
-  const clients = await createAzureClients();
-  try {
-    await clients.network.publicIPAddresses.get(resourceGroup, pipName);
-    throw new Error(`Public IP address ${pipName} still exists after deletion`);
-  } catch (error: any) {
-    // 404 is expected - public IP address was deleted
-    if (error.statusCode !== 404) {
-      throw error;
-    }
-  }
-}
-
-async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
-  const clients = await createAzureClients();
-  try {
-    await clients.resources.resourceGroups.get(resourceGroupName);
-    throw new Error(
-      `Resource group ${resourceGroupName} still exists after deletion`,
-    );
-  } catch (error: any) {
-    // 404 is expected - resource group was deleted
-    if (error.statusCode !== 404) {
-      throw error;
-    }
-  }
-}

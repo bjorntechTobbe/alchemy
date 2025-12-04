@@ -291,7 +291,7 @@ export const UserAssignedIdentity = Resource(
           resourceGroupName,
           name,
         );
-        
+
         // Identity exists
         if (existing && !adopt) {
           throw new Error(

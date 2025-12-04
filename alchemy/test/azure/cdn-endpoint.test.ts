@@ -3,9 +3,13 @@ import { alchemy } from "../../src/alchemy.ts";
 import { ResourceGroup } from "../../src/azure/resource-group.ts";
 import { CDNProfile } from "../../src/azure/cdn-profile.ts";
 import { CDNEndpoint } from "../../src/azure/cdn-endpoint.ts";
-import { createAzureClients } from "../../src/azure/client.ts";
 import { destroy } from "../../src/destroy.ts";
 import { BRANCH_PREFIX } from "../util.ts";
+import {
+  assertCDNEndpointDoesNotExist,
+  assertCDNProfileDoesNotExist,
+  assertResourceGroupDoesNotExist,
+} from "./test-helpers.ts";
 
 import "../../src/test/vitest.ts";
 
@@ -131,45 +135,3 @@ describe("Azure CDN", () => {
     });
   });
 });
-
-async function assertCDNEndpointDoesNotExist(
-  resourceGroup: string,
-  profileName: string,
-  endpointName: string,
-) {
-  const { cdn } = await createAzureClients();
-
-  try {
-    await cdn.endpoints.get(resourceGroup, profileName, endpointName);
-    throw new Error(`CDN endpoint ${endpointName} still exists after deletion`);
-  } catch (error: any) {
-    expect(error.statusCode).toBe(404);
-  }
-}
-
-async function assertCDNProfileDoesNotExist(
-  resourceGroup: string,
-  profileName: string,
-) {
-  const { cdn } = await createAzureClients();
-
-  try {
-    await cdn.profiles.get(resourceGroup, profileName);
-    throw new Error(`CDN profile ${profileName} still exists after deletion`);
-  } catch (error: any) {
-    expect(error.statusCode).toBe(404);
-  }
-}
-
-async function assertResourceGroupDoesNotExist(resourceGroup: string) {
-  const { resources } = await createAzureClients();
-
-  try {
-    await resources.resourceGroups.get(resourceGroup);
-    throw new Error(
-      `Resource group ${resourceGroup} still exists after deletion`,
-    );
-  } catch (error: any) {
-    expect(error.statusCode).toBe(404);
-  }
-}

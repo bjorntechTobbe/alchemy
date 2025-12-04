@@ -510,7 +510,9 @@ export const StaticWebApp = Resource(
       result.defaultHostname || `${name}.azurestaticapps.net`;
 
     // Normalize location from display name (e.g., "East US 2") to internal format (e.g., "eastus2")
-    const normalizedLocation = result.location!.toLowerCase().replace(/\s+/g, "");
+    const normalizedLocation = result
+      .location!.toLowerCase()
+      .replace(/\s+/g, "");
 
     return {
       id,

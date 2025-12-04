@@ -2,10 +2,13 @@ import { describe, expect } from "vitest";
 import { alchemy } from "../../src/alchemy.ts";
 import { ResourceGroup } from "../../src/azure/resource-group.ts";
 import { CognitiveServices } from "../../src/azure/cognitive-services.ts";
-import { createAzureClients } from "../../src/azure/client.ts";
 import { Secret } from "../../src/secret.ts";
 import { destroy } from "../../src/destroy.ts";
 import { BRANCH_PREFIX } from "../util.ts";
+import {
+  assertCognitiveServicesDoesNotExist,
+  assertResourceGroupDoesNotExist,
+} from "./test-helpers.ts";
 
 import "../../src/test/vitest.ts";
 
@@ -162,36 +165,5 @@ describe("Azure AI", () => {
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
     });
-
-
   });
 });
-
-async function assertCognitiveServicesDoesNotExist(
-  resourceGroup: string,
-  accountName: string,
-) {
-  const { cognitiveServices } = await createAzureClients();
-
-  try {
-    await cognitiveServices.accounts.get(resourceGroup, accountName);
-    throw new Error(
-      `Cognitive Services account ${accountName} still exists after deletion`,
-    );
-  } catch (error: any) {
-    expect(error.statusCode).toBe(404);
-  }
-}
-
-async function assertResourceGroupDoesNotExist(resourceGroup: string) {
-  const { resources } = await createAzureClients();
-
-  try {
-    await resources.resourceGroups.get(resourceGroup);
-    throw new Error(
-      `Resource group ${resourceGroup} still exists after deletion`,
-    );
-  } catch (error: any) {
-    expect(error.statusCode).toBe(404);
-  }
-}

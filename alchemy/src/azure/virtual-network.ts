@@ -360,7 +360,7 @@ export const VirtualNetwork = Resource(
           resourceGroupName,
           name,
         );
-        
+
         // Virtual network exists
         if (existing && !adopt) {
           throw new Error(

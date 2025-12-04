@@ -2,9 +2,12 @@ import { describe, expect } from "vitest";
 import { alchemy } from "../../src/alchemy.ts";
 import { ResourceGroup } from "../../src/azure/resource-group.ts";
 import { NetworkSecurityGroup } from "../../src/azure/network-security-group.ts";
-import { createAzureClients } from "../../src/azure/client.ts";
 import { destroy } from "../../src/destroy.ts";
 import { BRANCH_PREFIX } from "../util.ts";
+import {
+  assertNetworkSecurityGroupDoesNotExist,
+  assertResourceGroupDoesNotExist,
+} from "./test-helpers.ts";
 
 import "../../src/test/vitest.ts";
 
@@ -209,36 +212,3 @@ describe("Azure Networking", () => {
     });
   });
 });
-
-async function assertNetworkSecurityGroupDoesNotExist(
-  resourceGroup: string,
-  nsgName: string,
-) {
-  const clients = await createAzureClients();
-  try {
-    await clients.network.networkSecurityGroups.get(resourceGroup, nsgName);
-    throw new Error(
-      `Network security group ${nsgName} still exists after deletion`,
-    );
-  } catch (error: any) {
-    // 404 is expected - network security group was deleted
-    if (error.statusCode !== 404) {
-      throw error;
-    }
-  }
-}
-
-async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
-  const clients = await createAzureClients();
-  try {
-    await clients.resources.resourceGroups.get(resourceGroupName);
-    throw new Error(
-      `Resource group ${resourceGroupName} still exists after deletion`,
-    );
-  } catch (error: any) {
-    // 404 is expected - resource group was deleted
-    if (error.statusCode !== 404) {
-      throw error;
-    }
-  }
-}

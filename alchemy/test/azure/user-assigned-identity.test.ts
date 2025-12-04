@@ -2,9 +2,9 @@ import { describe, expect } from "vitest";
 import { alchemy } from "../../src/alchemy.ts";
 import { ResourceGroup } from "../../src/azure/resource-group.ts";
 import { UserAssignedIdentity } from "../../src/azure/user-assigned-identity.ts";
-import { createAzureClients } from "../../src/azure/client.ts";
 import { destroy } from "../../src/destroy.ts";
 import { BRANCH_PREFIX } from "../util.ts";
+import { assertUserAssignedIdentityDoesNotExist } from "./test-helpers.ts";
 
 import "../../src/test/vitest.ts";
 
@@ -55,7 +55,10 @@ describe("Azure Resources", () => {
         expect(identity.type).toBe("azure::UserAssignedIdentity");
       } finally {
         await destroy(scope);
-        await assertIdentityDoesNotExist(resourceGroupName, identityName);
+        await assertUserAssignedIdentityDoesNotExist(
+          resourceGroupName,
+          identityName,
+        );
       }
     });
 
@@ -105,7 +108,10 @@ describe("Azure Resources", () => {
         expect(identity.clientId).toBe(originalClientId);
       } finally {
         await destroy(scope);
-        await assertIdentityDoesNotExist(resourceGroupName, identityName);
+        await assertUserAssignedIdentityDoesNotExist(
+          resourceGroupName,
+          identityName,
+        );
       }
     });
 
@@ -131,25 +137,12 @@ describe("Azure Resources", () => {
       } finally {
         await destroy(scope);
         if (identity) {
-          await assertIdentityDoesNotExist(resourceGroupName, identity.name);
+          await assertUserAssignedIdentityDoesNotExist(
+            resourceGroupName,
+            identity.name,
+          );
         }
       }
     });
   });
 });
-
-async function assertIdentityDoesNotExist(
-  resourceGroup: string,
-  identityName: string,
-): Promise<void> {
-  const { msi } = await createAzureClients();
-
-  try {
-    await msi.userAssignedIdentities.get(resourceGroup, identityName);
-    throw new Error(
-      `Identity ${identityName} still exists in resource group ${resourceGroup}`,
-    );
-  } catch (error: any) {
-    expect(error.statusCode).toBe(404);
-  }
-}

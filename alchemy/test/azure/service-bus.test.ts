@@ -2,9 +2,9 @@ import { describe, expect } from "vitest";
 import { alchemy } from "../../src/alchemy.ts";
 import { ResourceGroup } from "../../src/azure/resource-group.ts";
 import { ServiceBus, isServiceBus } from "../../src/azure/service-bus.ts";
-import { createAzureClients } from "../../src/azure/client.ts";
 import { destroy } from "../../src/destroy.ts";
 import { BRANCH_PREFIX } from "../util.ts";
+import { assertServiceBusDoesNotExist } from "./test-helpers.ts";
 
 import "../../src/test/vitest.ts";
 
@@ -89,24 +89,3 @@ describe("Azure Messaging", () => {
     });
   });
 });
-
-/**
- * Assert that a Service Bus namespace does not exist
- */
-async function assertServiceBusDoesNotExist(name: string): Promise<void> {
-  const { serviceBus } = await createAzureClients();
-
-  // List all namespaces and check if this one exists
-  const namespaces = [];
-  for await (const namespace of serviceBus.namespaces.list()) {
-    if (namespace.name === name) {
-      namespaces.push(namespace);
-    }
-  }
-
-  if (namespaces.length > 0) {
-    throw new Error(
-      `Service Bus namespace "${name}" still exists after deletion`,
-    );
-  }
-}

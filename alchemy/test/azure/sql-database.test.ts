@@ -3,9 +3,13 @@ import { alchemy } from "../../src/alchemy.ts";
 import { ResourceGroup } from "../../src/azure/resource-group.ts";
 import { SqlServer } from "../../src/azure/sql-server.ts";
 import { SqlDatabase } from "../../src/azure/sql-database.ts";
-import { createAzureClients } from "../../src/azure/client.ts";
 import { destroy } from "../../src/destroy.ts";
 import { BRANCH_PREFIX } from "../util.ts";
+import {
+  assertSqlServerDoesNotExist,
+  assertSqlDatabaseDoesNotExist,
+  assertResourceGroupDoesNotExist,
+} from "./test-helpers.ts";
 
 import "../../src/test/vitest.ts";
 
@@ -338,51 +342,3 @@ describe("Azure SQL", () => {
     });
   });
 });
-
-async function assertSqlServerDoesNotExist(
-  resourceGroup: string,
-  serverName: string,
-) {
-  const clients = await createAzureClients();
-  try {
-    await clients.sql.servers.get(resourceGroup, serverName);
-    throw new Error(`SQL Server ${serverName} still exists after deletion`);
-  } catch (error: any) {
-    if (error.statusCode === 404 || error.code === "ResourceNotFound") {
-      return;
-    }
-    throw error;
-  }
-}
-
-async function assertSqlDatabaseDoesNotExist(
-  resourceGroup: string,
-  serverName: string,
-  databaseName: string,
-) {
-  const clients = await createAzureClients();
-  try {
-    await clients.sql.databases.get(resourceGroup, serverName, databaseName);
-    throw new Error(
-      `SQL Database ${databaseName} still exists in server ${serverName}`,
-    );
-  } catch (error: any) {
-    if (error.statusCode === 404 || error.code === "ResourceNotFound") {
-      return;
-    }
-    throw error;
-  }
-}
-
-async function assertResourceGroupDoesNotExist(resourceGroupName: string) {
-  const clients = await createAzureClients();
-  try {
-    await clients.resources.resourceGroups.get(resourceGroupName);
-    throw new Error(`Resource group ${resourceGroupName} still exists`);
-  } catch (error: any) {
-    if (error.statusCode === 404 || error.code === "ResourceGroupNotFound") {
-      return;
-    }
-    throw error;
-  }
-}
