@@ -148,38 +148,52 @@ az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 ---
 
 ### NetworkSecurityGroup
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Priority**: Medium  
-**Test Script**: `test-scripts/azure/05-network-security-group.ts`
+**Test File**: `alchemy/test/azure/network-security-group.test.ts`
 
-**Verify in Azure**:
+**Run Test**:
 ```bash
-az network nsg show --name <nsg-name> --resource-group <rg-name>
+bun vitest alchemy/test/azure/network-security-group.test.ts --run --test-timeout=300000
+```
+
+**Verify Cleanup**:
+```bash
+az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 ```
 
 **Results**:
-- Create: N/A
-- Delete: N/A
-- Cleanup Verified: N/A
-- Notes:
+- Tests Passed: ✅ 3/3 tests passed (41.9s)
+  - create network security group
+  - update network security group rules
+  - network security group with security rules
+- Cleanup Verified: ✅ No orphaned resources
+- Notes: Fixed resourceGroup object storage bug.
 
 ---
 
 ### PublicIPAddress
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Priority**: Medium  
-**Test Script**: `test-scripts/azure/06-public-ip-address.ts`
+**Test File**: `alchemy/test/azure/public-ip-address.test.ts`
 
-**Verify in Azure**:
+**Run Test**:
 ```bash
-az network public-ip show --name <ip-name> --resource-group <rg-name>
+bun vitest alchemy/test/azure/public-ip-address.test.ts --run --test-timeout=300000
+```
+
+**Verify Cleanup**:
+```bash
+az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 ```
 
 **Results**:
-- Create: N/A
-- Delete: N/A
-- Cleanup Verified: N/A
-- Notes:
+- Tests Passed: ✅ 3/3 tests passed (53.7s)
+  - create public IP address
+  - public IP address with DNS label
+  - update public IP address tags
+- Cleanup Verified: ✅ No orphaned resources
+- Notes: Fixed resourceGroup object storage bug.
 
 ---
 
@@ -324,20 +338,31 @@ az sql db show --name <db-name> --server <server-name> --resource-group <rg-name
 ## Security & Identity Resources
 
 ### KeyVault
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Priority**: High  
-**Test Script**: `test-scripts/azure/14-key-vault.ts`
+**Test File**: `alchemy/test/azure/key-vault.test.ts`
 
-**Verify in Azure**:
+**Run Test**:
 ```bash
-az keyvault show --name <vault-name> --resource-group <rg-name>
+bun vitest alchemy/test/azure/key-vault.test.ts --run --test-timeout=300000
+```
+
+**Verify Cleanup**:
+```bash
+az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
+# Also check for soft-deleted vaults
+bun run nuke:azure -- --delete
 ```
 
 **Results**:
-- Create: N/A
-- Delete: N/A
-- Cleanup Verified: N/A
-- Notes:
+- Tests Passed: ✅ 5/5 tests passed (58.9s)
+  - create key vault with standard SKU
+  - update key vault tags
+  - create key vault with RBAC authorization
+  - create key vault with network restrictions
+  - create key vault for Azure resources
+- Cleanup Verified: ✅ No orphaned resources
+- Notes: Fixed resourceGroup object storage bug. KeyVaults support soft-delete by default.
 
 ---
 
