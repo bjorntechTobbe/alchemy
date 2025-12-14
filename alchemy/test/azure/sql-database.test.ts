@@ -17,7 +17,9 @@ const test = alchemy.test(import.meta, {
   prefix: BRANCH_PREFIX,
 });
 
-describe("Azure SQL", () => {
+// Skip SQL tests by default - they are slow (2-4 minutes per test, 15 minute timeout)
+// To run manually: bun vitest alchemy/test/azure/sql-database.test.ts --run
+describe.skip("Azure SQL", () => {
   describe("SqlServer", () => {
     test("create sql server", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-sql-server-create-rg`;

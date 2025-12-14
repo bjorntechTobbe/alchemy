@@ -15,7 +15,9 @@ const test = alchemy.test(import.meta, {
   prefix: BRANCH_PREFIX,
 });
 
-describe("Azure Databases", () => {
+// Skip CosmosDB tests by default - they are extremely slow (10-12 minutes per test, 20 minute timeout)
+// To run manually: bun vitest alchemy/test/azure/cosmosdb-account.test.ts --run
+describe.skip("Azure Databases", () => {
   describe("CosmosDBAccount", () => {
     test("create cosmos db account", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cosmos-create-rg`;
