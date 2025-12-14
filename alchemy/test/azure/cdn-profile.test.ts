@@ -52,7 +52,7 @@ describe.skip("Azure CDN", () => {
         expect(profile.cdnProfileId).toMatch(
           new RegExp(
             `/subscriptions/[a-f0-9-]+/resourcegroups/${resourceGroupName}/providers/Microsoft\\.Cdn/profiles/${profileName}`,
-            'i'
+            "i",
           ),
         );
         expect(profile.type).toBe("azure::CDNProfile");

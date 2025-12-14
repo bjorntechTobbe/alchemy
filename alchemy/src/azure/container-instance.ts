@@ -602,13 +602,10 @@ export const ContainerInstance = Resource(
       memoryInGB: props.memoryInGB || 1.5,
       osType: (result as { properties?: { osType?: string } }).properties
         ?.osType as "Linux" | "Windows" | undefined,
-      restartPolicy: props.restartPolicy ||
-        ((result as { properties?: { restartPolicy?: string } })
-          .properties?.restartPolicy as
-          | "Always"
-          | "OnFailure"
-          | "Never"
-          | undefined) ||
+      restartPolicy:
+        props.restartPolicy ||
+        ((result as { properties?: { restartPolicy?: string } }).properties
+          ?.restartPolicy as "Always" | "OnFailure" | "Never" | undefined) ||
         "Always",
       command: props.command,
       environmentVariables: props.environmentVariables,

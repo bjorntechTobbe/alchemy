@@ -73,7 +73,7 @@ describe.skip("Azure CDN", () => {
         expect(endpoint.cdnEndpointId).toMatch(
           new RegExp(
             `/subscriptions/[a-f0-9-]+/resourcegroups/${resourceGroupName}/providers/Microsoft\\.Cdn/profiles/${profileName}/endpoints/${endpointName}`,
-            'i'
+            "i",
           ),
         );
         expect(endpoint.type).toBe("azure::CDNEndpoint");

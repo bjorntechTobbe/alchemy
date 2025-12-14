@@ -73,7 +73,9 @@ const assetsContainer = await BlobContainer("assets", {
 
 console.log(`✓ Assets Container: ${assetsContainer.name}`);
 console.log(`  URL: ${assetsContainer.url}`);
-console.log(`  Public Access: ${assetsContainer.publicAccess} (use SAS tokens for sharing)`);
+console.log(
+  `  Public Access: ${assetsContainer.publicAccess} (use SAS tokens for sharing)`,
+);
 
 const backupContainer = await BlobContainer("backups", {
   storageAccount: storage,

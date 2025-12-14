@@ -67,7 +67,9 @@ console.log("\n📦 Deploy Your Site Content:");
 console.log("   Azure Static Web Apps can be deployed in several ways:");
 console.log("\n   Option 1 - Static Web Apps CLI (Quickest):");
 console.log("   npm install -g @azure/static-web-apps-cli");
-console.log(`   swa deploy ./public --deployment-token="${Secret.unwrap(webapp.apiKey)}"`);
+console.log(
+  `   swa deploy ./public --deployment-token="${Secret.unwrap(webapp.apiKey)}"`,
+);
 console.log("\n   Option 2 - GitHub Actions (Recommended for teams):");
 console.log("   1. Push your code to GitHub");
 console.log("   2. Configure repository in Azure Portal:");
@@ -77,9 +79,13 @@ console.log("      - Authorize and select your repository");
 console.log("   3. Azure will automatically set up CI/CD");
 console.log("\n   Option 3 - Manual with cURL:");
 console.log("   (Package your site as a ZIP first)");
-console.log(`   curl -X POST https://${webapp.defaultHostname}/api/zipdeploy \\`);
+console.log(
+  `   curl -X POST https://${webapp.defaultHostname}/api/zipdeploy \\`,
+);
 console.log(`     -H "Content-Type: application/zip" \\`);
-console.log(`     -H "Authorization: Bearer ${Secret.unwrap(webapp.apiKey)}" \\`);
+console.log(
+  `     -H "Authorization: Bearer ${Secret.unwrap(webapp.apiKey)}" \\`,
+);
 console.log(`     --data-binary @site.zip`);
 
 console.log("\n✨ Features:");

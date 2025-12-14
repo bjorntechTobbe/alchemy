@@ -434,11 +434,12 @@ export const StaticWebApp = Resource(
     let result: StaticSiteARMResource;
 
     try {
-      result = await clients.appService.staticSites.beginCreateOrUpdateStaticSiteAndWait(
-        resourceGroupName,
-        name,
-        staticSiteEnvelope,
-      );
+      result =
+        await clients.appService.staticSites.beginCreateOrUpdateStaticSiteAndWait(
+          resourceGroupName,
+          name,
+          staticSiteEnvelope,
+        );
     } catch (error) {
       if (isConflictError(error) && !staticWebAppId && !adopt) {
         throw new Error(
@@ -448,10 +449,15 @@ export const StaticWebApp = Resource(
       }
 
       logger.error(`Failed to create Static Web App "${name}":`, error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorDetails = (error as any)?.details ? JSON.stringify((error as any).details) : '';
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+      const errorDetails = (error as any)?.details
+        ? JSON.stringify((error as any).details)
+        : "";
       throw new Error(
-        `Failed to create Static Web App "${name}" in resource group "${resourceGroupName}": ${errorMessage}${errorDetails ? ` Details: ${errorDetails}` : ''}`,
+        `Failed to create Static Web App "${name}" in resource group "${resourceGroupName}": ${errorMessage}${
+          errorDetails ? ` Details: ${errorDetails}` : ""
+        }`,
         { cause: error },
       );
     }
