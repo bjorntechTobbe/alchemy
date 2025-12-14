@@ -538,88 +538,176 @@ az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 
 ## Example Projects
 
+### azure-ai-services
+**Status**: ✅ Passed  
+**Location**: `examples/azure-ai-services/`
+
+**Test**:
+```bash
+cd examples/azure-ai-services
+bun install
+bun run deploy
+bun run destroy
+```
+
+**Results**:
+- Deploy: ✅ Successful
+- Services Created: 
+  - Resource Group
+  - Azure OpenAI (CognitiveServices kind: OpenAI)
+  - Computer Vision (CognitiveServices kind: ComputerVision)
+  - Speech Services (CognitiveServices kind: SpeechServices)
+  - Content Moderator (CognitiveServices kind: ContentModerator)
+- Cleanup: ✅ All resources destroyed successfully
+- Notes: Fixed to use ContentModerator instead of TextAnalytics (which requires special quota approval)
+
+---
+
 ### azure-app-service
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Location**: `examples/azure-app-service/`
 
 **Test**:
 ```bash
 cd examples/azure-app-service
 bun install
-bun run alchemy.run.ts
+bun run deploy
+bun run destroy
 ```
 
 **Results**:
-- Deploy: N/A
-- Access URL: N/A
-- Cleanup: N/A
-- Notes:
-
----
-
-### azure-ai-services
-**Status**: ⏸️  
-**Location**: `examples/azure-ai-services/`
-
-**Results**:
-- Deploy: N/A
-- Cleanup: N/A
-- Notes:
+- Deploy: ✅ Successful
+- Resources Created:
+  - Resource Group
+  - App Service (Node.js 20-lts, F1 Free Tier)
+- URL: `https://azure-app-service-my-webapp-{stage}.azurewebsites.net`
+- Cleanup: ✅ All resources destroyed successfully
+- Notes: Infrastructure-only deployment (content deployment via Azure CLI, Git, or GitHub Actions)
 
 ---
 
 ### azure-container-firewall
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Location**: `examples/azure-container-firewall/`
 
+**Test**:
+```bash
+cd examples/azure-container-firewall
+bun install
+bun run deploy
+bun run destroy
+```
+
 **Results**:
-- Deploy: N/A
-- Cleanup: N/A
-- Notes:
+- Deploy: ✅ Successful
+- Resources Created:
+  - Resource Group
+  - Network Security Group with firewall rules
+  - Public IP Address
+  - Container Instance (NGINX)
+- Cleanup: ✅ All resources destroyed successfully
+- Notes: Demonstrates NSG integration with Container Instances
 
 ---
 
 ### azure-function-app
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Location**: `examples/azure-function-app/`
 
+**Test**:
+```bash
+cd examples/azure-function-app
+bun install
+bun run deploy
+bun run destroy
+```
+
 **Results**:
-- Deploy: N/A
-- Cleanup: N/A
-- Notes:
+- Deploy: ✅ Successful
+- Resources Created:
+  - Resource Group
+  - Storage Account (for function state)
+  - Function App (Node.js 20, Consumption plan)
+- URL: `https://azure-function-app-my-function-{stage}.azurewebsites.net`
+- Cleanup: ✅ All resources destroyed successfully
+- Notes: Infrastructure-only deployment (function code deployment via Azure CLI or VS Code)
 
 ---
 
 ### azure-sql-database
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Location**: `examples/azure-sql-database/`
 
+**Test**:
+```bash
+cd examples/azure-sql-database
+bun install
+bun run deploy
+bun run destroy
+```
+
 **Results**:
-- Deploy: N/A
-- Cleanup: N/A
-- Notes:
+- Deploy: ✅ Successful
+- Resources Created:
+  - Resource Group
+  - SQL Server (version 12.0)
+  - SQL Database (Basic tier, 2GB)
+- Connection: Server FQDN provided in output
+- Cleanup: ✅ All resources destroyed successfully
+- Notes: Fixed to use westeurope region (eastus has provisioning restrictions). Example uses strong password via alchemy.secret()
 
 ---
 
 ### azure-static-web-app
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Location**: `examples/azure-static-web-app/`
 
+**Test**:
+```bash
+cd examples/azure-static-web-app
+bun install
+bun run deploy
+# Deploy content with SWA CLI
+npm install -g @azure/static-web-apps-cli
+swa deploy ./public --deployment-token="<token-from-output>" --env production
+# Visit the URL
+bun run destroy
+```
+
 **Results**:
-- Deploy: N/A
-- Cleanup: N/A
-- Notes:
+- Deploy: ✅ Successful
+- Resources Created:
+  - Resource Group
+  - Static Web App (Free tier)
+- URL: Live site accessible at `https://{random-name}.azurestaticapps.net`
+- Deployment Token: ✅ Displayed in output for immediate content deployment
+- Content Deploy: ✅ Successfully deployed HTML content via SWA CLI
+- Cleanup: ✅ All resources destroyed successfully
+- Notes: Enhanced to display deployment token with ready-to-use commands. Supports GitHub Actions, SWA CLI, and cURL deployment methods. Successfully tested end-to-end deployment.
 
 ---
 
 ### azure-storage
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Location**: `examples/azure-storage/`
 
+**Test**:
+```bash
+cd examples/azure-storage
+bun install
+bun run deploy
+bun run destroy
+```
+
 **Results**:
-- Deploy: N/A
-- Cleanup: N/A
-- Notes:
+- Deploy: ✅ Successful
+- Resources Created:
+  - Resource Group
+  - User Assigned Identity
+  - 2 Storage Accounts (Standard_LRS Hot, Standard_GRS Cool)
+  - 4 Blob Containers (uploads, assets, backups, critical)
+- Cleanup: ✅ All resources destroyed successfully
+- Notes: Fixed to add password for secret encryption and disabled public blob access (subscription policy prevents public access). Updated to use private containers with SAS token guidance.
 
 ---
 
@@ -678,9 +766,9 @@ These tests are **skipped by default** using `describe.skip()` to keep CI/CD fas
 - **Automated CI/CD Coverage**: 14/18 resources (78%)
 - **Manual Testing Required**: 4/18 resources (22%) - due to Azure's slow provisioning times
 
-**Example Projects**: 8  
-**Tested**: 0  
-**Working**: 0  
+**Example Projects**: 7  
+**Tested**: 7  
+**Working**: 7 (100%)  
 **Failed**: 0
 
 ---
@@ -847,7 +935,30 @@ All tests are functionally correct and pass. 4 resources (SQL, CosmosDB, CDN) ar
 
 ## Next Steps
 
-1. ✅ All core resources tested
-2. ✅ All bugs fixed
-3. ⏭️ Example projects testing (8 projects in `examples/azure-*/`)
-4. ⏭️ Create Pull Request with test results and bug fixes
+1. ✅ All core resources tested (18/18 resources - 100%)
+2. ✅ All bugs fixed (4 bugs found and fixed)
+3. ✅ Example projects tested (7/7 examples - 100%)
+4. ✅ Example fixes committed
+5. ⏭️ Create Pull Request with test results and bug fixes
+
+---
+
+## Example Projects Test Summary
+
+All 7 Azure example projects have been tested end-to-end and are working correctly:
+
+1. ✅ **azure-ai-services** - Multiple AI services (OpenAI, Vision, Speech, Moderator)
+2. ✅ **azure-app-service** - Web app hosting infrastructure
+3. ✅ **azure-container-firewall** - Container with NSG firewall rules
+4. ✅ **azure-function-app** - Serverless function infrastructure
+5. ✅ **azure-sql-database** - SQL Server and Database (westeurope region)
+6. ✅ **azure-static-web-app** - Static site with deployment token and content deployment
+7. ✅ **azure-storage** - Multiple storage accounts and blob containers
+
+### Example Fixes Applied:
+- **azure-ai-services**: Changed TextAnalytics → ContentModerator (quota issue)
+- **azure-sql-database**: Changed region eastus → westeurope (provisioning restriction)
+- **azure-storage**: Added password for secrets, disabled public blob access (subscription policy)
+- **azure-static-web-app**: Added deployment token display and enhanced deployment instructions
+
+All examples deploy successfully, provide useful output, and clean up properly.
