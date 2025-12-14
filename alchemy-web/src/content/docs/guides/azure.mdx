@@ -1,0 +1,374 @@
+---
+title: Azure
+description: Deploy your first serverless application to Microsoft Azure using Alchemy
+sidebar:
+  order: 3
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+This guide walks you through deploying a serverless function with blob storage to Microsoft Azure using Alchemy.
+
+## Prerequisites
+
+Before you begin, you'll need:
+
+- An [Azure account](https://azure.microsoft.com/free/)
+- Azure CLI installed on your machine
+- Node.js 20+ or Bun installed
+
+## Install Azure CLI
+
+Install the Azure CLI for local development:
+
+<Tabs>
+  <TabItem label="macOS">
+    ```sh
+    brew install azure-cli
+    ```
+  </TabItem>
+  <TabItem label="Windows">
+    ```sh
+    winget install Microsoft.AzureCLI
+    ```
+  </TabItem>
+  <TabItem label="Linux">
+    ```sh
+    curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+    ```
+  </TabItem>
+</Tabs>
+
+## Install Alchemy
+
+Install Alchemy in your project:
+
+<Tabs syncKey="pkgManager">
+  <TabItem label="bun">
+    ```sh
+    bun add alchemy
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```sh
+    npm install alchemy
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```sh
+    pnpm add alchemy
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```sh
+    yarn add alchemy
+    ```
+  </TabItem>
+</Tabs>
+
+## Set Up Azure Credentials
+
+### 1. Log in to Azure CLI
+
+```sh
+az login
+```
+
+This will open a browser window for authentication.
+
+### 2. Get Your Subscription ID
+
+```sh
+az account show --query id --output tsv
+```
+
+Copy this subscription ID - you'll need it in your `.env` file.
+
+### 3. Create a Service Principal
+
+Create a service principal for Alchemy to use:
+
+```sh
+az ad sp create-for-rbac --name "alchemy-deploy" --role contributor \
+  --scopes /subscriptions/{your-subscription-id}
+```
+
+Replace `{your-subscription-id}` with your actual subscription ID from step 2.
+
+This command will output credentials like:
+
+```json
+{
+  "appId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "displayName": "alchemy-deploy",
+  "password": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "tenant": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+}
+```
+
+### 4. Create `.env` File
+
+Create a `.env` file in your project root with the credentials:
+
+```env
+AZURE_SUBSCRIPTION_ID=your-subscription-id
+AZURE_TENANT_ID=your-tenant-id
+AZURE_CLIENT_ID=your-app-id
+AZURE_CLIENT_SECRET=your-password
+```
+
+Map the values from the service principal output:
+- `AZURE_SUBSCRIPTION_ID` - From step 2
+- `AZURE_TENANT_ID` - The `tenant` value
+- `AZURE_CLIENT_ID` - The `appId` value
+- `AZURE_CLIENT_SECRET` - The `password` value
+
+:::caution
+Never commit your `.env` file to version control! Add it to your `.gitignore`:
+
+```sh
+echo ".env" >> .gitignore
+```
+:::
+
+## Create Your First Azure Application
+
+Create an `alchemy.run.ts` file to define your infrastructure:
+
+```typescript
+import { alchemy } from "alchemy";
+import * as azure from "alchemy/azure";
+
+const app = await alchemy("my-azure-app", {
+  azure: {
+    subscriptionId: process.env.AZURE_SUBSCRIPTION_ID!,
+    tenantId: alchemy.secret.env.AZURE_TENANT_ID,
+    clientId: alchemy.secret.env.AZURE_CLIENT_ID,
+    clientSecret: alchemy.secret.env.AZURE_CLIENT_SECRET,
+  }
+});
+
+// Create a resource group in East US
+const rg = await azure.ResourceGroup("my-rg", {
+  location: "eastus"
+});
+
+// Create a storage account
+const storage = await azure.StorageAccount("storage", {
+  resourceGroup: rg,
+  location: "eastus"
+});
+
+// Create a blob container for uploads
+const uploads = await azure.BlobContainer("uploads", {
+  resourceGroup: rg,
+  storageAccount: storage
+});
+
+// Create a Function App for serverless API
+const api = await azure.FunctionApp("api", {
+  resourceGroup: rg,
+  location: "eastus",
+  runtime: "node",
+  runtimeVersion: "20",
+  appSettings: {
+    STORAGE_CONNECTION_STRING: storage.connectionString,
+    UPLOAD_CONTAINER: uploads.name
+  }
+});
+
+console.log(`Function App URL: ${api.url}`);
+console.log(`Storage Account: ${storage.name}`);
+console.log(`Container URL: ${uploads.url}`);
+
+await app.finalize();
+```
+
+This creates:
+- A **Resource Group** to organize your resources
+- A **Storage Account** for blob storage
+- A **Blob Container** for file uploads
+- A **Function App** for your serverless API
+
+## Deploy to Azure
+
+Run your `alchemy.run.ts` script to deploy:
+
+<Tabs syncKey="pkgManager">
+  <TabItem label="bun">
+    ```sh
+    bun ./alchemy.run.ts
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```sh
+    npx tsx ./alchemy.run.ts
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```sh
+    pnpm tsx ./alchemy.run.ts
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```sh
+    yarn tsx ./alchemy.run.ts
+    ```
+  </TabItem>
+</Tabs>
+
+You should see output like:
+
+```sh
+Creating resource group my-rg in eastus...
+Creating storage account...
+Creating blob container uploads...
+Creating function app api...
+Function App URL: https://my-azure-app-prod-api.azurewebsites.net
+Storage Account: myazureappprodst
+Container URL: https://myazureappprodst.blob.core.windows.net/uploads
+```
+
+:::note
+Azure resource creation can take a few minutes, especially for Function Apps and Storage Accounts.
+:::
+
+## Verify Your Deployment
+
+You can verify your deployment in the [Azure Portal](https://portal.azure.com):
+
+1. Navigate to **Resource Groups**
+2. Find your resource group (e.g., `my-azure-app-prod-my-rg`)
+3. You should see:
+   - Storage Account
+   - Function App
+   - App Service Plan
+
+## Update Your Infrastructure
+
+To update your infrastructure, simply modify `alchemy.run.ts` and run it again:
+
+```typescript
+// Add tags to your resource group
+const rg = await azure.ResourceGroup("my-rg", {
+  location: "eastus",
+  tags: {
+    environment: "production",
+    team: "platform"
+  }
+});
+
+// Add more app settings to your Function App
+const api = await azure.FunctionApp("api", {
+  resourceGroup: rg,
+  location: "eastus",
+  runtime: "node",
+  runtimeVersion: "20",
+  appSettings: {
+    STORAGE_CONNECTION_STRING: storage.connectionString,
+    UPLOAD_CONTAINER: uploads.name,
+    NODE_ENV: "production",
+    LOG_LEVEL: "info"
+  }
+});
+```
+
+Run the script again to apply updates:
+
+<Tabs syncKey="pkgManager">
+  <TabItem label="bun">
+    ```sh
+    bun ./alchemy.run.ts
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```sh
+    npx tsx ./alchemy.run.ts
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```sh
+    pnpm tsx ./alchemy.run.ts
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```sh
+    yarn tsx ./alchemy.run.ts
+    ```
+  </TabItem>
+</Tabs>
+
+## Tear Down
+
+When you're done, tear down all resources:
+
+<Tabs syncKey="pkgManager">
+  <TabItem label="bun">
+    ```sh
+    bun ./alchemy.run.ts --destroy
+    ```
+  </TabItem>
+  <TabItem label="npm">
+    ```sh
+    npx tsx ./alchemy.run.ts --destroy
+    ```
+  </TabItem>
+  <TabItem label="pnpm">
+    ```sh
+    pnpm tsx ./alchemy.run.ts --destroy
+    ```
+  </TabItem>
+  <TabItem label="yarn">
+    ```sh
+    yarn tsx ./alchemy.run.ts --destroy
+    ```
+  </TabItem>
+</Tabs>
+
+This will delete the resource group and all resources within it.
+
+:::tip
+Deleting a Resource Group automatically deletes all resources inside it. This makes cleanup simple!
+:::
+
+## Next Steps
+
+Now that you have a basic Azure application running, you can:
+
+- **Add a Database**: Use [CosmosDB](/providers/azure/cosmosdb-account/) or [SQL Database](/providers/azure/sql-database/)
+- **Deploy a Static Website**: Use [Static Web App](/providers/azure/static-web-app/)
+- **Add Networking**: Create a [Virtual Network](/providers/azure/virtual-network/) for isolation
+- **Secure Secrets**: Use [Key Vault](/providers/azure/key-vault/) for secret management
+- **Use Managed Identity**: Add [User Assigned Identity](/providers/azure/user-assigned-identity/) for secure access
+
+## Common Issues
+
+### "Unauthorized" or "Invalid Credentials"
+
+Make sure your `.env` file has the correct credentials and that your service principal has the `contributor` role.
+
+### "Location not available"
+
+Some Azure regions may not support all resource types. Try using `eastus` or `westus2` instead.
+
+### "Resource Already Exists"
+
+If a resource with the same name already exists, use the `adopt: true` flag:
+
+```typescript
+const rg = await azure.ResourceGroup("my-rg", {
+  location: "eastus",
+  adopt: true
+});
+```
+
+### "Quota Exceeded"
+
+Free tier Azure subscriptions have resource limits. Check your [Azure Quotas](https://portal.azure.com/#view/Microsoft_Azure_Capacity/QuotaMenuBlade) in the portal.
+
+## Additional Resources
+
+- [Azure Provider Documentation](/providers/azure/)
+- [Azure Example Projects](https://github.com/alchemy-run/alchemy/tree/main/examples)
+- [Azure Portal](https://portal.azure.com)
+- [Azure Documentation](https://docs.microsoft.com/azure)
