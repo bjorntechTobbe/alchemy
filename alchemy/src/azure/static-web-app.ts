@@ -5,7 +5,8 @@ import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
 import type { StaticSiteARMResource } from "@azure/arm-appservice";
-import { isNotFoundError, isConflictError } from "./error.ts";
+import { isAzureError, isNotFoundError, isConflictError } from "./error.ts";
+import { withExponentialBackoff } from "../util/retry.ts";
 
 export interface StaticWebAppProps extends AzureClientProps {
   /**
@@ -445,13 +446,25 @@ export const StaticWebApp = Resource(
 
     // Create or update the static web app
     // The Azure API will handle adoption via createOrUpdate
+    // Use exponential backoff to handle eventual consistency of ResourceGroup creation
     try {
-      result =
-        await clients.appService.staticSites.beginCreateOrUpdateStaticSiteAndWait(
-          resourceGroupName,
-          name,
-          staticSiteEnvelope,
-        );
+      result = await withExponentialBackoff(
+        async () => {
+          return await clients.appService.staticSites.beginCreateOrUpdateStaticSiteAndWait(
+            resourceGroupName,
+            name,
+            staticSiteEnvelope,
+          );
+        },
+        (error: unknown) => {
+          // Retry on ResourceGroupNotFound errors (eventual consistency)
+          // Azure API Gateway can take several seconds to propagate ResourceGroup creation
+          return isAzureError(error) && error.code === "ResourceGroupNotFound";
+        },
+        8, // max attempts (balanced for Azure eventual consistency)
+        3000, // initial delay (3s - give Azure time to propagate)
+        15000, // max delay (15s)
+      );
     } catch (error) {
       // Handle specific error cases
       if (isConflictError(error) && !staticWebAppId && !adopt) {
