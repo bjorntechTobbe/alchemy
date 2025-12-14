@@ -242,14 +242,15 @@ export const ServiceBus = Resource(
         .replace(/[^a-z0-9-]/g, "-");
 
     const resourceGroupName =
-      typeof props.resourceGroup === "string"
+      this.output?.resourceGroup ??
+      (typeof props.resourceGroup === "string"
         ? props.resourceGroup
-        : props.resourceGroup.name;
+        : props.resourceGroup.name);
 
     const location =
-      props.location ||
       this.output?.location ||
-      (typeof props.resourceGroup === "string"
+      props.location ||
+      (typeof props.resourceGroup === "string" || this.phase === "delete"
         ? undefined
         : props.resourceGroup.location);
 

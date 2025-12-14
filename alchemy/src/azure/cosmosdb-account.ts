@@ -351,9 +351,10 @@ export const CosmosDBAccount = Resource(
 
       if (props.delete !== false) {
         const resourceGroupName =
-          typeof props.resourceGroup === "string"
+          this.output?.resourceGroup ??
+          (typeof props.resourceGroup === "string"
             ? props.resourceGroup
-            : props.resourceGroup.name;
+            : props.resourceGroup.name);
 
         try {
           await clients.cosmosDB.databaseAccounts.beginDeleteAndWait(
@@ -385,11 +386,12 @@ export const CosmosDBAccount = Resource(
 
     // Get resource group name and location
     const resourceGroupName =
-      typeof props.resourceGroup === "string"
+      this.output?.resourceGroup ??
+      (typeof props.resourceGroup === "string"
         ? props.resourceGroup
-        : props.resourceGroup.name;
+        : props.resourceGroup.name);
 
-    let location = props.location;
+    let location = this.output?.location ?? props.location;
     if (!location && typeof props.resourceGroup !== "string") {
       location = props.resourceGroup.location;
     }

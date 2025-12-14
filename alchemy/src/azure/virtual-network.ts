@@ -274,12 +274,13 @@ export const VirtualNetwork = Resource(
 
     const clients = await createAzureClients(props);
     const resourceGroupName =
-      typeof props.resourceGroup === "string"
+      this.output?.resourceGroup ??
+      (typeof props.resourceGroup === "string"
         ? props.resourceGroup
-        : props.resourceGroup.name;
+        : props.resourceGroup.name);
 
     // Get resource group for location inheritance
-    let location = props.location;
+    let location = this.output?.location ?? props.location;
     if (!location) {
       const rg = await clients.resources.resourceGroups.get(resourceGroupName);
       location = rg.location!;

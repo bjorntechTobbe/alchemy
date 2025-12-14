@@ -207,9 +207,10 @@ export const UserAssignedIdentity = Resource(
       props.name ?? this.output?.name ?? this.scope.createPhysicalName(id);
 
     const resourceGroupName =
-      typeof props.resourceGroup === "string"
+      this.output?.resourceGroup ??
+      (typeof props.resourceGroup === "string"
         ? props.resourceGroup
-        : props.resourceGroup.name;
+        : props.resourceGroup.name);
 
     if (this.scope.local) {
       return {
@@ -259,7 +260,7 @@ export const UserAssignedIdentity = Resource(
       );
     }
 
-    let location = props.location;
+    let location = this.output?.location ?? props.location;
     if (!location) {
       if (typeof props.resourceGroup === "object") {
         location = props.resourceGroup.location;

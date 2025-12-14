@@ -323,11 +323,21 @@ export async function assertStaticWebAppDoesNotExist(
   staticWebAppName: string,
 ) {
   const clients = await createAzureClients();
-  const exists = await clients.appService.staticSites.getStaticSite(
-    resourceGroupName,
-    staticWebAppName,
-  );
-  expect(exists).toBeUndefined();
+  try {
+    await clients.appService.staticSites.getStaticSite(
+      resourceGroupName,
+      staticWebAppName,
+    );
+    throw new Error(
+      `Static Web App ${staticWebAppName} still exists in resource group ${resourceGroupName}`,
+    );
+  } catch (error: any) {
+    // 404 is expected when resource doesn't exist
+    if (error.statusCode === 404) {
+      return;
+    }
+    throw error;
+  }
 }
 
 /**

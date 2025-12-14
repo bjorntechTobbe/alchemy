@@ -318,14 +318,15 @@ export const AppService = Resource(
         .replace(/[^a-z0-9-]/g, "");
 
     const resourceGroupName =
-      typeof props.resourceGroup === "string"
+      this.output?.resourceGroup ??
+      (typeof props.resourceGroup === "string"
         ? props.resourceGroup
-        : props.resourceGroup.name;
+        : props.resourceGroup.name);
 
     const location =
-      props.location ||
       this.output?.location ||
-      (typeof props.resourceGroup !== "string"
+      props.location ||
+      (typeof props.resourceGroup !== "string" && this.phase !== "delete"
         ? props.resourceGroup.location
         : undefined);
 
@@ -475,7 +476,7 @@ export const AppService = Resource(
       result = await clients.appService.webApps.beginCreateOrUpdateAndWait(
         resourceGroupName,
         name,
-        webAppParams,
+        siteEnvelope,
       );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
@@ -484,6 +485,9 @@ export const AppService = Resource(
         { cause: error },
       );
     }
+
+    const defaultHostname =
+      result.defaultHostName || `${name}.azurewebsites.net`;
 
     return {
       id,

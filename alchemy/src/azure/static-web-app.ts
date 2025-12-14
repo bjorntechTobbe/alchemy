@@ -305,14 +305,15 @@ export const StaticWebApp = Resource(
         .replace(/[^a-z0-9-]/g, "");
 
     const resourceGroupName =
-      typeof props.resourceGroup === "string"
+      this.output?.resourceGroup ??
+      (typeof props.resourceGroup === "string"
         ? props.resourceGroup
-        : props.resourceGroup.name;
+        : props.resourceGroup.name);
 
     const location =
-      props.location ||
       this.output?.location ||
-      (typeof props.resourceGroup !== "string"
+      props.location ||
+      (typeof props.resourceGroup !== "string" && this.phase !== "delete"
         ? props.resourceGroup.location
         : undefined);
 
@@ -344,6 +345,31 @@ export const StaticWebApp = Resource(
         type: "azure::StaticWebApp",
       };
     }
+
+    if (this.phase === "delete") {
+      if (!staticWebAppId) {
+        logger.warn(`No staticWebAppId found for ${id}, skipping delete`);
+        return this.destroy();
+      }
+
+      if (props.delete !== false) {
+        try {
+          const clients = await createAzureClients(props);
+          await clients.appService.staticSites.beginDeleteStaticSiteAndWait(
+            resourceGroupName,
+            name,
+          );
+        } catch (error: unknown) {
+          if (!isNotFoundError(error)) {
+            logger.error(`Error deleting static web app ${id}:`, error);
+            throw error;
+          }
+        }
+      }
+      return this.destroy();
+    }
+
+    const clients = await createAzureClients(props);
 
     if (name.length < 2 || name.length > 60) {
       throw new Error(
@@ -379,30 +405,6 @@ export const StaticWebApp = Resource(
     const appSettings: Record<string, string> =
       Object.fromEntries(appSettingsEntries);
 
-    const buildProperties: Record<string, unknown> = {
-      appLocation: props.appLocation || "/",
-      apiLocation: props.apiLocation,
-      outputLocation: props.outputLocation,
-    };
-
-    let repositoryProperties: Record<string, unknown> | undefined = undefined;
-    if (props.repositoryUrl) {
-      if (!props.repositoryToken) {
-        throw new Error(
-          "repositoryToken is required when repositoryUrl is provided",
-        );
-      }
-
-      repositoryProperties = {
-        repositoryUrl: props.repositoryUrl,
-        branch: props.branch || "main",
-        repositoryToken:
-          typeof props.repositoryToken === "string"
-            ? props.repositoryToken
-            : Secret.unwrap(props.repositoryToken),
-      };
-    }
-
     const staticSiteEnvelope: StaticSiteARMResource = {
       location,
       tags: props.tags,
@@ -410,31 +412,35 @@ export const StaticWebApp = Resource(
         name: props.sku || "Free",
         tier: props.sku || "Free",
       },
-      buildProperties,
-      repositoryUrl: repositoryProperties?.repositoryUrl as string | undefined,
-      branch: repositoryProperties?.branch as string | undefined,
-      repositoryToken: repositoryProperties?.repositoryToken as
-        | string
-        | undefined,
+      buildProperties: {
+        appLocation: props.appLocation || "/",
+        apiLocation: props.apiLocation,
+        outputLocation: props.outputLocation,
+      },
     };
+
+    if (props.repositoryUrl) {
+      if (!props.repositoryToken) {
+        throw new Error(
+          "repositoryToken is required when repositoryUrl is provided",
+        );
+      }
+
+      staticSiteEnvelope.repositoryUrl = props.repositoryUrl;
+      staticSiteEnvelope.branch = props.branch || "main";
+      staticSiteEnvelope.repositoryToken =
+        typeof props.repositoryToken === "string"
+          ? props.repositoryToken
+          : Secret.unwrap(props.repositoryToken);
+    }
 
     let result: StaticSiteARMResource;
 
     try {
-      result = await withExponentialBackoff(
-        async () => {
-          return await clients.appService.staticSites.beginCreateOrUpdateStaticSiteAndWait(
-            resourceGroupName,
-            name,
-            staticSiteEnvelope,
-          );
-        },
-        (error: unknown) => {
-          return isAzureError(error) && error.code === "ResourceGroupNotFound";
-        },
-        8,
-        3000,
-        15000,
+      result = await clients.appService.staticSites.beginCreateOrUpdateStaticSiteAndWait(
+        resourceGroupName,
+        name,
+        staticSiteEnvelope,
       );
     } catch (error) {
       if (isConflictError(error) && !staticWebAppId && !adopt) {
@@ -443,7 +449,14 @@ export const StaticWebApp = Resource(
           { cause: error },
         );
       }
-      throw error;
+
+      logger.error(`Failed to create Static Web App "${name}":`, error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorDetails = (error as any)?.details ? JSON.stringify((error as any).details) : '';
+      throw new Error(
+        `Failed to create Static Web App "${name}" in resource group "${resourceGroupName}": ${errorMessage}${errorDetails ? ` Details: ${errorDetails}` : ''}`,
+        { cause: error },
+      );
     }
 
     if (Object.keys(appSettings).length > 0) {

@@ -302,9 +302,10 @@ export const SqlDatabase = Resource(
 
     if (this.scope.local) {
       const resourceGroupName =
-        typeof props.resourceGroup === "string"
+        this.output?.resourceGroup ??
+        (typeof props.resourceGroup === "string"
           ? props.resourceGroup
-          : props.resourceGroup.name;
+          : props.resourceGroup.name);
 
       return {
         id,
@@ -340,9 +341,10 @@ export const SqlDatabase = Resource(
 
       if (props.delete !== false) {
         const resourceGroupName =
-          typeof props.resourceGroup === "string"
+          this.output?.resourceGroup ??
+          (typeof props.resourceGroup === "string"
             ? props.resourceGroup
-            : props.resourceGroup.name;
+            : props.resourceGroup.name);
 
         try {
           await clients.sql.databases.beginDeleteAndWait(
@@ -363,11 +365,12 @@ export const SqlDatabase = Resource(
 
     // Get resource group name and location
     const resourceGroupName =
-      typeof props.resourceGroup === "string"
+      this.output?.resourceGroup ??
+      (typeof props.resourceGroup === "string"
         ? props.resourceGroup
-        : props.resourceGroup.name;
+        : props.resourceGroup.name);
 
-    let location = props.location;
+    let location = this.output?.location ?? props.location;
     if (!location && typeof props.sqlServer !== "string") {
       location = props.sqlServer.location;
     }
