@@ -131,6 +131,31 @@ echo ".env" >> .gitignore
 ```
 :::
 
+### 5. Register Required Resource Providers
+
+Some Azure services require explicit resource provider registration before first use. Register the providers you plan to use:
+
+```sh
+# Register SQL Database provider (required for SQL Server/Database)
+az provider register --namespace Microsoft.Sql
+
+# Register Cognitive Services provider (required for AI services)
+az provider register --namespace Microsoft.CognitiveServices
+```
+
+Check registration status (may take a few minutes):
+
+```sh
+az provider show -n Microsoft.Sql --query "registrationState"
+az provider show -n Microsoft.CognitiveServices --query "registrationState"
+```
+
+Wait until the state shows `"Registered"` before creating resources that depend on these providers.
+
+:::note
+Most Azure services auto-register their providers when you create resources through the Azure Portal. However, when using Infrastructure as Code tools like Alchemy, you may need to register providers manually.
+:::
+
 ## Create Your First Azure Application
 
 Create an `alchemy.run.ts` file to define your infrastructure:
@@ -365,6 +390,27 @@ const rg = await azure.ResourceGroup("my-rg", {
 ### "Quota Exceeded"
 
 Free tier Azure subscriptions have resource limits. Check your [Azure Quotas](https://portal.azure.com/#view/Microsoft_Azure_Capacity/QuotaMenuBlade) in the portal.
+
+### "Resource Provider Not Registered"
+
+If you receive an error like `The subscription is not registered to use namespace 'Microsoft.Sql'`, you need to register the resource provider:
+
+```sh
+az provider register --namespace Microsoft.Sql
+```
+
+Common providers that may require registration:
+- `Microsoft.Sql` - For SQL Server and SQL Database
+- `Microsoft.CognitiveServices` - For AI and Cognitive Services
+- `Microsoft.ContainerInstance` - For Container Instances (usually auto-registers)
+- `Microsoft.Web` - For App Service, Function App, Static Web App (usually auto-registers)
+
+Check registration status:
+```sh
+az provider show -n Microsoft.Sql --query "registrationState"
+```
+
+Wait for the state to show `"Registered"` before deploying resources.
 
 ## Additional Resources
 
