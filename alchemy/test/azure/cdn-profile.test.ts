@@ -32,6 +32,7 @@ describe("Azure CDN", () => {
         profile = await CDNProfile("cdn-std", {
           name: profileName,
           resourceGroup: rg,
+          location: "global",
           sku: "Standard_AzureFrontDoor",
           tags: {
             environment: "test",
@@ -74,6 +75,7 @@ describe("Azure CDN", () => {
         profile = await CDNProfile("cdn-update", {
           name: profileName,
           resourceGroup: rg,
+          location: "global",
           sku: "Standard_AzureFrontDoor",
           tags: {
             version: "1.0",
@@ -87,6 +89,7 @@ describe("Azure CDN", () => {
         profile = await CDNProfile("cdn-update", {
           name: profileName,
           resourceGroup: rg,
+          location: "global",
           sku: "Standard_AzureFrontDoor",
           tags: {
             version: "2.0",

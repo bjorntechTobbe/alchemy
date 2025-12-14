@@ -38,7 +38,8 @@ describe("Azure CDN", () => {
         profile = await CDNProfile("cdnep-basic-prof", {
           name: profileName,
           resourceGroup: rg,
-          sku: "Standard_Microsoft",
+          location: "global",
+          sku: "Standard_AzureFrontDoor",
         });
 
         endpoint = await CDNEndpoint("cdnep-basic", {
@@ -57,7 +58,7 @@ describe("Azure CDN", () => {
         });
 
         expect(endpoint.name).toBe(endpointName);
-        expect(endpoint.location).toBe("eastus");
+        expect(endpoint.location).toBe("global");
         expect(endpoint.hostName).toBe(`${endpointName}.azureedge.net`);
         expect(endpoint.profile).toBe(profileName);
         expect(endpoint.origins).toHaveLength(1);
@@ -104,7 +105,8 @@ describe("Azure CDN", () => {
         profile = await CDNProfile("cdnep-https-prof", {
           name: profileName,
           resourceGroup: rg,
-          sku: "Standard_Microsoft",
+          location: "global",
+          sku: "Standard_AzureFrontDoor",
         });
 
         endpoint = await CDNEndpoint("cdnep-https", {

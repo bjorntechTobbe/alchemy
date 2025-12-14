@@ -101,7 +101,11 @@ export async function assertCDNProfileDoesNotExist(
     await cdn.profiles.get(resourceGroup, profileName);
     throw new Error(`CDN profile ${profileName} still exists after deletion`);
   } catch (error: any) {
-    expect(error.statusCode).toBe(404);
+    // 404 is expected when resource doesn't exist
+    if (error.statusCode === 404) {
+      return;
+    }
+    throw error;
   }
 }
 
