@@ -71,13 +71,15 @@ const speech = await CognitiveServices("my-speech", {
   },
 });
 
-const language = await CognitiveServices("my-language", {
+// Note: TextAnalytics requires special quota approval
+// Using ContentModerator instead which is available by default
+const moderator = await CognitiveServices("my-moderator", {
   resourceGroup: rg,
-  kind: "TextAnalytics",
+  kind: "ContentModerator",
   sku: "S0", // Standard tier
 
   tags: {
-    purpose: "text-analysis",
+    purpose: "content-moderation",
   },
 });
 
@@ -100,9 +102,9 @@ console.log("\n🎤 Speech Services:");
 console.log(`   Name: ${speech.name}`);
 console.log(`   Endpoint: ${speech.endpoint}`);
 
-console.log("\n📝 Language Services:");
-console.log(`   Name: ${language.name}`);
-console.log(`   Endpoint: ${language.endpoint}`);
+console.log("\n🛡️  Content Moderator:");
+console.log(`   Name: ${moderator.name}`);
+console.log(`   Endpoint: ${moderator.endpoint}`);
 
 console.log("\n🔑 Get API Keys:");
 console.log(

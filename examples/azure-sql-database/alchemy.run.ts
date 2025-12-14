@@ -29,7 +29,7 @@ const app = await alchemy("azure-sql-database", {
 });
 
 const rg = await ResourceGroup("sql-rg", {
-  location: "eastus",
+  location: "westeurope",
   tags: {
     project: "azure-sql-database",
     environment: "demo",

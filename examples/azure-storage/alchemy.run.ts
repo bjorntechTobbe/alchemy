@@ -6,7 +6,9 @@ import {
   UserAssignedIdentity,
 } from "alchemy/azure";
 
-const app = await alchemy("azure-storage-example");
+const app = await alchemy("azure-storage-example", {
+  password: process.env.ALCHEMY_PASSWORD || "change-me-in-production",
+});
 
 const rg = await ResourceGroup("storage-demo", {
   location: "eastus",
@@ -32,7 +34,7 @@ const storage = await StorageAccount("storage", {
   resourceGroup: rg,
   sku: "Standard_LRS",
   accessTier: "Hot",
-  allowBlobPublicAccess: true, // Allow public containers
+  allowBlobPublicAccess: false, // Public access disabled (default for security)
   minimumTlsVersion: "TLS1_2",
   tags: {
     purpose: "demo-storage",
@@ -58,18 +60,20 @@ console.log(`✓ Private Container: ${privateContainer.name}`);
 console.log(`  URL: ${privateContainer.url}`);
 console.log(`  Public Access: ${privateContainer.publicAccess}`);
 
-const publicContainer = await BlobContainer("assets", {
+// Note: Public blob access is often disabled at the subscription level for security
+// If you need public access, you may need to request an exception from your Azure admin
+const assetsContainer = await BlobContainer("assets", {
   storageAccount: storage,
-  publicAccess: "Blob", // Anonymous read access to individual blobs
+  publicAccess: "None", // Private access (use SAS tokens or CDN for public serving)
   metadata: {
     purpose: "static-assets",
     cdn: "enabled",
   },
 });
 
-console.log(`✓ Public Container: ${publicContainer.name}`);
-console.log(`  URL: ${publicContainer.url}`);
-console.log(`  Public Access: ${publicContainer.publicAccess}`);
+console.log(`✓ Assets Container: ${assetsContainer.name}`);
+console.log(`  URL: ${assetsContainer.url}`);
+console.log(`  Public Access: ${assetsContainer.publicAccess} (use SAS tokens for sharing)`);
 
 const backupContainer = await BlobContainer("backups", {
   storageAccount: storage,
@@ -120,7 +124,7 @@ console.log(`  1. ${storage.name} (Standard_LRS, Hot)`);
 console.log(`  2. ${geoStorage.name} (Standard_GRS, Cool)`);
 console.log(`\nContainers:`);
 console.log(`  - ${privateContainer.name} (Private)`);
-console.log(`  - ${publicContainer.name} (Public - Blob level)`);
+console.log(`  - ${assetsContainer.name} (Private - use SAS tokens)`);
 console.log(`  - ${backupContainer.name} (Private, Preserved)`);
 console.log(`  - ${criticalContainer.name} (Private, Geo-redundant)`);
 console.log(`\nTo upload files, run: bun run upload`);

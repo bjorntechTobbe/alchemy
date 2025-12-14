@@ -1,6 +1,7 @@
 import { alchemy } from "../../alchemy/src/alchemy.ts";
 import { ResourceGroup } from "../../alchemy/src/azure/resource-group.ts";
 import { StaticWebApp } from "../../alchemy/src/azure/static-web-app.ts";
+import { Secret } from "../../alchemy/src/secret.ts";
 
 /**
  * Azure Static Web App Example
@@ -56,26 +57,30 @@ console.log(`   Location: ${rg.location}`);
 console.log(`   Static Web App: ${webapp.name}`);
 
 console.log("\n🌐 URL:");
-console.log(`   ${webapp.defaultHostname}`);
+console.log(`   https://${webapp.defaultHostname}`);
+
+console.log("\n🔑 Deployment Token:");
+console.log(`   ${Secret.unwrap(webapp.apiKey)}`);
+console.log("   (Keep this secure! It grants deployment access to your site)");
 
 console.log("\n📦 Deploy Your Site Content:");
-console.log("   Azure Static Web Apps can be deployed in two ways:");
-console.log("\n   Option 1 - GitHub Actions (Recommended):");
+console.log("   Azure Static Web Apps can be deployed in several ways:");
+console.log("\n   Option 1 - Static Web Apps CLI (Quickest):");
+console.log("   npm install -g @azure/static-web-apps-cli");
+console.log(`   swa deploy ./public --deployment-token="${Secret.unwrap(webapp.apiKey)}"`);
+console.log("\n   Option 2 - GitHub Actions (Recommended for teams):");
 console.log("   1. Push your code to GitHub");
 console.log("   2. Configure repository in Azure Portal:");
-console.log(`      - Go to ${webapp.defaultHostname}`);
+console.log(`      - Go to https://${webapp.defaultHostname}`);
 console.log("      - Navigate to 'Deployment' → 'GitHub Actions'");
 console.log("      - Authorize and select your repository");
-console.log("   3. Azure will automatically set up CI/CD with GitHub Actions");
-console.log("\n   Option 2 - Azure CLI:");
-console.log(`   az staticwebapp create \\`);
-console.log(`     --name ${webapp.name} \\`);
-console.log(`     --resource-group ${rg.name} \\`);
-console.log(`     --source ./public \\`);
-console.log(`     --location ${rg.location}`);
-console.log("\n   Option 3 - Static Web Apps CLI:");
-console.log("   npm install -g @azure/static-web-apps-cli");
-console.log(`   swa deploy ./public --deployment-token <token>`);
+console.log("   3. Azure will automatically set up CI/CD");
+console.log("\n   Option 3 - Manual with cURL:");
+console.log("   (Package your site as a ZIP first)");
+console.log(`   curl -X POST https://${webapp.defaultHostname}/api/zipdeploy \\`);
+console.log(`     -H "Content-Type: application/zip" \\`);
+console.log(`     -H "Authorization: Bearer ${Secret.unwrap(webapp.apiKey)}" \\`);
+console.log(`     --data-binary @site.zip`);
 
 console.log("\n✨ Features:");
 console.log("   ✓ Global CDN distribution");
@@ -93,9 +98,10 @@ console.log("   - Automatic SSL");
 console.log("   - Perfect for personal projects and demos");
 
 console.log("\n💡 Next Steps:");
-console.log("   1. Get deployment token from Azure Portal");
-console.log("   2. Deploy your site content using one of the methods above");
+console.log("   1. Deploy your site content using one of the methods above");
+console.log("   2. Visit your site: https://" + webapp.defaultHostname);
 console.log("   3. Configure custom domain (optional)");
-console.log("   4. Destroy infrastructure: bun ./alchemy.run --destroy");
+console.log("   4. Set up environment variables in Azure Portal");
+console.log("   5. Destroy infrastructure: bun ./alchemy.run --destroy");
 
 await app.finalize();
