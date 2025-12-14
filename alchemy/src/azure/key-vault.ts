@@ -632,7 +632,7 @@ export const KeyVault = Resource(
           (rule: any) => rule.id,
         ),
       provisioningState: result.properties.provisioningState,
-      resourceGroup: props.resourceGroup,
+      resourceGroup: resourceGroupName,
       tags: result.tags,
       type: "azure::KeyVault",
     };

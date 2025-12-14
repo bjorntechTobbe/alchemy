@@ -628,7 +628,7 @@ export const ContainerInstance = Resource(
         }
       ).properties?.containers?.[0]?.properties?.instanceView?.currentState
         ?.state,
-      resourceGroup: props.resourceGroup,
+      resourceGroup: resourceGroupName,
       subnet: props.subnet,
       tags: result.tags,
       type: "azure::ContainerInstance",

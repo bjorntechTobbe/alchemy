@@ -440,7 +440,7 @@ export const PublicIPAddress = Resource(
       ipAddress: result.ipAddress,
       fqdn: result.dnsSettings?.fqdn,
       provisioningState: result.provisioningState,
-      resourceGroup: props.resourceGroup,
+      resourceGroup: resourceGroupName,
       sku: result.sku?.name as "Basic" | "Standard" | undefined,
       allocationMethod: result.publicIPAllocationMethod as
         | "Static"

@@ -213,20 +213,28 @@ az functionapp show --name <function-name> --resource-group <rg-name>
 ---
 
 ### StaticWebApp
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Priority**: High  
-**Test Script**: `test-scripts/azure/09-static-web-app.ts`
+**Test File**: `alchemy/test/azure/static-web-app.test.ts`
 
-**Verify in Azure**:
+**Run Test**:
 ```bash
-az staticwebapp show --name <app-name> --resource-group <rg-name>
+bun vitest alchemy/test/azure/static-web-app.test.ts --run --test-timeout=600000
+```
+
+**Verify Cleanup**:
+```bash
+az staticwebapp list --query "[?starts_with(name, '${BRANCH_PREFIX}')]" -o table
+az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 ```
 
 **Results**:
-- Create: N/A
-- Delete: N/A
-- Cleanup Verified: N/A
-- Notes:
+- Tests Passed: ✅ 3/3 tests passed (106.9s)
+  - create static web app
+  - update static web app tags
+  - static web app with app settings
+- Cleanup Verified: ✅ No orphaned resources
+- Notes: Fixed to include buildProperties in envelope and handle 404 errors during deletion. Region must be eastus2 or other supported region (not eastus).
 
 ---
 

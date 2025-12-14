@@ -403,7 +403,7 @@ export const VirtualNetwork = Resource(
             serviceName: delegation.serviceName!,
           })),
         })) || [],
-      resourceGroup: props.resourceGroup,
+      resourceGroup: resourceGroupName,
       dnsServers: result.dhcpOptions?.dnsServers,
       tags: result.tags,
       type: "azure::VirtualNetwork",

@@ -479,7 +479,7 @@ export const NetworkSecurityGroup = Resource(
           description: ruleProps.description,
         };
       }),
-      resourceGroup: props.resourceGroup,
+      resourceGroup: resourceGroupName,
       tags: result.tags,
       type: "azure::NetworkSecurityGroup",
     };
