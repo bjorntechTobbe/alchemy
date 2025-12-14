@@ -471,20 +471,20 @@ az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 ## CDN Resources
 
 ### CDNProfile
-**Status**: ⏸️  
+**Status**: 🚧 In Progress  
 **Priority**: Low  
-**Test Script**: `test-scripts/azure/18-cdn-profile.ts`
+**Test File**: `alchemy/test/azure/cdn-profile.test.ts`
 
-**Verify in Azure**:
+**Run Test**:
 ```bash
-az cdn profile show --name <profile-name> --resource-group <rg-name>
+bun vitest alchemy/test/azure/cdn-profile.test.ts --run --test-timeout=600000
 ```
 
 **Results**:
-- Create: N/A
-- Delete: N/A
-- Cleanup Verified: N/A
-- Notes:
+- Status: Tests updated to use Standard_AzureFrontDoor SKU (modern)
+- Issue: CDN profiles created successfully but test assertions fail claiming resources still exist after deletion
+- Investigation: Resources appear to be created and deleted in Azure, may be test framework timing issue
+- Notes: Tests updated from deprecated Standard_Microsoft to Standard_AzureFrontDoor. CDN operations are very slow (5-10 minutes for creation/deletion).
 
 ---
 
