@@ -84,7 +84,7 @@ async function listResources(): Promise<ResourceSummary> {
             resourceGroup = match[1];
           }
         }
-        
+
         softDeletedCognitiveServices.push({
           name: account.name,
           location: account.location || "unknown",
@@ -173,7 +173,7 @@ async function deleteResources(summary: ResourceSummary) {
             );
             return;
           }
-          
+
           console.log(
             `  🗑️  Purging Cognitive Service: ${account.name} (${account.location}, rg: ${account.resourceGroup})`,
           );
@@ -252,7 +252,9 @@ function printSummary(summary: ResourceSummary) {
     console.log("  (none found)");
   } else {
     summary.softDeletedCognitiveServices.forEach((account) => {
-      const rgInfo = account.resourceGroup ? `, rg: ${account.resourceGroup}` : ", rg: unknown";
+      const rgInfo = account.resourceGroup
+        ? `, rg: ${account.resourceGroup}`
+        : ", rg: unknown";
       console.log(
         `  - ${account.name} (${account.location}${rgInfo}) - deleted: ${account.deletionDate}`,
       );

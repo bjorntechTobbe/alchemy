@@ -19,9 +19,7 @@ const test = alchemy.test(import.meta, {
 
 describe("Azure Compute", () => {
   describe("AppService", () => {
-    test(
-      "create app service",
-      async (scope) => {
+    test("create app service", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-as-create-rg`;
       const appServiceName = `${BRANCH_PREFIX}-as-create`
         .toLowerCase()
@@ -73,13 +71,9 @@ describe("Azure Compute", () => {
         await assertAppServiceDoesNotExist(resourceGroupName, appServiceName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-      },
-      300000,
-    ); // 5 minutes - App Service provisioning can be slow
+    }, 300000); // 5 minutes - App Service provisioning can be slow
 
-    test(
-      "update app service tags",
-      async (scope) => {
+    test("update app service tags", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-as-update-rg`;
       const appServiceName = `${BRANCH_PREFIX}-as-update`
         .toLowerCase()
@@ -129,13 +123,9 @@ describe("Azure Compute", () => {
         await assertAppServiceDoesNotExist(resourceGroupName, appServiceName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-      },
-      300000,
-    );
+    }, 300000);
 
-    test(
-      "app service with managed identity",
-      async (scope) => {
+    test("app service with managed identity", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-as-identity-rg`;
       const appServiceName = `${BRANCH_PREFIX}-as-identity`
         .toLowerCase()
@@ -177,13 +167,9 @@ describe("Azure Compute", () => {
         );
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-      },
-      300000,
-    );
+    }, 300000);
 
-    test(
-      "app service with app settings",
-      async (scope) => {
+    test("app service with app settings", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-as-settings-rg`;
       const appServiceName = `${BRANCH_PREFIX}-as-settings`
         .toLowerCase()
@@ -219,13 +205,9 @@ describe("Azure Compute", () => {
         await assertAppServiceDoesNotExist(resourceGroupName, appServiceName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-      },
-      300000,
-    );
+    }, 300000);
 
-    test(
-      "python app service",
-      async (scope) => {
+    test("python app service", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-as-python-rg`;
       const appServiceName = `${BRANCH_PREFIX}-as-python`
         .toLowerCase()
@@ -256,8 +238,6 @@ describe("Azure Compute", () => {
         await assertAppServiceDoesNotExist(resourceGroupName, appServiceName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-      },
-      300000,
-    );
+    }, 300000);
   });
 });

@@ -472,12 +472,11 @@ export const AppService = Resource(
         .get(resourceGroupName, name)
         .catch(() => null);
 
-      result =
-        await clients.appService.webApps.beginCreateOrUpdateAndWait(
-          resourceGroupName,
-          name,
-          webAppParams,
-        );
+      result = await clients.appService.webApps.beginCreateOrUpdateAndWait(
+        resourceGroupName,
+        name,
+        webAppParams,
+      );
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(
