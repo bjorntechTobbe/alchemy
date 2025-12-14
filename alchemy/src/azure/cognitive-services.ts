@@ -348,27 +348,22 @@ export const CognitiveServices = Resource(
         ? undefined
         : props.resourceGroup.location);
 
-    if (!location) {
-      throw new Error(
-        "Location must be specified either directly or via ResourceGroup object",
-      );
-    }
-
     const kind = props.kind ?? this.output?.kind ?? "CognitiveServices";
     const sku = props.sku ?? this.output?.sku ?? "S0";
 
     if (this.scope.local) {
+      const localLocation = location || "eastus";
       return {
         id,
         name,
         resourceGroup: resourceGroupName,
-        location,
+        location: localLocation,
         cognitiveServicesId: cognitiveServicesId || "",
         kind,
         sku,
         endpoint: props.customSubDomain
           ? `https://${props.customSubDomain}.cognitiveservices.azure.com`
-          : `https://${location}.api.cognitive.microsoft.com`,
+          : `https://${localLocation}.api.cognitive.microsoft.com`,
         primaryKey: Secret.wrap(""),
         secondaryKey: Secret.wrap(""),
         provisioningState: "Succeeded",
@@ -408,6 +403,13 @@ export const CognitiveServices = Resource(
         }
       }
       return this.destroy();
+    }
+
+    // Validate location is available (after delete phase)
+    if (!location) {
+      throw new Error(
+        "Location must be specified either directly or via ResourceGroup object",
+      );
     }
 
     // Validate name format (after delete phase)

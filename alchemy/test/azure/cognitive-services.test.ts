@@ -47,7 +47,7 @@ describe("Azure AI", () => {
         expect(cognitive.location).toBe("eastus");
         expect(cognitive.kind).toBe("CognitiveServices");
         expect(cognitive.sku).toBe("S0");
-        expect(cognitive.endpoint).toContain("cognitiveservices.azure.com");
+        expect(cognitive.endpoint).toContain("api.cognitive.microsoft.com");
         expect(cognitive.tags).toEqual({
           environment: "test",
           purpose: "alchemy-testing",

@@ -262,20 +262,28 @@ az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 ---
 
 ### ContainerInstance
-**Status**: ⏸️  
+**Status**: ⚠️ Warning  
 **Priority**: Medium  
-**Test Script**: `test-scripts/azure/10-container-instance.ts`
+**Test File**: `alchemy/test/azure/container-instance.test.ts`
 
-**Verify in Azure**:
+**Run Test**:
 ```bash
-az container show --name <container-name> --resource-group <rg-name>
+bun vitest alchemy/test/azure/container-instance.test.ts --run --test-timeout=300000
+```
+
+**Verify Cleanup**:
+```bash
+az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 ```
 
 **Results**:
-- Create: N/A
-- Delete: N/A
-- Cleanup Verified: N/A
-- Notes:
+- Tests Passed: ⚠️ 3/4 tests passed (one test has transient Docker Hub rate limiting)
+  - ✅ create container instance with public IP (63.4s)
+  - ✅ create container with environment variables (55.5s)
+  - ❌ create container with custom command (28.5s) - Docker Hub rate limit error
+  - ✅ create container in virtual network (167.7s)
+- Cleanup Verified: ✅ No orphaned resources
+- Notes: Fixed resourceGroup object storage bug. One test fails intermittently due to Docker Hub rate limiting: "An error response is received from the docker registry 'index.docker.io'. Please retry later." This is a transient infrastructure issue, not a code bug. Tests are slow (1-3 minutes each).
 
 ---
 
@@ -367,58 +375,80 @@ bun run nuke:azure -- --delete
 ---
 
 ### UserAssignedIdentity
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Priority**: Medium  
-**Test Script**: `test-scripts/azure/15-user-assigned-identity.ts`
+**Test File**: `alchemy/test/azure/user-assigned-identity.test.ts`
 
-**Verify in Azure**:
+**Run Test**:
 ```bash
-az identity show --name <identity-name> --resource-group <rg-name>
+bun vitest alchemy/test/azure/user-assigned-identity.test.ts --run --test-timeout=300000
+```
+
+**Verify Cleanup**:
+```bash
+az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 ```
 
 **Results**:
-- Create: N/A
-- Delete: N/A
-- Cleanup Verified: N/A
-- Notes:
+- Tests Passed: ✅ 3/3 tests passed (39.7s)
+  - create user-assigned identity (34.6s)
+  - update identity tags (39.7s)
+  - identity with default name (34.3s)
+- Cleanup Verified: ✅ No orphaned resources
+- Notes: All tests passed successfully.
 
 ---
 
 ## AI & Messaging Resources
 
 ### CognitiveServices
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Priority**: Medium  
-**Test Script**: `test-scripts/azure/16-cognitive-services.ts`
+**Test File**: `alchemy/test/azure/cognitive-services.test.ts`
 
-**Verify in Azure**:
+**Run Test**:
 ```bash
-az cognitiveservices account show --name <account-name> --resource-group <rg-name>
+bun vitest alchemy/test/azure/cognitive-services.test.ts --run --test-timeout=300000
+```
+
+**Verify Cleanup**:
+```bash
+az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
+# Also check for soft-deleted cognitive services
+bun run nuke:azure -- --delete
 ```
 
 **Results**:
-- Create: N/A
-- Delete: N/A
-- Cleanup Verified: N/A
-- Notes:
+- Tests Passed: ✅ 3/3 tests passed (39.0s)
+  - create cognitive services account (33.6s)
+  - update cognitive services tags (39.0s)
+  - cognitive services with network restrictions (17.3s)
+- Cleanup Verified: ✅ No orphaned resources
+- Notes: Fixed location validation during delete phase and updated test assertion for endpoint format. CognitiveServices supports soft-delete like KeyVault - must purge before recreating with same name.
 
 ---
 
 ### ServiceBus
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Priority**: Medium  
-**Test Script**: `test-scripts/azure/17-service-bus.ts`
+**Test File**: `alchemy/test/azure/service-bus.test.ts`
 
-**Verify in Azure**:
+**Run Test**:
 ```bash
-az servicebus namespace show --name <namespace-name> --resource-group <rg-name>
+bun vitest alchemy/test/azure/service-bus.test.ts --run --test-timeout=300000
+```
+
+**Verify Cleanup**:
+```bash
+az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 ```
 
 **Results**:
-- Create: N/A
-- Delete: N/A
-- Cleanup Verified: N/A
-- Notes:
+- Tests Passed: ✅ 2/2 tests passed (101.0s)
+  - create service bus with standard SKU (101.0s)
+  - update service bus tags (100.7s)
+- Cleanup Verified: ✅ No orphaned resources
+- Notes: Tests are slow (~100s each). All tests passed successfully.
 
 ---
 
