@@ -231,20 +231,15 @@ export const CDNProfile = Resource(
           ? undefined
           : props.resourceGroup.location) ||
         "";
-
-      if (!location) {
-        throw new Error(
-          "Location must be specified either directly or via ResourceGroup object for classic CDN SKUs",
-        );
-      }
     }
 
     if (this.scope.local) {
+      const localLocation = location || "eastus";
       return {
         id,
         name,
         resourceGroup: resourceGroupName,
-        location,
+        location: localLocation,
         cdnProfileId: cdnProfileId || "",
         sku,
         provisioningState: "Succeeded",
@@ -275,6 +270,15 @@ export const CDNProfile = Resource(
         }
       }
       return this.destroy();
+    }
+
+    // Validate location is available for classic CDN SKUs (after delete phase)
+    if (sku !== "Standard_AzureFrontDoor" && sku !== "Premium_AzureFrontDoor") {
+      if (!location) {
+        throw new Error(
+          "Location must be specified either directly or via ResourceGroup object for classic CDN SKUs",
+        );
+      }
     }
 
     if (this.phase === "update" && this.output) {
