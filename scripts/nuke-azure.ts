@@ -11,7 +11,7 @@
  *   bun scripts/nuke-azure.ts --prefix XXX # Use custom prefix (default: from BRANCH_PREFIX env var)
  *
  * Environment Variables:
- *   BRANCH_PREFIX - Prefix used for test resources (e.g., "tobbe")
+ *   BRANCH_PREFIX - Prefix used for test resources (e.g., "dev")
  *   AZURE_SUBSCRIPTION_ID - Azure subscription ID
  *   AZURE_TENANT_ID - Azure tenant ID
  *   AZURE_CLIENT_ID - Azure client ID (for service principal)

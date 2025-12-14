@@ -66,7 +66,7 @@ AZURE_CLIENT_ID=your-client-id
 AZURE_CLIENT_SECRET=your-client-secret
 
 # Optional - defaults to $USER if not set
-BRANCH_PREFIX=tobbe
+BRANCH_PREFIX=dev
 ```
 
 ## What Gets Deleted
@@ -93,7 +93,7 @@ The script will clean up:
 ================================================================================
 Azure Resource Nuke Script
 ================================================================================
-Prefix: tobbe
+Prefix: dev
 Mode: DRY RUN
 ================================================================================
 
@@ -106,24 +106,24 @@ RESOURCE SUMMARY
 ================================================================================
 
 📦 Resource Groups (6):
-  - tobbe-cdn-std-rg
-  - tobbe-cdn-update-rg
-  - tobbe-cosmos-create-rg
-  - tobbe-cosmos-update-rg
-  - tobbe-sa-create-rg
-  - tobbe-sa-update-rg
+  - dev-cdn-std-rg
+  - dev-cdn-update-rg
+  - dev-cosmos-create-rg
+  - dev-cosmos-update-rg
+  - dev-sa-create-rg
+  - dev-sa-update-rg
 
 🧠 Soft-Deleted Cognitive Services (3):
-  - tobbe-cs-multi (eastus) - deleted: 2025-12-04T07:32:05Z
-  - tobbe-cs-network (eastus) - deleted: 2025-12-04T07:32:05Z
-  - tobbe-cs-update (eastus) - deleted: 2025-12-04T07:32:09Z
+  - dev-cs-multi (eastus) - deleted: 2025-12-04T07:32:05Z
+  - dev-cs-network (eastus) - deleted: 2025-12-04T07:32:05Z
+  - dev-cs-update (eastus) - deleted: 2025-12-04T07:32:09Z
 
 🔐 Soft-Deleted Key Vaults (5):
-  - tobbe-kv-std (eastus) - deleted: Thu Dec 04 2025 08:38:57 GMT+0100
-  - tobbe-kv-update (eastus) - deleted: Thu Dec 04 2025 08:38:57 GMT+0100
-  - tobbe-kv-net (eastus) - deleted: Thu Dec 04 2025 08:38:56 GMT+0100
-  - tobbe-kv-rbac (eastus) - deleted: Thu Dec 04 2025 08:38:55 GMT+0100
-  - tobbe-kv-azure (eastus) - deleted: Thu Dec 04 2025 08:38:38 GMT+0100
+  - dev-kv-std (eastus) - deleted: Thu Dec 04 2025 08:38:57 GMT+0100
+  - dev-kv-update (eastus) - deleted: Thu Dec 04 2025 08:38:57 GMT+0100
+  - dev-kv-net (eastus) - deleted: Thu Dec 04 2025 08:38:56 GMT+0100
+  - dev-kv-rbac (eastus) - deleted: Thu Dec 04 2025 08:38:55 GMT+0100
+  - dev-kv-azure (eastus) - deleted: Thu Dec 04 2025 08:38:38 GMT+0100
 
 ================================================================================
 Total resources to clean: 14
@@ -141,24 +141,24 @@ DELETING RESOURCES
 ================================================================================
 
 Deleting 6 resource groups...
-  🗑️  Deleting resource group: tobbe-cdn-std-rg
-  🗑️  Deleting resource group: tobbe-cdn-update-rg
-  🗑️  Deleting resource group: tobbe-cosmos-create-rg
-  ✅ Deleted: tobbe-cdn-std-rg
-  ✅ Deleted: tobbe-cdn-update-rg
-  ✅ Deleted: tobbe-cosmos-create-rg
+  🗑️  Deleting resource group: dev-cdn-std-rg
+  🗑️  Deleting resource group: dev-cdn-update-rg
+  🗑️  Deleting resource group: dev-cosmos-create-rg
+  ✅ Deleted: dev-cdn-std-rg
+  ✅ Deleted: dev-cdn-update-rg
+  ✅ Deleted: dev-cosmos-create-rg
   ...
 
 Purging 3 soft-deleted Cognitive Services...
-  🗑️  Purging Cognitive Service: tobbe-cs-multi (eastus)
-  🗑️  Purging Cognitive Service: tobbe-cs-network (eastus)
-  ✅ Purged: tobbe-cs-multi
-  ✅ Purged: tobbe-cs-network
+  🗑️  Purging Cognitive Service: dev-cs-multi (eastus)
+  🗑️  Purging Cognitive Service: dev-cs-network (eastus)
+  ✅ Purged: dev-cs-multi
+  ✅ Purged: dev-cs-network
   ...
 
 Purging 5 soft-deleted Key Vaults...
-  🗑️  Purging Key Vault: tobbe-kv-std (eastus)
-  ✅ Purged: tobbe-kv-std
+  🗑️  Purging Key Vault: dev-kv-std (eastus)
+  ✅ Purged: dev-kv-std
   ...
 
 ================================================================================
