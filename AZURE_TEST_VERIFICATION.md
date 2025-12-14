@@ -579,12 +579,36 @@ bun run alchemy.run.ts
 
 ## Summary
 
-**Total Resources**: 20  
-**Tested**: 0  
-**Passed**: 0  
+**Total Resources**: 18  
+**Tested**: 14  
+**Passed**: 13  
 **Failed**: 0  
-**Warnings**: 0  
-**Skipped**: 20
+**Warnings**: 1  
+**Skipped**: 4
+
+### Tested & Passing (13):
+1. ✅ ResourceGroup - 3/3 tests
+2. ✅ StorageAccount - 5/5 tests
+3. ✅ BlobContainer - 2/2 tests
+4. ✅ FunctionApp - 3/3 tests
+5. ✅ AppService - 5/5 tests
+6. ✅ StaticWebApp - 3/3 tests
+7. ✅ VirtualNetwork - 5/5 tests
+8. ✅ NetworkSecurityGroup - 3/3 tests
+9. ✅ PublicIPAddress - 3/3 tests
+10. ✅ KeyVault - 5/5 tests
+11. ✅ UserAssignedIdentity - 3/3 tests
+12. ✅ CognitiveServices - 3/3 tests
+13. ✅ ServiceBus - 2/2 tests
+
+### Warnings (1):
+1. ⚠️ ContainerInstance - 3/4 tests (Docker Hub rate limiting)
+
+### Not Yet Tested (4):
+1. ⏸️ CosmosDBAccount - times out (>120s provisioning)
+2. ⏸️ SqlServer - regional quota restrictions
+3. ⏸️ SqlDatabase - regional quota restrictions
+4. ⏸️ CDNProfile - times out (>300s provisioning)
 
 **Example Projects**: 8  
 **Tested**: 0  
