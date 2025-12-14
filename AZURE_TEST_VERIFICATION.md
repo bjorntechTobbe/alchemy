@@ -121,20 +121,29 @@ az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 ## Networking Resources
 
 ### VirtualNetwork
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Priority**: Medium  
-**Test Script**: `test-scripts/azure/04-virtual-network.ts`
+**Test File**: `alchemy/test/azure/virtual-network.test.ts`
 
-**Verify in Azure**:
+**Run Test**:
 ```bash
-az network vnet show --name <vnet-name> --resource-group <rg-name>
+bun vitest alchemy/test/azure/virtual-network.test.ts --run --test-timeout=300000
+```
+
+**Verify Cleanup**:
+```bash
+az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 ```
 
 **Results**:
-- Create: N/A
-- Delete: N/A
-- Cleanup Verified: N/A
-- Notes:
+- Tests Passed: ✅ 5/5 tests passed (56.8s)
+  - create virtual network
+  - update virtual network tags
+  - virtual network with multiple subnets
+  - virtual network with multiple address spaces
+  - virtual network with subnet delegation
+- Cleanup Verified: ✅ No orphaned resources
+- Notes: Fixed bug where resourceGroup was stored as object instead of string in output.
 
 ---
 
