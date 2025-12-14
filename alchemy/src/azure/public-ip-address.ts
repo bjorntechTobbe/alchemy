@@ -280,11 +280,12 @@ export const PublicIPAddress = Resource(
     }
 
     const clients = await createAzureClients(props);
-    const resourceGroupName =
-      this.output?.resourceGroup ??
-      (typeof props.resourceGroup === "string"
-        ? props.resourceGroup
-        : props.resourceGroup.name);
+    const resourceGroupName: string =
+      typeof this.output?.resourceGroup === "string"
+        ? this.output.resourceGroup
+        : typeof props.resourceGroup === "string"
+          ? props.resourceGroup
+          : props.resourceGroup.name;
 
     // Get resource group for location inheritance
     let location = this.output?.location ?? props.location;

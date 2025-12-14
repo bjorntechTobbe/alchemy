@@ -428,10 +428,7 @@ export const StaticWebApp = Resource(
 
       staticSiteEnvelope.repositoryUrl = props.repositoryUrl;
       staticSiteEnvelope.branch = props.branch || "main";
-      staticSiteEnvelope.repositoryToken =
-        typeof props.repositoryToken === "string"
-          ? props.repositoryToken
-          : Secret.unwrap(props.repositoryToken);
+      staticSiteEnvelope.repositoryToken = Secret.unwrap(props.repositoryToken);
     }
 
     let result: StaticSiteARMResource;
