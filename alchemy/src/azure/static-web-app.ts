@@ -1,6 +1,7 @@
 import type { Context } from "../context.ts";
 import { Resource, ResourceKind } from "../resource.ts";
 import { Secret } from "../secret.ts";
+import { logger } from "../util/logger.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
@@ -348,7 +349,7 @@ export const StaticWebApp = Resource(
 
     if (this.phase === "delete") {
       if (!staticWebAppId) {
-        console.warn(`No staticWebAppId found for ${id}, skipping delete`);
+        logger.warn(`No staticWebAppId found for ${id}, skipping delete`);
         return this.destroy();
       }
 
@@ -360,7 +361,7 @@ export const StaticWebApp = Resource(
           );
         } catch (error: unknown) {
           if (!isNotFoundError(error)) {
-            console.error(`Error deleting static web app ${id}:`, error);
+            logger.error(`Error deleting static web app ${id}:`, error);
             throw error;
           }
         }
@@ -487,7 +488,7 @@ export const StaticWebApp = Resource(
           },
         );
       } catch (error: unknown) {
-        console.warn(
+        logger.warn(
           `Warning: Failed to update app settings for ${name}:`,
           error instanceof Error ? error.message : String(error),
         );
@@ -503,7 +504,7 @@ export const StaticWebApp = Resource(
         );
       apiKey = secrets.properties?.apiKey || "";
     } catch (error) {
-      console.warn(`Warning: Failed to retrieve API key for ${name}`);
+      logger.warn(`Warning: Failed to retrieve API key for ${name}`);
     }
 
     // Construct output

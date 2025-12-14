@@ -1,6 +1,7 @@
 import type { Context } from "../context.ts";
 import { Resource, ResourceKind } from "../resource.ts";
 import { Secret } from "../secret.ts";
+import { logger } from "../util/logger.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
@@ -333,7 +334,7 @@ export const SqlDatabase = Resource(
 
     if (this.phase === "delete") {
       if (!databaseId) {
-        console.warn(`No databaseId found for ${id}, skipping delete`);
+        logger.warn(`No databaseId found for ${id}, skipping delete`);
         return this.destroy();
       }
 
@@ -351,7 +352,7 @@ export const SqlDatabase = Resource(
           );
         } catch (error) {
           if (!isNotFoundError(error)) {
-            console.error(`Error deleting database ${name}:`, error);
+            logger.error(`Error deleting database ${name}:`, error);
             throw error;
           }
           // 404 means already deleted, which is fine

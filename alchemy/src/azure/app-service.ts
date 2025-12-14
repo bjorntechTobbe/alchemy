@@ -1,6 +1,7 @@
 import type { Context } from "../context.ts";
 import { Resource, ResourceKind } from "../resource.ts";
 import { Secret } from "../secret.ts";
+import { logger } from "../util/logger.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
@@ -366,7 +367,7 @@ export const AppService = Resource(
 
     if (this.phase === "delete") {
       if (!appServiceId) {
-        console.warn(`No appServiceId found for ${id}, skipping delete`);
+        logger.warn(`No appServiceId found for ${id}, skipping delete`);
         return this.destroy();
       }
 
@@ -375,7 +376,7 @@ export const AppService = Resource(
           await clients.appService.webApps.delete(resourceGroupName, name);
         } catch (error: any) {
           if (error?.statusCode !== 404) {
-            console.error(`Error deleting app service ${id}:`, error);
+            logger.error(`Error deleting app service ${id}:`, error);
             throw error;
           }
         }

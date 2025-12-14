@@ -1,5 +1,6 @@
 import type { Context } from "../context.ts";
 import { Resource, ResourceKind } from "../resource.ts";
+import { logger } from "../util/logger.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { CDNProfile } from "./cdn-profile.ts";
@@ -391,7 +392,7 @@ export const CDNEndpoint = Resource(
       }
 
       if (!cdnEndpointId) {
-        console.warn(`No cdnEndpointId found for ${id}, skipping delete`);
+        logger.warn(`No cdnEndpointId found for ${id}, skipping delete`);
         return this.destroy();
       }
 
@@ -403,7 +404,7 @@ export const CDNEndpoint = Resource(
         );
       } catch (error) {
         if (!isNotFoundError(error)) {
-          console.error(`Error deleting CDN endpoint ${id}:`, error);
+          logger.error(`Error deleting CDN endpoint ${id}:`, error);
           throw error;
         }
       }

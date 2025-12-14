@@ -1,6 +1,7 @@
 import type { Context } from "../context.ts";
 import { Resource, ResourceKind } from "../resource.ts";
 import { Secret } from "../secret.ts";
+import { logger } from "../util/logger.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
@@ -287,7 +288,7 @@ export const ServiceBus = Resource(
       }
 
       if (!serviceBusId) {
-        console.warn(`No serviceBusId found for ${id}, skipping delete`);
+        logger.warn(`No serviceBusId found for ${id}, skipping delete`);
         return this.destroy();
       }
 
@@ -295,7 +296,7 @@ export const ServiceBus = Resource(
         await serviceBus.namespaces.beginDeleteAndWait(resourceGroupName, name);
       } catch (error: unknown) {
         if (!isNotFoundError(error)) {
-          console.error(`Error deleting Service Bus namespace ${id}:`, error);
+          logger.error(`Error deleting Service Bus namespace ${id}:`, error);
           throw error;
         }
       }

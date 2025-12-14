@@ -1,5 +1,6 @@
 import type { Context } from "../context.ts";
 import { Resource, ResourceKind } from "../resource.ts";
+import { logger } from "../util/logger.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
@@ -260,7 +261,7 @@ export const CDNProfile = Resource(
       }
 
       if (!cdnProfileId) {
-        console.warn(`No cdnProfileId found for ${id}, skipping delete`);
+        logger.warn(`No cdnProfileId found for ${id}, skipping delete`);
         return this.destroy();
       }
 
@@ -268,7 +269,7 @@ export const CDNProfile = Resource(
         await cdn.profiles.beginDeleteAndWait(resourceGroupName, name);
       } catch (error: any) {
         if (!isNotFoundError(error)) {
-          console.error(`Error deleting CDN profile ${id}:`, error);
+          logger.error(`Error deleting CDN profile ${id}:`, error);
           throw error;
         }
       }

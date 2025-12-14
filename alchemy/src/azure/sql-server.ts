@@ -1,6 +1,7 @@
 import type { Context } from "../context.ts";
 import { Resource, ResourceKind } from "../resource.ts";
 import { Secret } from "../secret.ts";
+import { logger } from "../util/logger.ts";
 import type { AzureClientProps } from "./client-props.ts";
 import { createAzureClients } from "./client.ts";
 import type { ResourceGroup } from "./resource-group.ts";
@@ -304,7 +305,7 @@ export const SqlServer = Resource(
 
     if (this.phase === "delete") {
       if (!sqlServerId) {
-        console.warn(`No sqlServerId found for ${id}, skipping delete`);
+        logger.warn(`No sqlServerId found for ${id}, skipping delete`);
         return this.destroy();
       }
 
@@ -318,7 +319,7 @@ export const SqlServer = Resource(
           await clients.sql.servers.beginDeleteAndWait(resourceGroupName, name);
         } catch (error) {
           if (!isNotFoundError(error)) {
-            console.error(`Error deleting SQL server ${name}:`, error);
+            logger.error(`Error deleting SQL server ${name}:`, error);
             throw error;
           }
           // 404 means already deleted, which is fine
