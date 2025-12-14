@@ -345,31 +345,6 @@ export const StaticWebApp = Resource(
       };
     }
 
-    const clients = await createAzureClients(props);
-
-    if (this.phase === "delete") {
-      if (!staticWebAppId) {
-        logger.warn(`No staticWebAppId found for ${id}, skipping delete`);
-        return this.destroy();
-      }
-
-      if (props.delete !== false) {
-        try {
-          await clients.appService.staticSites.beginDeleteStaticSiteAndWait(
-            resourceGroupName,
-            name,
-          );
-        } catch (error: unknown) {
-          if (!isNotFoundError(error)) {
-            logger.error(`Error deleting static web app ${id}:`, error);
-            throw error;
-          }
-        }
-      }
-      return this.destroy();
-    }
-
-    // Validate name format
     if (name.length < 2 || name.length > 60) {
       throw new Error(
         `Static web app name "${name}" must be between 2 and 60 characters`,
@@ -445,9 +420,6 @@ export const StaticWebApp = Resource(
 
     let result: StaticSiteARMResource;
 
-    // Create or update the static web app
-    // The Azure API will handle adoption via createOrUpdate
-    // Use exponential backoff to handle eventual consistency of ResourceGroup creation
     try {
       result = await withExponentialBackoff(
         async () => {
@@ -458,16 +430,13 @@ export const StaticWebApp = Resource(
           );
         },
         (error: unknown) => {
-          // Retry on ResourceGroupNotFound errors (eventual consistency)
-          // Azure API Gateway can take several seconds to propagate ResourceGroup creation
           return isAzureError(error) && error.code === "ResourceGroupNotFound";
         },
-        8, // max attempts (balanced for Azure eventual consistency)
-        3000, // initial delay (3s - give Azure time to propagate)
-        15000, // max delay (15s)
+        8,
+        3000,
+        15000,
       );
     } catch (error) {
-      // Handle specific error cases
       if (isConflictError(error) && !staticWebAppId && !adopt) {
         throw new Error(
           `Static web app "${name}" already exists in resource group "${resourceGroupName}". Use adopt: true to adopt it.`,
@@ -477,7 +446,6 @@ export const StaticWebApp = Resource(
       throw error;
     }
 
-    // Update app settings if provided
     if (Object.keys(appSettings).length > 0) {
       try {
         await clients.appService.staticSites.createOrUpdateStaticSiteAppSettings(
@@ -507,11 +475,9 @@ export const StaticWebApp = Resource(
       logger.warn(`Warning: Failed to retrieve API key for ${name}`);
     }
 
-    // Construct output
     const defaultHostname =
       result.defaultHostname || `${name}.azurestaticapps.net`;
 
-    // Normalize location from display name (e.g., "East US 2") to internal format (e.g., "eastus2")
     const normalizedLocation = result
       .location!.toLowerCase()
       .replace(/\s+/g, "");

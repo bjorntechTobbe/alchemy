@@ -28,7 +28,7 @@ describe("Azure Compute", () => {
       try {
         rg = await ResourceGroup("swa-create-rg", {
           name: resourceGroupName,
-          location: "eastus2", // Static Web Apps not available in eastus
+          location: "eastus2",
         });
 
         staticWebApp = await StaticWebApp("swa-create", {
@@ -74,7 +74,7 @@ describe("Azure Compute", () => {
       try {
         rg = await ResourceGroup("swa-update-rg", {
           name: resourceGroupName,
-          location: "eastus2", // Static Web Apps not available in eastus
+          location: "eastus2",
         });
 
         staticWebApp = await StaticWebApp("swa-update", {
@@ -125,7 +125,7 @@ describe("Azure Compute", () => {
       try {
         rg = await ResourceGroup("swa-settings-rg", {
           name: resourceGroupName,
-          location: "eastus2", // Static Web Apps not available in eastus
+          location: "eastus2",
         });
 
         staticWebApp = await StaticWebApp("swa-with-settings", {

@@ -384,7 +384,6 @@ export const AppService = Resource(
       return this.destroy();
     }
 
-    // Validate name format
     if (name.length < 2 || name.length > 60) {
       throw new Error(
         `App service name "${name}" must be between 2 and 60 characters`,
@@ -425,18 +424,15 @@ export const AppService = Resource(
         value,
       })),
       httpsOnly: props.httpsOnly ?? true,
-      alwaysOn: props.alwaysOn ?? supportsAlwaysOn, // AlwaysOn only on Standard/Premium
+      alwaysOn: props.alwaysOn ?? supportsAlwaysOn,
       ftpsState: props.ftpsState || "Disabled",
       minTlsVersion: props.minTlsVersion || "1.2",
       localMySqlEnabled: props.localMySqlEnabled ?? false,
     };
 
     if (os === "linux") {
-      // Linux uses linuxFxVersion with specific format
-      // Don't set linuxFxVersion - let Azure App Service use defaults based on the kind
-      // The runtime stack should be set via the 'kind' property instead
+      // Runtime stack configured via 'kind' property for Linux
     } else {
-      // Windows uses specific version properties
       if (runtime === "node") {
         siteConfig.nodeVersion = `~${runtimeVersion}`;
       } else if (runtime === "python") {
@@ -450,7 +446,6 @@ export const AppService = Resource(
 
     let identityConfig: Record<string, unknown> | undefined = undefined;
     if (props.identity) {
-      // Use the actual identityId from the UserAssignedIdentity resource
       const identityResourceId = props.identity.identityId;
 
       identityConfig = {
@@ -472,40 +467,24 @@ export const AppService = Resource(
 
     let result: Site;
 
-    if (!appServiceId) {
-      // Check if resource already exists (for adoption scenario)
-      let existing: Site | undefined;
-      try {
-        existing = await clients.appService.webApps.get(
+    try {
+      const existing = await clients.appService.webApps
+        .get(resourceGroupName, name)
+        .catch(() => null);
+
+      result =
+        await clients.appService.webApps.beginCreateOrUpdateAndWait(
           resourceGroupName,
           name,
+          webAppParams,
         );
-      } catch (error) {
-        if (!isNotFoundError(error)) {
-          throw error;
-        }
-        // Resource doesn't exist, continue with creation
-      }
-
-      if (existing) {
-        if (!adopt) {
-          throw new Error(
-            `App service "${name}" already exists in resource group "${resourceGroupName}". Use adopt: true to adopt it.`,
-          );
-        }
-        // Adopt existing resource by updating it
-      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to create or update app service "${name}": ${message}`,
+        { cause: error },
+      );
     }
-
-    result = await clients.appService.webApps.beginCreateOrUpdateAndWait(
-      resourceGroupName,
-      name,
-      siteEnvelope,
-    );
-
-    // Construct output
-    const defaultHostname =
-      result.defaultHostName || `${name}.azurewebsites.net`;
 
     return {
       id,

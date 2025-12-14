@@ -56,7 +56,7 @@ describe("Azure Compute", () => {
         expect(appService.os).toBe("linux");
         expect(appService.sku).toBe("B1");
         expect(appService.httpsOnly).toBe(true);
-        expect(appService.alwaysOn).toBe(false); // B1 tier doesn't support AlwaysOn
+        expect(appService.alwaysOn).toBe(false);
         expect(appService.defaultHostname).toBe(
           `${appServiceName}.azurewebsites.net`,
         );

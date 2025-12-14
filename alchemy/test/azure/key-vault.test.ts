@@ -172,7 +172,6 @@ describe("Azure Security", () => {
 
         expect(vault.name).toBe(vaultName);
         expect(vault.networkAclsDefaultAction).toBe("Deny");
-        // Azure automatically adds /32 to single IP addresses
         expect(vault.ipRules).toEqual(["203.0.113.0/24", "198.51.100.42/32"]);
       } finally {
         await destroy(scope);
