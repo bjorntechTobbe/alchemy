@@ -31,7 +31,7 @@ describe("Azure SQL", () => {
       try {
         rg = await ResourceGroup("sql-server-create-rg", {
           name: resourceGroupName,
-          location: "eastus",
+          location: "westeurope",
         });
 
         sqlServer = await SqlServer("sql-server-create", {
@@ -46,7 +46,7 @@ describe("Azure SQL", () => {
         });
 
         expect(sqlServer.name).toBe(sqlServerName);
-        expect(sqlServer.location).toBe("eastus");
+        expect(sqlServer.location).toBe("westeurope");
         expect(sqlServer.resourceGroup).toBe(resourceGroupName);
         expect(sqlServer.administratorLogin).toBe("sqladmin");
         expect(sqlServer.version).toBe("12.0");
@@ -69,7 +69,7 @@ describe("Azure SQL", () => {
         await assertSqlServerDoesNotExist(resourceGroupName, sqlServerName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 900000);
 
     test("update sql server tags", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-sql-server-update-rg`;
@@ -83,7 +83,7 @@ describe("Azure SQL", () => {
       try {
         rg = await ResourceGroup("sql-server-update-rg", {
           name: resourceGroupName,
-          location: "eastus",
+          location: "westeurope",
         });
 
         // Create SQL server
@@ -124,7 +124,7 @@ describe("Azure SQL", () => {
         await assertSqlServerDoesNotExist(resourceGroupName, sqlServerName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 900000);
 
     test("sql server with firewall rules", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-sql-server-fw-rg`;
@@ -138,7 +138,7 @@ describe("Azure SQL", () => {
       try {
         rg = await ResourceGroup("sql-server-fw-rg", {
           name: resourceGroupName,
-          location: "eastus",
+          location: "westeurope",
         });
 
         sqlServer = await SqlServer("sql-server-fw", {
@@ -155,7 +155,7 @@ describe("Azure SQL", () => {
         await assertSqlServerDoesNotExist(resourceGroupName, sqlServerName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 900000);
   });
 
   describe("SqlDatabase", () => {
@@ -175,7 +175,7 @@ describe("Azure SQL", () => {
       try {
         rg = await ResourceGroup("sql-db-create-rg", {
           name: resourceGroupName,
-          location: "eastus",
+          location: "westeurope",
         });
 
         sqlServer = await SqlServer("sql-db-create-srv", {
@@ -197,7 +197,7 @@ describe("Azure SQL", () => {
         });
 
         expect(database.name).toBe(databaseName);
-        expect(database.location).toBe("eastus");
+        expect(database.location).toBe("westeurope");
         expect(database.resourceGroup).toBe(resourceGroupName);
         expect(database.sqlServer).toBe(sqlServerName);
         expect(database.sku).toBe("Basic");
@@ -222,7 +222,7 @@ describe("Azure SQL", () => {
         await assertSqlServerDoesNotExist(resourceGroupName, sqlServerName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 900000);
 
     test("update sql database tags", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-sql-db-update-rg`;
@@ -240,7 +240,7 @@ describe("Azure SQL", () => {
       try {
         rg = await ResourceGroup("sql-db-update-rg", {
           name: resourceGroupName,
-          location: "eastus",
+          location: "westeurope",
         });
 
         sqlServer = await SqlServer("sql-db-update-srv", {
@@ -291,7 +291,7 @@ describe("Azure SQL", () => {
         await assertSqlServerDoesNotExist(resourceGroupName, sqlServerName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 900000);
 
     test("sql database with premium tier", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-sql-db-premium-rg`;
@@ -309,7 +309,7 @@ describe("Azure SQL", () => {
       try {
         rg = await ResourceGroup("sql-db-premium-rg", {
           name: resourceGroupName,
-          location: "eastus",
+          location: "westeurope",
         });
 
         sqlServer = await SqlServer("sql-db-premium-srv", {
@@ -339,6 +339,6 @@ describe("Azure SQL", () => {
         await assertSqlServerDoesNotExist(resourceGroupName, sqlServerName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 900000);
   });
 });

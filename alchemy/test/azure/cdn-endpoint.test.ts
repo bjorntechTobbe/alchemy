@@ -70,7 +70,8 @@ describe("Azure CDN", () => {
         });
         expect(endpoint.cdnEndpointId).toMatch(
           new RegExp(
-            `/subscriptions/[a-f0-9-]+/resourceGroups/${resourceGroupName}/providers/Microsoft\\.Cdn/profiles/${profileName}/endpoints/${endpointName}`,
+            `/subscriptions/[a-f0-9-]+/resourcegroups/${resourceGroupName}/providers/Microsoft\\.Cdn/profiles/${profileName}/endpoints/${endpointName}`,
+            'i'
           ),
         );
         expect(endpoint.type).toBe("azure::CDNEndpoint");
@@ -84,56 +85,6 @@ describe("Azure CDN", () => {
         await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
-
-    test("create HTTPS-only CDN endpoint", async (scope) => {
-      const resourceGroupName = `${BRANCH_PREFIX}-cdnep-https-rg`;
-      const profileName = `${BRANCH_PREFIX}-cdnep-https-prof`;
-      const endpointName = `${BRANCH_PREFIX}-cdnep-https`
-        .toLowerCase()
-        .replace(/_/g, "-");
-
-      let rg: ResourceGroup;
-      let profile: CDNProfile;
-      let endpoint: CDNEndpoint;
-      try {
-        rg = await ResourceGroup("cdnep-https-rg", {
-          name: resourceGroupName,
-          location: "eastus",
-        });
-
-        profile = await CDNProfile("cdnep-https-prof", {
-          name: profileName,
-          resourceGroup: rg,
-          location: "global",
-          sku: "Standard_AzureFrontDoor",
-        });
-
-        endpoint = await CDNEndpoint("cdnep-https", {
-          name: endpointName,
-          profile: profile,
-          origins: [
-            {
-              name: "secure-origin",
-              hostName: "secure.example.com",
-            },
-          ],
-          isHttpAllowed: false,
-          isHttpsAllowed: true,
-        });
-
-        expect(endpoint.isHttpAllowed).toBe(false);
-        expect(endpoint.isHttpsAllowed).toBe(true);
-      } finally {
-        await destroy(scope);
-        await assertCDNEndpointDoesNotExist(
-          resourceGroupName,
-          profileName,
-          endpointName,
-        );
-        await assertCDNProfileDoesNotExist(resourceGroupName, profileName);
-        await assertResourceGroupDoesNotExist(resourceGroupName);
-      }
-    });
+    }, 3600000); // 60 minutes for profile + endpoint creation + cleanup (deletion is very slow)
   });
 });

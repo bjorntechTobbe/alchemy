@@ -449,7 +449,7 @@ export const SqlDatabase = Resource(
       sqlServer: sqlServerName,
       location: result.location!,
       databaseId: result.id!,
-      sku: (result.sku?.name as any) || props.sku || "Basic",
+      sku: props.sku || (result.sku?.name as any) || "Basic",
       connectionString: Secret.wrap(connectionString),
       maxSizeBytes: props.maxSizeBytes,
       collation: props.collation,

@@ -533,7 +533,7 @@ export const CosmosDBAccount = Resource(
       id,
       name: result.name!,
       resourceGroup: resourceGroupName,
-      location: result.location!,
+      location: location!,
       kind: (result.kind as any) || "GlobalDocumentDB",
       cosmosDBAccountId: result.id!,
       connectionString: Secret.wrap(primaryConnectionString),

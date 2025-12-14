@@ -29,7 +29,7 @@ describe("Azure Databases", () => {
       try {
         rg = await ResourceGroup("cosmos-create-rg", {
           name: resourceGroupName,
-          location: "eastus",
+          location: "westeurope",
         });
 
         cosmosDB = await CosmosDBAccount("cosmos-create", {
@@ -44,7 +44,7 @@ describe("Azure Databases", () => {
         });
 
         expect(cosmosDB.name).toBe(cosmosDBAccountName);
-        expect(cosmosDB.location).toBe("eastus");
+        expect(cosmosDB.location).toBe("westeurope");
         expect(cosmosDB.resourceGroup).toBe(resourceGroupName);
         expect(cosmosDB.kind).toBe("GlobalDocumentDB");
         expect(cosmosDB.consistencyLevel).toBe("Session");
@@ -72,7 +72,7 @@ describe("Azure Databases", () => {
         );
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 1200000);
 
     test("update cosmos db account tags", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cosmos-update-rg`;
@@ -86,7 +86,7 @@ describe("Azure Databases", () => {
       try {
         rg = await ResourceGroup("cosmos-update-rg", {
           name: resourceGroupName,
-          location: "eastus",
+          location: "westeurope",
         });
 
         // Create Cosmos DB account
@@ -126,7 +126,7 @@ describe("Azure Databases", () => {
         );
         await assertResourceGroupDoesNotExist(resourceGroupName);
       }
-    });
+    }, 1200000);
   });
 });
 

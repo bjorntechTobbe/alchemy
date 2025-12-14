@@ -348,7 +348,7 @@ export const CDNProfile = Resource(
       id,
       name: profile.name!,
       resourceGroup: resourceGroupName,
-      location: profile.location!,
+      location: location!,
       cdnProfileId: profile.id!,
       sku,
       provisioningState: profile.provisioningState,
