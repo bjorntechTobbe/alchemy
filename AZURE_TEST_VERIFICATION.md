@@ -200,38 +200,54 @@ az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 ## Compute Resources
 
 ### AppService
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Priority**: High  
-**Test Script**: `test-scripts/azure/07-app-service.ts`
+**Test File**: `alchemy/test/azure/app-service.test.ts`
 
-**Verify in Azure**:
+**Run Test**:
 ```bash
-az webapp show --name <app-name> --resource-group <rg-name>
+bun vitest alchemy/test/azure/app-service.test.ts --run --test-timeout=300000
+```
+
+**Verify Cleanup**:
+```bash
+az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 ```
 
 **Results**:
-- Create: N/A
-- Delete: N/A
-- Cleanup Verified: N/A
-- Notes:
+- Tests Passed: ✅ 5/5 tests passed (87.6s)
+  - create app service
+  - update app service tags
+  - app service with runtime stack
+  - app service with app settings
+  - app service with custom domain
+- Cleanup Verified: ✅ No orphaned resources
+- Notes: All tests passed successfully.
 
 ---
 
 ### FunctionApp
-**Status**: ⏸️  
+**Status**: ✅ Passed  
 **Priority**: High  
-**Test Script**: `test-scripts/azure/08-function-app.ts`
+**Test File**: `alchemy/test/azure/function-app.test.ts`
 
-**Verify in Azure**:
+**Run Test**:
 ```bash
-az functionapp show --name <function-name> --resource-group <rg-name>
+bun vitest alchemy/test/azure/function-app.test.ts --run --test-timeout=300000
+```
+
+**Verify Cleanup**:
+```bash
+az group list --query "[?starts_with(name, '${BRANCH_PREFIX}')].name" -o tsv
 ```
 
 **Results**:
-- Create: N/A
-- Delete: N/A
-- Cleanup Verified: N/A
-- Notes:
+- Tests Passed: ✅ 3/3 tests passed (110.2s)
+  - create function app
+  - update function app tags
+  - function app with app settings
+- Cleanup Verified: ✅ No orphaned resources
+- Notes: All tests passed successfully.
 
 ---
 
