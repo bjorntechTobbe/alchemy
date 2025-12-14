@@ -17,7 +17,9 @@ const test = alchemy.test(import.meta, {
   prefix: BRANCH_PREFIX,
 });
 
-describe("Azure CDN", () => {
+// Skip CDN tests by default - they are extremely slow (45-60+ minutes)
+// To run manually: bun vitest alchemy/test/azure/cdn-endpoint.test.ts --run
+describe.skip("Azure CDN", () => {
   describe("CDNEndpoint", () => {
     test("create CDN endpoint with single origin", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdnep-basic-rg`;

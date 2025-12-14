@@ -15,7 +15,9 @@ const test = alchemy.test(import.meta, {
   prefix: BRANCH_PREFIX,
 });
 
-describe("Azure CDN", () => {
+// Skip CDN tests by default - they are extremely slow (30-60+ minutes)
+// To run manually: bun vitest alchemy/test/azure/cdn-profile.test.ts --run
+describe.skip("Azure CDN", () => {
   describe("CDNProfile", () => {
     test("create CDN profile with Azure Front Door Standard", async (scope) => {
       const resourceGroupName = `${BRANCH_PREFIX}-cdn-std-rg`;
