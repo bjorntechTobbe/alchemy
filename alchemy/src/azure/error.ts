@@ -49,3 +49,16 @@ export function isConflictError(error: unknown): boolean {
     error.message?.includes("already exists") === true
   );
 }
+
+/**
+ * Check if an error is an AbortError (operation was cancelled/timed out)
+ * These are typically transient and can be retried or safely ignored in fire-and-forget scenarios
+ */
+export function isAbortError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  return (
+    error.name === "AbortError" ||
+    error.message?.includes("operation was aborted") === true ||
+    error.message?.includes("abort signal") === true
+  );
+}
