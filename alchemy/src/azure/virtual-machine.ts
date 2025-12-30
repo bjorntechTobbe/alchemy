@@ -420,15 +420,55 @@ export const VirtualMachine = Resource(
       : undefined;
 
     if (this.phase === "update" && this.output) {
+      // Check for changes that require VM replacement (cannot update in-place)
+      const replaceReasons: string[] = [];
+
       if (this.output.name !== name) {
-        return this.replace();
+        replaceReasons.push(`name: ${this.output.name} → ${name}`);
       }
       if (this.output.location !== location) {
-        return this.replace();
+        replaceReasons.push(`location: ${this.output.location} → ${location}`);
       }
-      // If customData changed, replace the VM (cloud-init only runs on first boot)
       if (customDataHash !== this.output.customDataHash) {
-        console.log(`[VirtualMachine] customData changed, replacing VM...`);
+        replaceReasons.push(`customData changed (hash: ${this.output.customDataHash} → ${customDataHash})`);
+      }
+      if (this.output.vmSize !== props.vmSize) {
+        replaceReasons.push(`vmSize: ${this.output.vmSize} → ${props.vmSize}`);
+      }
+      if (this.output.osType !== (props.osType || "Linux")) {
+        replaceReasons.push(`osType: ${this.output.osType} → ${props.osType || "Linux"}`);
+      }
+      // Check imageReference changes
+      const currentImage = this.output.imageReference;
+      const newImage = props.imageReference || {
+        publisher: "Canonical",
+        offer: "0001-com-ubuntu-server-jammy",
+        sku: "22_04-lts-gen2",
+        version: "latest",
+      };
+      if (currentImage && (
+        currentImage.publisher !== newImage.publisher ||
+        currentImage.offer !== newImage.offer ||
+        currentImage.sku !== newImage.sku
+      )) {
+        replaceReasons.push(`imageReference changed`);
+      }
+      // Check network changes (VNet/subnet)
+      const currentVnet = typeof this.output.virtualNetwork === 'string' 
+        ? this.output.virtualNetwork 
+        : this.output.virtualNetwork?.name;
+      const newVnet = typeof props.virtualNetwork === 'string'
+        ? props.virtualNetwork
+        : props.virtualNetwork?.name;
+      if (currentVnet !== newVnet) {
+        replaceReasons.push(`virtualNetwork: ${currentVnet} → ${newVnet}`);
+      }
+      if (this.output.subnetName !== props.subnetName) {
+        replaceReasons.push(`subnetName: ${this.output.subnetName} → ${props.subnetName}`);
+      }
+
+      if (replaceReasons.length > 0) {
+        console.log(`[VirtualMachine] Replacing VM due to:\n  - ${replaceReasons.join('\n  - ')}`);
         return this.replace();
       }
     }
