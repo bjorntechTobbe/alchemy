@@ -765,7 +765,55 @@ export const VirtualMachine = Resource(
           
           existingVm = undefined; // Clear so we create fresh
         } else {
-          console.log(`[VirtualMachine] Adopting existing VM "${name}" (adopt: true). Skipping property validation.`);
+          // When adopting, return the existing VM without trying to update it
+          // This avoids the "customData cannot be changed" error
+          console.log(`[VirtualMachine] Adopting existing VM "${name}" (adopt: true). Returning existing VM without modifications.`);
+          
+          // Get the NIC to find the private IP
+          const existingNic = await clients.network.networkInterfaces.get(
+            resourceGroupName,
+            nicName,
+          );
+          const privateIP = existingNic.ipConfigurations?.[0]?.privateIPAddress;
+          
+          // Get public IP if attached
+          let publicIP: string | undefined;
+          if (publicIpId) {
+            const publicIpResource = await clients.network.publicIPAddresses.get(
+              resourceGroupName,
+              publicIpId.split("/").pop()!,
+            );
+            publicIP = publicIpResource.ipAddress;
+          }
+          
+          return {
+            id,
+            name: existingVm.name!,
+            virtualMachineId: existingVm.id!,
+            networkInterfaceId: existingNic.id!,
+            location: existingVm.location!,
+            privateIPAddress: privateIP,
+            publicIPAddress: publicIP,
+            provisioningState: existingVm.provisioningState,
+            resourceGroup: resourceGroupName,
+            vmSize: existingVm.hardwareProfile?.vmSize,
+            osType: props.osType || "Linux",
+            adminUsername: props.adminUsername || "azureuser",
+            imageReference: existingVm.storageProfile?.imageReference as any,
+            virtualNetwork: props.virtualNetwork,
+            subnetName: props.subnetName,
+            networkSecurityGroup: props.networkSecurityGroup,
+            enableIPForwarding: props.enableIPForwarding,
+            osDiskSizeGB: props.osDiskSizeGB,
+            osDiskStorageAccountType: props.osDiskStorageAccountType,
+            customData: props.customData,
+            customDataHash,
+            userData: props.userData,
+            tags: existingVm.tags,
+            sshPublicKey: props.sshPublicKey,
+            adminPassword: props.adminPassword,
+            type: "azure::VirtualMachine",
+          };
         }
       } else if (!adopt && !virtualMachineId && !this.output) {
         // VM exists but we don't have it in state and not adopting
