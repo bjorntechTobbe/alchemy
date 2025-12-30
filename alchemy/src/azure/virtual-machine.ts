@@ -8,6 +8,7 @@ import type { NetworkSecurityGroup } from "./network-security-group.ts";
 import type { PublicIPAddress } from "./public-ip-address.ts";
 import type { VirtualMachine as AzureVirtualMachine, VirtualMachineUpdate } from "@azure/arm-compute";
 import { isNotFoundError } from "./error.ts";
+import * as crypto from "crypto";
 
 export interface VirtualMachineProps extends AzureClientProps {
   /**
@@ -148,6 +149,12 @@ export interface VirtualMachineProps extends AzureClientProps {
    * @internal
    */
   virtualMachineId?: string;
+
+  /**
+   * Internal hash of customData for change detection
+   * @internal
+   */
+  customDataHash?: string;
 
   /**
    * Internal network interface ID for lifecycle management
@@ -407,11 +414,21 @@ export const VirtualMachine = Resource(
       );
     }
 
+    // Calculate customData hash for change detection
+    const customDataHash = props.customData 
+      ? crypto.createHash('sha256').update(props.customData).digest('hex').substring(0, 16)
+      : undefined;
+
     if (this.phase === "update" && this.output) {
       if (this.output.name !== name) {
         return this.replace();
       }
       if (this.output.location !== location) {
+        return this.replace();
+      }
+      // If customData changed, replace the VM (cloud-init only runs on first boot)
+      if (customDataHash !== this.output.customDataHash) {
+        console.log(`[VirtualMachine] customData changed, replacing VM...`);
         return this.replace();
       }
     }
@@ -592,7 +609,7 @@ export const VirtualMachine = Resource(
       };
     }
 
-    // Add custom data (cloud-init)
+    // Add custom data (cloud-init) - runs on first boot
     if (props.customData) {
       // Check if already base64 encoded
       const isBase64 = /^[A-Za-z0-9+/=]+$/.test(props.customData);
@@ -674,6 +691,7 @@ export const VirtualMachine = Resource(
       osDiskSizeGB: props.osDiskSizeGB,
       osDiskStorageAccountType: props.osDiskStorageAccountType,
       customData: props.customData,
+      customDataHash,
       userData: props.userData,
       tags: result.tags,
       sshPublicKey: props.sshPublicKey,
