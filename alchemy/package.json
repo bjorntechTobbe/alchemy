@@ -216,6 +216,7 @@
   "peerDependencies": {
     "@astrojs/cloudflare": "^12.6.4",
     "@aws-sdk/client-dynamodb": "^3.0.0",
+    "@azure/arm-compute": "^22.0.0",
     "@azure/arm-containerinstance": "^9.0.0",
     "@azure/arm-cosmosdb": "^16.0.0",
     "@azure/arm-keyvault": "^4.0.0",
@@ -276,6 +277,9 @@
       "optional": true
     },
     "@azure/storage-blob": {
+      "optional": true
+    },
+    "@azure/arm-compute": {
       "optional": true
     },
     "@coinbase/cdp-sdk": {
@@ -349,6 +353,7 @@
     "@azure/arm-resources": "^5.0.0",
     "@azure/arm-sql": "^10.0.0",
     "@azure/arm-storage": "^18.0.0",
+    "@azure/arm-compute": "^22.0.0",
     "@azure/identity": "^4.0.0",
     "@azure/storage-blob": "^12.26.0",
     "@clack/prompts": "^0.11.0",

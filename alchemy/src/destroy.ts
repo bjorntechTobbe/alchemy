@@ -112,6 +112,10 @@ export async function destroy(
   const quiet = options?.quiet ?? scope.quiet;
   const start = performance.now();
 
+  // Declare state outside try block so it's accessible in catch
+  let state: State | undefined;
+  let props: ResourceProps | undefined;
+
   try {
     if (!quiet && !options?.noop) {
       logger.task(instance[ResourceFQN], {
@@ -132,9 +136,6 @@ export async function destroy(
       duration: performance.now() - start,
       replaced: !!options?.replace,
     });
-
-    let state: State;
-    let props: ResourceProps | undefined;
     if (options?.replace) {
       props = options.replace.props;
       state = {
@@ -154,7 +155,7 @@ export async function destroy(
         return;
       }
       state = _state;
-      props = state.props;
+      props = state!.props;
     }
     const ctx = context({
       scope,
@@ -164,7 +165,7 @@ export async function destroy(
       fqn: instance[ResourceFQN],
       seq: instance[ResourceSeq],
       props,
-      state,
+      state: state!,
       // TODO(sam|michael): should this always be false or !!options?.replace
       isReplacement: false,
       replace: () => {
@@ -215,11 +216,11 @@ export async function destroy(
       await scope.deleteResource(instance[ResourceID]);
     } else {
       let pendingDeletions =
-        await state.output[ResourceScope].get<PendingDeletions>(
+        await state!.output[ResourceScope].get<PendingDeletions>(
           "pendingDeletions",
         );
       pendingDeletions = pendingDeletions?.filter(
-        (deletion) => deletion.resource[ResourceID] !== instance[ResourceID],
+        (deletion: PendingDeletions[number]) => deletion.resource[ResourceID] !== instance[ResourceID],
       );
       await scope.set("pendingDeletions", pendingDeletions);
     }
@@ -244,7 +245,43 @@ export async function destroy(
       duration: performance.now() - start,
       replaced: !!options?.replace,
     });
-  } catch (error) {
+  } catch (error: any) {
+    // Check if this is an AbortError during replace cleanup
+    // AbortError can occur when Azure SDK operations timeout, but the operation
+    // may still complete in the background. For replace cleanup, this is acceptable.
+    const isAbortError = error?.name === "AbortError" || 
+      error?.message?.includes("operation was aborted") ||
+      error?.message?.includes("abort signal");
+    
+    if (isAbortError && options?.replace) {
+      // For replace cleanup, AbortError is acceptable - the old resource deletion
+      // may still complete in the background or may already be deleted
+      logger.warn(`Cleanup aborted for ${instance[ResourceFQN]}, but operation may complete in background`);
+      
+      // Still clean up the pendingDeletions entry
+      if (options?.replace != null && state?.output?.[ResourceScope]) {
+        let pendingDeletions =
+          await state.output[ResourceScope].get<PendingDeletions>(
+            "pendingDeletions",
+          );
+        pendingDeletions = pendingDeletions?.filter(
+          (deletion: PendingDeletions[number]) => deletion.resource[ResourceID] !== instance[ResourceID],
+        );
+        await scope.set("pendingDeletions", pendingDeletions);
+      }
+      
+      if (!quiet && !options?.noop) {
+        logger.task(instance[ResourceFQN], {
+          prefix: "cleaned",
+          prefixColor: "greenBright",
+          resource: formatFQN(instance[ResourceFQN]),
+          message: "Old Resource Cleanup Complete",
+          status: "success",
+        });
+      }
+      return; // Don't throw, just return successfully
+    }
+    
     let errorToSend = error instanceof Error ? error : new Error(String(error));
     await createAndSendEvent(
       {

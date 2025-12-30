@@ -90,3 +90,6 @@ export * from "./static-web-app.ts";
 export * from "./storage-account.ts";
 export * from "./user-assigned-identity.ts";
 export * from "./virtual-network.ts";
+export * from "./virtual-machine.ts";
+export * from "./error.ts";
+export * from "./retry.ts";
