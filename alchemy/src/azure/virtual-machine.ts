@@ -688,12 +688,10 @@ export const VirtualMachine = Resource(
       const replaceReasons: string[] = [];
 
       // Check customData - Azure stores it but we can compare hashes
-      // If we have customData and the VM exists, we need to check if it matches
-      // Since Azure doesn't return customData, we compare against stored hash or assume change
-      if (props.customData && !this.output?.customDataHash) {
-        // No stored hash means we can't verify - assume replacement needed if customData is provided
-        // This is conservative but safe - better to replace than fail
-        replaceReasons.push(`customData provided but no previous hash in state (state may have been reset)`);
+      // Only trigger replacement if we have BOTH old and new hashes and they differ
+      // If old hash is missing (e.g., after adopt or state reset), trust the current state
+      if (props.customData && this.output?.customDataHash && customDataHash !== this.output.customDataHash) {
+        replaceReasons.push(`customData changed (hash: ${this.output.customDataHash} → ${customDataHash})`);
       }
 
       // Check vmSize
