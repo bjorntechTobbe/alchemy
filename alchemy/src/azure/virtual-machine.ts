@@ -469,7 +469,10 @@ export const VirtualMachine = Resource(
 
       if (replaceReasons.length > 0) {
         console.log(`[VirtualMachine] Replacing VM due to:\n  - ${replaceReasons.join('\n  - ')}`);
-        return this.replace();
+        // Use force=true to delete old VM immediately before creating new one
+        // This is required because Azure VMs with the same name in the same resource group
+        // cannot coexist, and we need to ensure the old one is gone before creating the new one
+        return this.replace(true);
       }
     }
 
