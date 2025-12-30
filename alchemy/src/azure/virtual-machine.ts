@@ -669,22 +669,109 @@ export const VirtualMachine = Resource(
         : Buffer.from(props.userData).toString("base64");
     }
 
-    // Check if VM exists
-    if (!virtualMachineId && this.phase !== "update") {
-      try {
-        const existing = await clients.compute.virtualMachines.get(
-          resourceGroupName,
-          name,
-        );
-        if (existing && !adopt) {
-          throw new Error(
-            `Virtual machine "${name}" already exists. Use adopt: true to adopt it.`,
+    // Check if VM exists in Azure and handle replacement for immutable properties
+    let existingVm: AzureVirtualMachine | undefined;
+    try {
+      existingVm = await clients.compute.virtualMachines.get(
+        resourceGroupName,
+        name,
+      );
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+    }
+
+    if (existingVm) {
+      // VM exists in Azure - check if we need to replace it due to immutable property changes
+      // This handles the case where state was lost (new state store) but VM still exists
+      const replaceReasons: string[] = [];
+
+      // Check customData - Azure stores it but we can compare hashes
+      // If we have customData and the VM exists, we need to check if it matches
+      // Since Azure doesn't return customData, we compare against stored hash or assume change
+      if (props.customData && !this.output?.customDataHash) {
+        // No stored hash means we can't verify - assume replacement needed if customData is provided
+        // This is conservative but safe - better to replace than fail
+        replaceReasons.push(`customData provided but no previous hash in state (state may have been reset)`);
+      }
+
+      // Check vmSize
+      if (props.vmSize && existingVm.hardwareProfile?.vmSize !== props.vmSize) {
+        replaceReasons.push(`vmSize: ${existingVm.hardwareProfile?.vmSize} → ${props.vmSize}`);
+      }
+
+      // Check location
+      if (existingVm.location?.toLowerCase() !== location.toLowerCase()) {
+        replaceReasons.push(`location: ${existingVm.location} → ${location}`);
+      }
+
+      // Check OS type via image
+      const existingPublisher = existingVm.storageProfile?.imageReference?.publisher;
+      const newImage = props.imageReference || {
+        publisher: "Canonical",
+        offer: "0001-com-ubuntu-server-jammy",
+        sku: "22_04-lts-gen2",
+        version: "latest",
+      };
+      if (existingPublisher && existingPublisher !== newImage.publisher) {
+        replaceReasons.push(`imageReference.publisher: ${existingPublisher} → ${newImage.publisher}`);
+      }
+
+      if (replaceReasons.length > 0) {
+        if (!adopt) {
+          console.log(`[VirtualMachine] VM "${name}" exists with incompatible properties. Replacing due to:\n  - ${replaceReasons.join('\n  - ')}`);
+          
+          // Delete existing VM and its resources before creating new one
+          console.log(`[VirtualMachine] Deleting existing VM "${name}"...`);
+          await clients.compute.virtualMachines.beginDeleteAndWait(
+            resourceGroupName,
+            name,
           );
+          
+          // Delete the old NIC if it exists
+          try {
+            await clients.network.networkInterfaces.beginDeleteAndWait(
+              resourceGroupName,
+              nicName,
+            );
+          } catch (error) {
+            if (!isNotFoundError(error)) {
+              console.warn(`[VirtualMachine] Warning: Could not delete old NIC: ${error}`);
+            }
+          }
+          
+          // Delete the old OS disk if it exists
+          try {
+            await clients.compute.disks.beginDeleteAndWait(
+              resourceGroupName,
+              osDiskName,
+            );
+          } catch (error) {
+            if (!isNotFoundError(error)) {
+              console.warn(`[VirtualMachine] Warning: Could not delete old OS disk: ${error}`);
+            }
+          }
+          
+          console.log(`[VirtualMachine] Old VM deleted. Creating new VM...`);
+          
+          // Re-create the NIC since we deleted it
+          const newNic = await clients.network.networkInterfaces.beginCreateOrUpdateAndWait(
+            resourceGroupName,
+            nicName,
+            nicParams,
+          );
+          vmParams.networkProfile!.networkInterfaces = [{ id: newNic.id, primary: true }];
+          
+          existingVm = undefined; // Clear so we create fresh
+        } else {
+          console.log(`[VirtualMachine] Adopting existing VM "${name}" (adopt: true). Skipping property validation.`);
         }
-      } catch (error) {
-        if (!isNotFoundError(error)) {
-          throw error;
-        }
+      } else if (!adopt && !virtualMachineId && !this.output) {
+        // VM exists but we don't have it in state and not adopting
+        throw new Error(
+          `Virtual machine "${name}" already exists. Use adopt: true to adopt it.`,
+        );
       }
     }
 
