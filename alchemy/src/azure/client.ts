@@ -11,6 +11,7 @@ import { CosmosDBManagementClient } from "@azure/arm-cosmosdb";
 import { SqlManagementClient } from "@azure/arm-sql";
 import { NetworkManagementClient } from "@azure/arm-network";
 import { ContainerInstanceManagementClient } from "@azure/arm-containerinstance";
+import { ComputeManagementClient } from "@azure/arm-compute";
 import { KeyVaultManagementClient } from "@azure/arm-keyvault";
 import { ServiceBusManagementClient } from "@azure/arm-servicebus";
 import { CdnManagementClient } from "@azure/arm-cdn";
@@ -61,6 +62,11 @@ export interface AzureClients {
    * Client for managing container instances
    */
   containerInstance: ContainerInstanceManagementClient;
+
+  /**
+   * Client for managing virtual machines and disks
+   */
+  compute: ComputeManagementClient;
 
   /**
    * Client for managing key vaults
@@ -235,6 +241,10 @@ export async function createAzureClients(
       credentials.subscriptionId,
     ),
     containerInstance: new ContainerInstanceManagementClient(
+      credential,
+      credentials.subscriptionId,
+    ),
+    compute: new ComputeManagementClient(
       credential,
       credentials.subscriptionId,
     ),

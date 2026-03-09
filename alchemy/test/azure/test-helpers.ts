@@ -409,3 +409,21 @@ export async function assertVirtualNetworkDoesNotExist(
     }
   }
 }
+
+/**
+ * Assert that a Virtual Machine does not exist
+ */
+export async function assertVirtualMachineDoesNotExist(
+  resourceGroup: string,
+  vmName: string,
+) {
+  const clients = await createAzureClients();
+  try {
+    await clients.compute.virtualMachines.get(resourceGroup, vmName);
+    throw new Error(`Virtual machine ${vmName} still exists after deletion`);
+  } catch (error: any) {
+    if (error.statusCode !== 404) {
+      throw error;
+    }
+  }
+}

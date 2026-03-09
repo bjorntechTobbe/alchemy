@@ -132,7 +132,6 @@ export async function destroy(
       duration: performance.now() - start,
       replaced: !!options?.replace,
     });
-
     let state: State;
     let props: ResourceProps | undefined;
     if (options?.replace) {
@@ -219,7 +218,8 @@ export async function destroy(
           "pendingDeletions",
         );
       pendingDeletions = pendingDeletions?.filter(
-        (deletion) => deletion.resource[ResourceID] !== instance[ResourceID],
+        (deletion: PendingDeletions[number]) =>
+          deletion.resource[ResourceID] !== instance[ResourceID],
       );
       await scope.set("pendingDeletions", pendingDeletions);
     }
@@ -244,7 +244,7 @@ export async function destroy(
       duration: performance.now() - start,
       replaced: !!options?.replace,
     });
-  } catch (error) {
+  } catch (error: any) {
     let errorToSend = error instanceof Error ? error : new Error(String(error));
     await createAndSendEvent(
       {
