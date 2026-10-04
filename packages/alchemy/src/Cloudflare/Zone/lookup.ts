@@ -49,6 +49,43 @@ type ZoneListItem = {
   account: { id?: string | null };
 };
 
+const canonicalZoneName = (name: string): string =>
+  name.replace(/\.$/, "").toLowerCase();
+
+/** Find every exact account-scoped match so provider callers can reject
+ * ambiguous state rather than choosing an arbitrary first result. */
+export const findZonesByName = ({
+  accountId,
+  name,
+}: {
+  accountId: string;
+  name: string;
+}): Effect.Effect<
+  ZoneListItem[],
+  zones.ListZonesError,
+  Credentials | HttpClient.HttpClient
+> =>
+  zones.listZones
+    .pages({ account: { id: accountId }, name, perPage: 100 })
+    .pipe(
+      Stream.runCollect,
+      Effect.map((pages) =>
+        Array.from(pages).flatMap((page) =>
+          (page.result ?? [])
+            .filter(
+              (candidate) =>
+                candidate.account.id === accountId &&
+                canonicalZoneName(candidate.name) === canonicalZoneName(name),
+            )
+            .map((candidate) => ({
+              id: candidate.id,
+              name: candidate.name,
+              account: { id: candidate.account.id },
+            })),
+        ),
+      ),
+    );
+
 export const findZoneByName = ({
   accountId,
   name,
@@ -61,24 +98,8 @@ export const findZoneByName = ({
   Credentials | HttpClient.HttpClient
 > =>
   Effect.gen(function* () {
-    // Distilled `listZones` rides `Retry.makeDefault` (5xx / throttling).
-    // The previous raw `fetch` failed the first time Cloudflare answered
-    // `{ success: false, errors: [{ message: "unhandled server error" }] }`.
-    const page = yield* zones.listZones({
-      account: { id: accountId },
-      name,
-      perPage: 1,
-    });
-    const match = (page.result ?? []).find(
-      (candidate) =>
-        candidate.name === name && candidate.account.id === accountId,
-    );
-    if (match === undefined) return undefined;
-    return {
-      id: match.id,
-      name: match.name,
-      account: { id: match.account.id },
-    };
+    const matches = yield* findZonesByName({ accountId, name });
+    return matches[0];
   });
 
 /**
@@ -104,6 +125,8 @@ export const listAllZones = (
 
 /** Hostname plus each parent label, longest first — used to infer a zone. */
 export const zoneNameCandidates = (hostname: string): string[] => {
-  const parts = hostname.split(".");
-  return parts.slice(0, -1).map((_, index) => parts.slice(index).join("."));
+  const parts = hostname.replace(/\.$/, "").split(".");
+  return parts
+    .map((_, index) => parts.slice(index).join("."))
+    .filter((candidate) => candidate.includes("."));
 };

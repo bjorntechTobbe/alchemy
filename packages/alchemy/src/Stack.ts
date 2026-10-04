@@ -34,6 +34,7 @@ import { loadConfigProvider, stackConfigLayer } from "./Util/ConfigProvider.ts";
 import { effectClass, taggedFunction } from "./Util/effect.ts";
 import { fileLogger } from "./Util/FileLogger.ts";
 import { PlatformServices } from "./Util/PlatformServices.ts";
+import type { Resolver } from "./DNS/Contract.ts";
 
 export type StackServices =
   | Stack
@@ -56,7 +57,8 @@ export type ProviderServices =
   | Provider<any>
   | EnvironmentLike
   | CredentialsLike
-  | DockerLike;
+  | DockerLike
+  | Resolver;
 
 // tagged type to allow types like AWSEnvironment/AWS Region to bubble through
 export interface EnvironmentLike {
@@ -146,22 +148,22 @@ export const Stack: Context.ServiceClass<
   "Stack",
   Omit<StackSpec, "output">
 > & {
-  make<A, Req>(
+  make<A, Req, Err = never>(
     stack: {
       Shape: A;
     },
     effect: Effect.Effect<
       NoInfer<A extends object ? InputProps<A> : Input<A>>,
-      ConfigError,
+      Err,
       Req
     >,
-  ): Effect.Effect<CompiledStack<A>, ConfigError>;
+  ): Effect.Effect<CompiledStack<A>, ConfigError | Err>;
   <Self>(): {
-    <A, Req>(
+    <A, Req, Err = never>(
       stackName: string,
       options: StackProps<NoInfer<Req>>,
-      eff: Effect.Effect<A, ConfigError, Req>,
-    ): Effect.Effect<Self, ConfigError> & {
+      eff: Effect.Effect<A, Err, Req>,
+    ): Effect.Effect<Self, ConfigError | Err> & {
       new (_: never): A extends object ? A : {};
       readonly stackName: string;
       stage: {
@@ -173,21 +175,21 @@ export const Stack: Context.ServiceClass<
     (stackName: string): Effect.Effect<Self> & {
       new (_: never): Output.ToOutput<Shape>;
       readonly stackName: string;
-      make: <A, Req>(
+      make: <A, Req, Err = never>(
         options: StackProps<NoInfer<Req>>,
-        effect: Effect.Effect<A, ConfigError, Req>,
-      ) => Effect.Effect<CompiledStack<A>, ConfigError> &
+        effect: Effect.Effect<A, Err, Req>,
+      ) => Effect.Effect<CompiledStack<A>, ConfigError | Err> &
         ConfiguredStackMeta<NoInfer<Req>>;
       stage: {
         [stage: string]: Effect.Effect<Self>;
       };
     };
   };
-  <A, Req extends StackServices | ProviderServices = never>(
+  <A, Req extends StackServices | ProviderServices = never, Err = never>(
     stackName: string,
     options: StackProps<NoInfer<Req>>,
-    eff: Effect.Effect<A, ConfigError, Req>,
-  ): Effect.Effect<CompiledStack<A>, ConfigError> &
+    eff: Effect.Effect<A, Err, Req>,
+  ): Effect.Effect<CompiledStack<A>, ConfigError | Err> &
     ConfiguredStackMeta<NoInfer<Req>>;
 } = Object.assign(
   taggedFunction(

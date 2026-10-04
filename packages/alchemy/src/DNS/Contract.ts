@@ -52,6 +52,27 @@ export type InputZoneDescriptor<T extends string = string> =
 
 export type ZoneLike = ZoneDescriptor | ZoneInputDescriptor;
 
+/**
+ * Construction-only provider selector for hostname-based zone discovery.
+ * Providers create these selectors with their own account and lookup policy;
+ * core never infers a provider from a hostname.
+ */
+export interface ZoneSelector<
+  T extends string = string,
+  R = DnsConstructionServices,
+> {
+  readonly type: T;
+  readonly resolve: (
+    hostname: string,
+  ) => Effect.Effect<ZoneInputDescriptor<T>, DnsError, R>;
+}
+
+/** Create a provider-scoped hostname selector without adding inference. */
+export const zoneSelector = <T extends string, R>(
+  type: T,
+  resolve: ZoneSelector<T, R>["resolve"],
+): ZoneSelector<T, R> => ({ type, resolve });
+
 export type CommonRecordType = "A" | "AAAA" | "CNAME" | "TXT";
 export type Ttl = number | "auto";
 
@@ -94,6 +115,9 @@ export class DnsError extends Data.TaggedError("DnsError")<{
     | "invalid-zone"
     | "missing-adapter"
     | "invalid-adapter"
+    | "zone-not-found"
+    | "ambiguous-zone"
+    | "discovery-failed"
     | "unsupported";
   readonly message: string;
 }> {}
@@ -250,6 +274,40 @@ const validateName = (
   return undefined;
 };
 
+/**
+ * Validate a name after both the record name and zone name have resolved.
+ * Adapters use this in their native-name Output so deferred inputs cannot be
+ * qualified into a different zone by the provider resource.
+ */
+export const validateResolvedName = (
+  adapter: DnsAdapter,
+  name: string,
+  zoneName: string,
+): DnsError | undefined => {
+  if (!isValidDnsName(name)) {
+    return new DnsError({
+      reason: "invalid-zone",
+      message: "Record name must be a relative name, @, or an FQDN.",
+    });
+  }
+  if (!adapter.capabilities.fqdn && name !== "@" && name.includes(".")) {
+    return new DnsError({
+      reason: "unsupported",
+      message: `${adapter.type} does not support fully-qualified record names.`,
+    });
+  }
+  if (name === "@" || !name.includes(".")) return undefined;
+  const canonicalName = canonicalDnsName(name);
+  const canonicalZone = canonicalDnsName(zoneName);
+  return canonicalName === canonicalZone ||
+    canonicalName.endsWith(`.${canonicalZone}`)
+    ? undefined
+    : new DnsError({
+        reason: "invalid-zone",
+        message: "Record name is outside the selected zone.",
+      });
+};
+
 const isValidDnsName = (name: string): boolean => {
   if (name === "@") return true;
   if (name === "*") return true;
@@ -279,16 +337,46 @@ const canonicalDnsName = (name: string): string =>
   (name.endsWith(".") ? name.slice(0, -1) : name).toLowerCase();
 
 /** Bind a serializable zone descriptor to the provider adapter supplied by layers. */
-export const bind = (
+export function bind(
   zone: ZoneLike,
-): Effect.Effect<BoundZone, DnsError, Resolver> =>
-  Effect.gen(function* () {
+): Effect.Effect<BoundZone, DnsError, Resolver>;
+export function bind<T extends string, R>(
+  selector: ZoneSelector<T, R>,
+  hostname: string,
+): Effect.Effect<BoundZone, DnsError, Resolver | R>;
+export function bind(
+  zoneOrSelector: ZoneLike | ZoneSelector,
+  hostname?: string,
+) {
+  return Effect.gen(function* () {
+    const selectedType =
+      hostname === undefined ? undefined : zoneOrSelector.type;
+    const zone: ZoneLike =
+      hostname === undefined
+        ? (zoneOrSelector as ZoneLike)
+        : yield* "resolve" in zoneOrSelector
+            ? zoneOrSelector.resolve(hostname)
+            : Effect.fail(
+                new DnsError({
+                  reason: "invalid-zone",
+                  message: "A DNS zone selector is required for discovery.",
+                }),
+              );
+    if (selectedType !== undefined && zone.type !== selectedType) {
+      return yield* Effect.fail(
+        new DnsError({
+          reason: "invalid-zone",
+          message: `DNS selector '${selectedType}' resolved a '${zone.type}' zone.`,
+        }),
+      );
+    }
     yield* validateZone(zone);
     const resolver = yield* Resolver;
     if (resolver.error) return yield* Effect.fail(resolver.error);
     const adapter = yield* resolver.resolve(zone.type);
     return new BoundZone(zone as ZoneInputDescriptor, adapter);
   });
+}
 
 export class BoundZone {
   constructor(

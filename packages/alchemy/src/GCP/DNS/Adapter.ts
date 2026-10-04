@@ -1,17 +1,23 @@
 import * as Effect from "effect/Effect";
+import * as Stream from "effect/Stream";
+import * as gcpDnsApi from "@distilled.cloud/gcp/dns_v1";
 import {
   DnsError,
   type DnsAdapter,
   type DnsConstructionServices,
   type DnsRecordHandle,
   type RecordRequest,
+  validateResolvedName,
   type ZoneInputDescriptor,
   type ZoneDescriptor,
   type ZoneIdentity,
+  type ZoneSelector,
+  zoneSelector,
 } from "../../DNS/Contract.ts";
 import type { Input, InputProps } from "../../Input.ts";
 import * as Output from "../../Output.ts";
 import type { ResourceLike } from "../../Resource.ts";
+import { GcpEnvironment } from "../Environment.ts";
 import {
   ResourceRecordSet,
   type ResourceRecordSetProps,
@@ -40,6 +46,103 @@ export function gcpZone(
     identity: { kind: "gcp", id: managedZone, name },
   };
 }
+
+const canonicalDnsName = (name: string): string =>
+  name.replace(/\.$/, "").toLowerCase();
+
+const matchesHostname = (hostname: string, zoneName: string): boolean => {
+  const hostnameName = canonicalDnsName(hostname);
+  const zone = canonicalDnsName(zoneName);
+  return hostnameName === zone || hostnameName.endsWith(`.${zone}`);
+};
+
+/**
+ * Select the unique longest-boundary Cloud DNS zone for a hostname.
+ *
+ * This helper is pure so discovery policy can be tested without credentials.
+ * Public and private zones are intentionally treated alike: when the best
+ * suffix has more than one managed zone, callers must provide an explicit
+ * {@link gcpZone} descriptor.
+ */
+export const selectGcpManagedZone = (
+  hostname: string,
+  zones: ReadonlyArray<gcpDnsApi.ManagedZone>,
+): Effect.Effect<ZoneInputDescriptor<"gcp">, DnsError> => {
+  const candidates = zones.filter(
+    (zone) =>
+      typeof zone.name === "string" &&
+      typeof zone.dnsName === "string" &&
+      matchesHostname(hostname, zone.dnsName),
+  );
+  if (candidates.length === 0) {
+    return Effect.fail(
+      new DnsError({
+        reason: "zone-not-found",
+        message: `No Google Cloud DNS managed zone found for '${hostname}'.`,
+      }),
+    );
+  }
+  const longestLength = Math.max(
+    ...candidates.map((zone) => canonicalDnsName(zone.dnsName!).length),
+  );
+  const best = candidates.filter(
+    (zone) => canonicalDnsName(zone.dnsName!).length === longestLength,
+  );
+  if (best.length !== 1) {
+    return Effect.fail(
+      new DnsError({
+        reason: "ambiguous-zone",
+        message: `Multiple Google Cloud DNS managed zones match '${hostname}'. Provide an explicit gcpZone(...).`,
+      }),
+    );
+  }
+  const zone = best[0]!;
+  return Effect.succeed(gcpZone(zone.name!, zone.dnsName!));
+};
+
+/** Select from all pages returned by the Cloud DNS managed-zone paginator. */
+export const selectGcpManagedZonePages = (
+  hostname: string,
+  pages: ReadonlyArray<gcpDnsApi.ManagedZonesListResponse>,
+): Effect.Effect<ZoneInputDescriptor<"gcp">, DnsError> =>
+  selectGcpManagedZone(
+    hostname,
+    pages.flatMap((page) => page.managedZones ?? []),
+  );
+
+/**
+ * Select a Google Cloud DNS managed zone from the configured GCP project.
+ * Discovery is lazy and executes when the selector is bound. Explicit
+ * {@link gcpZone} descriptors bypass this lookup entirely.
+ */
+export const gcpDns = (): ZoneSelector<
+  "gcp",
+  DnsConstructionServices | GcpEnvironment | gcpDnsApi.GcpOpContext
+> =>
+  zoneSelector<
+    "gcp",
+    DnsConstructionServices | GcpEnvironment | gcpDnsApi.GcpOpContext
+  >("gcp", (hostname) =>
+    Effect.gen(function* () {
+      const environment = yield* GcpEnvironment.current;
+      const pages = yield* gcpDnsApi.listManagedZones
+        .pages({ project: environment.project, maxResults: 1000 })
+        .pipe(Stream.runCollect);
+      return yield* selectGcpManagedZonePages(hostname, Array.from(pages));
+    }).pipe(
+      Effect.mapError((error) =>
+        error instanceof DnsError
+          ? error
+          : new DnsError({
+              reason: "discovery-failed",
+              message: `Google Cloud DNS zone discovery failed: ${error.message}`,
+            }),
+      ),
+    ),
+  );
+
+/** Short alias for the provider-scoped DNS selector. */
+export const dns = gcpDns;
 
 const encodeIdentity = (value: string): string =>
   [...value]
@@ -79,11 +182,33 @@ const deferredNameError = () =>
       "DNS record name must be concrete unless you provide an explicit DNS resource id.",
   });
 
-const nameInput = (request: RecordRequest): Input<string> =>
+const invalidName = (error: DnsError): Output.Output<string> =>
+  Output.mapEffect(() => Effect.as(Effect.die(error), ""))(Output.asOutput(""));
+
+const canonicalName = (name: string): string =>
+  name.replace(/\.$/, "").toLowerCase();
+
+const nameInput = (request: RecordRequest, rejectApex = false): Input<string> =>
   Output.flatMap(Output.asOutput(request.name), (name) =>
-    Output.map(Output.asOutput(request.zone.identity.name), (zone) =>
-      name === "@" || name === "" ? zone : name,
-    ),
+    Output.flatMap(Output.asOutput(request.zone.identity.name), (zone) => {
+      const error = validateResolvedName(gcpDnsAdapter, name, zone);
+      if (error) return invalidName(error);
+      if (
+        rejectApex &&
+        (name === "@" ||
+          name === "" ||
+          canonicalName(name) === canonicalName(zone))
+      ) {
+        return invalidName(
+          new DnsError({
+            reason: "unsupported",
+            message:
+              "Google Cloud DNS does not support CNAME hostname targets at the zone apex.",
+          }),
+        );
+      }
+      return Output.asOutput(name === "@" || name === "" ? zone : name);
+    }),
   );
 
 const invalidZone = (message: string) =>
@@ -93,6 +218,7 @@ const makeRecord = (
   request: RecordRequest,
   type: RecordRequest["type"] = request.type,
   values: ReadonlyArray<Input<string>> = request.values,
+  rejectApex = false,
 ): Effect.Effect<DnsRecordHandle, DnsError, DnsConstructionServices> => {
   if (request.zone.identity.kind !== "gcp")
     return invalidZone(
@@ -104,7 +230,7 @@ const makeRecord = (
   return Effect.map(
     ResourceRecordSet(id, {
       managedZone: request.zone.identity.id,
-      name: nameInput(request),
+      name: nameInput(request, rejectApex),
       type,
       ttl:
         request.ttl === undefined || request.ttl === "auto"
@@ -154,7 +280,7 @@ export const gcpDnsAdapter: DnsAdapter = {
           .replace(/\.$/, "")
           .toLowerCase();
         const name = request.name.replace(/\.$/, "").toLowerCase();
-        if (name === zone) {
+        if (canonicalName(name) === canonicalName(zone)) {
           return Effect.fail(
             new DnsError({
               reason: "unsupported",
@@ -179,6 +305,7 @@ export const gcpDnsAdapter: DnsAdapter = {
       { ...request, type: "CNAME", values: [target] },
       "CNAME",
       [target],
+      true,
     );
   },
 };

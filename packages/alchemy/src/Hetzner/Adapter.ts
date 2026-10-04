@@ -8,6 +8,7 @@ import {
   type ZoneInputDescriptor,
   type ZoneDescriptor,
   type ZoneIdentity,
+  validateResolvedName,
 } from "../DNS/Contract.ts";
 import type { Input } from "../Input.ts";
 import type { InputProps } from "../Input.ts";
@@ -98,17 +99,40 @@ const deferredNameError = () =>
       "DNS record name must be concrete unless you provide an explicit DNS resource id.",
   });
 
-const nameInput = (request: RecordRequest): Input<string> =>
+const invalidName = (error: DnsError): Output.Output<string> =>
+  Output.mapEffect(() => Effect.as(Effect.die(error), ""))(Output.asOutput(""));
+
+const canonicalName = (name: string): string =>
+  name.replace(/\.$/, "").toLowerCase();
+
+const nameInput = (request: RecordRequest, rejectApex = false): Input<string> =>
   Output.flatMap(Output.asOutput(request.name), (name) =>
-    Output.map(Output.asOutput(request.zone.identity.name), (zone) => {
-      if (name === "@" || name === "") return "@";
+    Output.flatMap(Output.asOutput(request.zone.identity.name), (zone) => {
+      const error = validateResolvedName(hetznerDnsAdapter, name, zone);
+      if (error) return invalidName(error);
+      if (
+        rejectApex &&
+        (name === "@" ||
+          name === "" ||
+          canonicalName(name) === canonicalName(zone))
+      ) {
+        return invalidName(
+          new DnsError({
+            reason: "unsupported",
+            message: "Hetzner does not support CNAME records at the zone apex.",
+          }),
+        );
+      }
+      if (name === "@" || name === "") return Output.asOutput("@");
       const canonical = name.replace(/\.$/, "").toLowerCase();
       const normalizedZone = zone.replace(/\.$/, "").toLowerCase();
-      return canonical === normalizedZone
-        ? "@"
-        : canonical.endsWith(`.${normalizedZone}`)
-          ? canonical.slice(0, -(normalizedZone.length + 1))
-          : canonical;
+      return Output.asOutput(
+        canonical === normalizedZone
+          ? "@"
+          : canonical.endsWith(`.${normalizedZone}`)
+            ? canonical.slice(0, -(normalizedZone.length + 1))
+            : canonical,
+      );
     }),
   );
 
@@ -119,6 +143,7 @@ const cnameTargetInput = (target: Input<string>): Input<string> =>
 
 const makeRecord = (
   request: RecordRequest,
+  rejectApex = false,
 ): Effect.Effect<DnsRecordHandle, DnsError, DnsConstructionServices> => {
   if (request.zone.identity.kind !== "hetzner") {
     return Effect.fail(
@@ -151,7 +176,7 @@ const makeRecord = (
         );
   const props = {
     zone: { zoneId },
-    name: nameInput(request),
+    name: nameInput(request, rejectApex),
     type: request.type as RecordSetType,
     records: request.values.map((value) => ({ value })),
     ...(request.ttl === undefined || request.ttl === "auto"
@@ -205,7 +230,7 @@ export const hetznerDnsAdapter: DnsAdapter = {
         ? {}
         : { targetMetadata: request.targetMetadata }),
     };
-    return makeRecord(recordRequest);
+    return makeRecord(recordRequest, true);
   },
 };
 

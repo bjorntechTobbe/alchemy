@@ -2,6 +2,7 @@ export * from "./Api.ts";
 export * from "./ApiMapping.ts";
 export * from "./Authorizer.ts";
 export * from "./DomainName.ts";
+export * from "./CustomDomain.ts";
 export * from "./ExportApi.ts";
 export * from "./ExportApiHttp.ts";
 export * from "./HttpApi.ts";

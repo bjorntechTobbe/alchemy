@@ -41,8 +41,8 @@ export const of = <R extends ResourceLike>(
 
 export function asOutput<T, Req>(value: Output<T, Req>): Output<T, Req>;
 export function asOutput<T>(value: Config.Config<T>): Output<T>;
-export function asOutput<T, E, Req>(
-  value: Effect.Effect<T, E, Req>,
+export function asOutput<T, Req>(
+  value: Effect.Effect<T, never, Req>,
 ): Output<T, Req>;
 export function asOutput<T>(
   value: T | Output<T> | Effect.Effect<T, any, any> | Config.Config<T>,
@@ -53,8 +53,13 @@ export function asOutput<T>(
   if (isOutput(value)) {
     return value as Output<T>;
   }
+  if (Config.isConfig(value)) {
+    return new EffectExpr(VoidExpr, () =>
+      Effect.orDie(value as Effect.Effect<T, Config.ConfigError, never>),
+    ) as Output<T>;
+  }
   if (Effect.isEffect(value)) {
-    return new EffectExpr(VoidExpr, () => value) as Output<T>;
+    return new EffectExpr(VoidExpr, () => Effect.orDie(value)) as Output<T>;
   }
   return new LiteralExpr(value);
 }
@@ -341,7 +346,7 @@ export class EffectExpr<A, B, Req = never, Req2 = never> extends BaseExpr<
   readonly kind = "EffectExpr";
   constructor(
     public readonly expr: Expr<A, Req>,
-    public readonly f: (value: A) => Effect.Effect<B, any, Req2>,
+    public readonly f: (value: A) => Effect.Effect<B, never, Req2>,
   ) {
     super();
     return proxy(this);

@@ -31,3 +31,5 @@ export * as Website from "./Website/index.ts";
 export * from "./WriteDns.ts";
 export * from "./WriteDnsHttp.ts";
 export * from "./Zone.ts";
+export * as DNS from "./ZoneLookup.ts";
+export { hetznerDns } from "./ZoneLookup.ts";

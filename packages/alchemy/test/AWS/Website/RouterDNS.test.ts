@@ -1,6 +1,7 @@
 import * as AWS from "@/AWS";
 import { cloudflareDnsAdapter, cloudflareZone } from "@/Cloudflare/DNS/Adapter";
 import { adapterLayer } from "@/DNS";
+import { zoneSelector } from "@/DNS";
 import * as Stack from "@/Stack";
 import * as Output from "@/Output";
 import { inMemoryState } from "@/State";
@@ -87,6 +88,58 @@ describe(
     );
 
     test(
+      "discovers the selected provider zone once and maps all Router names",
+      compile(
+        Effect.gen(function* () {
+          const selection = zoneSelector("cloudflare", () =>
+            Effect.succeed(cloudflareZone("discovered-zone", "example.com")),
+          );
+          yield* AWS.Website.Router("DiscoveredRouter", {
+            domain: {
+              name: "www.example.com",
+              aliases: ["alt.example.com"],
+              redirects: ["old.example.com"],
+              dns: selection,
+            },
+          });
+        }),
+      ).pipe(
+        Effect.map((resources) => {
+          const records = dnsRecords(resources);
+          expect(records).toHaveLength(6);
+          expect(
+            records.every(
+              (resource: any) => resource.Props.zoneId === "discovered-zone",
+            ),
+          ).toBe(true);
+        }),
+      ),
+    );
+
+    test(
+      "keeps the native Route 53 path when no provider is selected",
+      compile(
+        Effect.gen(function* () {
+          yield* AWS.Website.Router("NativeRouter", {
+            domain: { name: "www.example.com", hostedZoneId: "Z123" },
+          });
+        }),
+      ).pipe(
+        Effect.map((resources) => {
+          const records = Object.values(resources).filter((resource: any) =>
+            String(resource.Type).includes("Route53.Record"),
+          );
+          expect(records.length).toBeGreaterThan(0);
+          expect(
+            records.every((resource: any) =>
+              String(resource.Type).includes("AWS.Route53.Record"),
+            ),
+          ).toBe(true);
+        }),
+      ),
+    );
+
+    test(
       "creates independent attached-site SAN validation and application records",
       compile(
         Effect.gen(function* () {
@@ -125,6 +178,37 @@ describe(
               key.includes("Docs/RouterAttachmentCertificate"),
             ),
           ).toBe(true);
+        }),
+      ),
+    );
+
+    test(
+      "does not inherit same-stack Router DNS when an attached StaticSite opts out",
+      compile(
+        Effect.gen(function* () {
+          const router = yield* AWS.Website.Router("NoDnsRouter", {
+            domain: {
+              name: "example.com",
+              dns: cloudflareZone("cf-zone", "example.com"),
+            },
+          });
+          yield* AWS.Website.StaticSite("NoDnsSite", {
+            path: fixtureDir,
+            domain: {
+              router,
+              name: "docs.example.com",
+              dns: false,
+            },
+          });
+        }),
+      ).pipe(
+        Effect.map((resources) => {
+          expect(dnsRecords(resources).length).toBeGreaterThan(0);
+          expect(
+            Object.keys(resources).some((key) =>
+              key.includes("NoDnsSite/RouterAttachment"),
+            ),
+          ).toBe(false);
         }),
       ),
     );
@@ -219,6 +303,35 @@ describe(
           expect(records[0]!.Props.zoneId).toBe("cf-zone");
           expect(records[0]!.Props.content).toBe("d123.cloudfront.net");
         }),
+      ),
+    );
+
+    test(
+      "does not inherit serialized Router DNS when an attached StaticSite opts out",
+      compile(
+        Effect.gen(function* () {
+          yield* AWS.Website.StaticSite("CrossStackNoDns", {
+            path: fixtureDir,
+            domain: {
+              router: {
+                kvStoreArn: "arn:aws:cloudfront::123:key-value-store/router",
+                kvNamespace: "abcd",
+                distributionId: "EDFDVBD6EXAMPLE",
+                distributionArn: "arn:aws:cloudfront::123:distribution/EXAMPLE",
+                url: "https://router.example.com",
+                dnsZone: cloudflareZone("cf-zone", "example.com"),
+                coveredHostnames: ["*.example.com"],
+                target: "d123.cloudfront.net",
+              },
+              name: "api.example.com",
+              dns: false,
+            },
+          });
+        }),
+      ).pipe(
+        Effect.map((resources) =>
+          expect(dnsRecords(resources)).toHaveLength(0),
+        ),
       ),
     );
 

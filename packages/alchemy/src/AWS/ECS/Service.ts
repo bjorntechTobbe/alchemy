@@ -59,6 +59,7 @@ import {
   DnsError,
   Resolver,
   type ZoneDescriptor,
+  type ZoneSelector,
 } from "../../DNS/Contract.ts";
 import { createHostnameTargets } from "../../DNS/HostnameTargets.ts";
 import type { ClusterArn } from "./Cluster.ts";
@@ -190,11 +191,14 @@ export interface ServiceDomainConfig {
    */
   cert?: string;
   /**
-   * DNS authority used for application records and ACM validation. When set,
-   * records are composed through the generic DNS adapter selected by the
-   * descriptor. `false` disables application DNS and requires `cert`.
+   * DNS authority used for application records and ACM validation. Pass an
+   * explicit zone descriptor, or a provider-scoped selector such as
+   * `Cloudflare.DNS.dns()` to discover the matching zone from the hostname.
+   * Selectors are construction-only and are resolved before the composed
+   * service resource is persisted. `false` disables application DNS and
+   * requires `cert`.
    */
-  dns?: false | ZoneDescriptor;
+  dns?: false | ZoneDescriptor | ZoneSelector;
 }
 
 /**
@@ -1847,7 +1851,10 @@ const composeManagedIngress = (
                 }),
               ),
             onSome: (resolver) =>
-              bindDns(dnsZone).pipe(Effect.provideService(Resolver, resolver)),
+              ("resolve" in dnsZone
+                ? bindDns(dnsZone, domain.name)
+                : bindDns(dnsZone)
+              ).pipe(Effect.provideService(Resolver, resolver)),
           },
         );
       } else if (domain.dns !== false) {

@@ -19,6 +19,8 @@ export {
   type InputZoneDescriptor,
   type ZoneLike,
   type ZoneIdentity,
+  type ZoneSelector,
+  zoneSelector,
 } from "./Contract.ts";
 export {
   createHostnameTargets,

@@ -7,15 +7,20 @@ import {
 } from "../ACM/DnsValidation.ts";
 import type { Distribution } from "../CloudFront/Distribution.ts";
 import type { Records } from "../Route53/Records.ts";
+import type { Record as Route53Record } from "../Route53/Record.ts";
 import type { AssetFileOption } from "./AssetDeployment.ts";
 import type { Bucket } from "../S3/Bucket.ts";
 import type {
   ZoneDescriptor,
   ZoneInputDescriptor,
+  ZoneSelector,
 } from "../../DNS/Contract.ts";
 import {
   bind as bindDns,
+  DnsError,
+  Resolver,
   type BoundZone,
+  type DnsConstructionServices,
   type DnsRecordHandle,
 } from "../../DNS/Contract.ts";
 import { createHostnameTargets } from "../../DNS/HostnameTargets.ts";
@@ -50,6 +55,10 @@ export interface WebsiteRouterBindTargets {
    * its zone from the first bound hostname.
    */
   records?: Records;
+  /** Native application records already owned by an explicitly selected root zone. */
+  applicationRecords?: Readonly<
+    Record<string, DnsRecordHandle | Route53Record>
+  >;
   /** DNS authority and CloudFront target metadata inherited by attached sites. */
   /** Construction-only zone input; not persisted in Router attributes. */
   dnsZone?: ZoneInputDescriptor;
@@ -106,6 +115,18 @@ export const websiteCertificateCovers = (
   );
 };
 
+/** @internal */
+export const websiteDnsZoneContains = (
+  zone: ZoneDescriptor,
+  hostname: string,
+): boolean => {
+  const normalize = (value: string) =>
+    value.trim().replace(/\.+$/, "").toLowerCase();
+  const zoneName = normalize(zone.identity.name);
+  const name = normalize(hostname.replace(/^\*\./, ""));
+  return name === zoneName || name.endsWith(`.${zoneName}`);
+};
+
 /**
  * Build the provider-neutral DNS part of a Website custom domain. Certificate
  * validation and application records are deliberately separate resources so
@@ -148,12 +169,57 @@ export const createWebsiteDns = (args: {
 
 /** @internal */
 export const bindWebsiteDns = (
-  zone: ZoneInputDescriptor,
+  zone: ZoneInputDescriptor | ZoneSelector<string, any>,
+  hostname?: string,
 ): Effect.Effect<
   BoundZone,
   import("../../DNS/Contract.ts").DnsError,
-  import("../../DNS/Contract.ts").Resolver
-> => bindDns(zone);
+  import("../../DNS/Contract.ts").Resolver | DnsConstructionServices
+> =>
+  Effect.gen(function* () {
+    const resolver = yield* Effect.serviceOption(Resolver);
+    if (resolver._tag === "None") {
+      return yield* Effect.fail(
+        new DnsError({
+          reason: "missing-adapter",
+          message: "No DNS resolver is registered for the selected zone.",
+        }),
+      );
+    }
+    if ("resolve" in zone) {
+      if (hostname === undefined) {
+        return yield* Effect.fail(
+          new DnsError({
+            reason: "invalid-zone",
+            message: "A hostname is required for DNS zone discovery.",
+          }),
+        );
+      }
+      return yield* bindDns(zone, hostname).pipe(
+        Effect.provideService(Resolver, resolver.value),
+      );
+    }
+    return yield* bindDns(zone).pipe(
+      Effect.provideService(Resolver, resolver.value),
+    );
+  });
+
+/** @internal */
+export type WebsiteDnsSelection = ZoneDescriptor | ZoneSelector<string, any>;
+
+/** Resolve a selector once; only the concrete descriptor may cross a boundary. */
+export const resolveWebsiteDns = (args: {
+  readonly selection: WebsiteDnsSelection;
+  readonly hostname: string;
+}): Effect.Effect<
+  { readonly bound: BoundZone; readonly zone: ZoneDescriptor },
+  import("../../DNS/Contract.ts").DnsError,
+  import("../../DNS/Contract.ts").Resolver | DnsConstructionServices
+> =>
+  Effect.gen(function* () {
+    const bound = yield* bindWebsiteDns(args.selection, args.hostname);
+    return { bound, zone: bound.zone as ZoneDescriptor };
+  });
 
 /**
  * A standalone custom domain: the site (or Router) owns its own CloudFront
@@ -200,7 +266,7 @@ export interface WebsiteStandaloneDomainProps {
   /**
    * Disable Route 53 automation. When set, no DNS records are created.
    */
-  dns?: false | ZoneDescriptor;
+  dns?: false | WebsiteDnsSelection;
   /**
    * Never set on a standalone domain — attach to a Router by setting
    * {@link WebsiteRouterDomainProps.router}.

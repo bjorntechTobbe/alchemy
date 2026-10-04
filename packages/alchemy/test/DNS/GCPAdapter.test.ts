@@ -1,11 +1,19 @@
 import * as DNS from "@/DNS";
-import { GcpDNSAdapter, gcpDnsAdapter, gcpZone } from "@/GCP/DNS/Adapter";
+import {
+  GcpDNSAdapter,
+  dns,
+  gcpDns,
+  gcpDnsAdapter,
+  gcpZone,
+} from "@/GCP/DNS/Adapter";
 import * as GCP from "@/GCP";
 import * as Provider from "@/Provider";
 import * as Output from "@/Output";
 import * as Test from "@/Test/Alchemy";
 import { expect } from "alchemy-test";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 
 const zone = gcpZone("managed-zone", "example.com.");
 const recordSetTestProvider = Provider.succeed(GCP.DNS.ResourceRecordSet, {
@@ -25,10 +33,35 @@ test(
       identity: { kind: "gcp", id: "managed-zone", name: "example.com." },
     });
     expect(GcpDNSAdapter).toBe(gcpDnsAdapter);
+    expect(dns).toBe(gcpDns);
     expect(gcpDnsAdapter.capabilities.rrset).toBe(true);
     expect(gcpDnsAdapter.capabilities.multiValue).toBe(true);
     expect(gcpDnsAdapter.capabilities.autoTtl).toBe(false);
   }),
+);
+
+test.provider("rejects deferred undotted apex CNAME names", (stack) =>
+  stack.plan(
+    Effect.gen(function* () {
+      const bound = yield* DNS.bind(
+        gcpZone(Effect.succeed("managed-zone"), Effect.succeed("example.com.")),
+      ).pipe(Effect.provide(DNS.adapterLayer(gcpDnsAdapter)));
+      const result = yield* bound
+        .hostnameTarget({
+          name: Effect.succeed("EXAMPLE.COM"),
+          target: "validation.example.net.",
+        })
+        .pipe(Effect.exit);
+      expect(Exit.isFailure(result)).toBe(true);
+      if (Exit.isFailure(result)) {
+        const error =
+          result.cause.reasons.find(Cause.isFailReason)?.error ??
+          result.cause.reasons.find(Cause.isDieReason)?.defect;
+        expect(error).toBeInstanceOf(DNS.DnsError);
+        expect((error as DNS.DnsError).reason).toBe("unsupported");
+      }
+    }),
+  ),
 );
 
 test.provider(
@@ -155,6 +188,56 @@ test.provider(
         );
       }),
     ),
+);
+
+test.provider("validates deferred names against the resolved zone", (stack) =>
+  Effect.gen(function* () {
+    const outside = yield* stack
+      .plan(
+        Effect.gen(function* () {
+          const deferredZone = gcpZone(
+            Effect.succeed("managed-zone"),
+            Effect.succeed("example.com."),
+          );
+          const bound = yield* DNS.bind(deferredZone).pipe(
+            Effect.provide(DNS.adapterLayer(gcpDnsAdapter)),
+          );
+          yield* bound.record({
+            id: "OutsideRecord",
+            name: Effect.succeed("other.net."),
+            type: "A",
+            values: ["203.0.113.10"],
+          });
+        }),
+      )
+      .pipe(Effect.exit);
+    expect(Exit.isFailure(outside)).toBe(true);
+    if (Exit.isFailure(outside)) {
+      const defect = outside.cause.reasons.find(Cause.isDieReason)?.defect;
+      expect(defect).toBeInstanceOf(DNS.DnsError);
+      expect((defect as DNS.DnsError).reason).toBe("invalid-zone");
+    }
+
+    yield* stack.plan(
+      Effect.gen(function* () {
+        const deferredZone = gcpZone(
+          Effect.succeed("managed-zone"),
+          Effect.succeed("example.com."),
+        );
+        const bound = yield* DNS.bind(deferredZone).pipe(
+          Effect.provide(DNS.adapterLayer(gcpDnsAdapter)),
+        );
+        const valid = yield* bound.record({
+          id: "ValidRecord",
+          name: Effect.succeed("api.example.com."),
+          type: "A",
+          values: ["203.0.113.10"],
+        });
+        const name = (valid.resource as GCP.DNS.ResourceRecordSet).Props.name;
+        expect(yield* Output.evaluate(name, {})).toBe("api.example.com.");
+      }),
+    );
+  }),
 );
 
 test.provider(

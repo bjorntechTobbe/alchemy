@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import type * as HttpClient from "effect/http/HttpClient";
 
 import {
   DnsError,
@@ -8,12 +9,17 @@ import {
   type ZoneDescriptor,
   type ZoneIdentity,
   type DnsConstructionServices,
+  type ZoneSelector,
+  zoneSelector,
 } from "../../DNS/Contract.ts";
 import type { Input } from "../../Input.ts";
 import * as Output from "../../Output.ts";
 import type { ResourceLike } from "../../Resource.ts";
 import type { DnsRecordHandle } from "../../DNS/Contract.ts";
 import { Record } from "./Record.ts";
+import { CloudflareEnvironment } from "../CloudflareEnvironment.ts";
+import { findZonesByName, zoneNameCandidates } from "../Zone/lookup.ts";
+import { Credentials } from "@distilled.cloud/cloudflare/Credentials";
 
 /** The non-secret identity needed to select a Cloudflare DNS zone. */
 export interface CloudflareZoneIdentity extends ZoneIdentity {
@@ -38,6 +44,57 @@ export function cloudflareZone(
     identity: { kind: "cloudflare", id: zoneId, name },
   };
 }
+
+/**
+ * Select Cloudflare DNS by hostname and discover the longest matching managed
+ * zone in the configured account. Discovery is lazy and runs once when the
+ * selector is bound. Pass an explicit `cloudflareZone(id, name)` descriptor
+ * to bypass the lookup entirely.
+ */
+export const cloudflareDns = (): ZoneSelector<
+  "cloudflare",
+  | DnsConstructionServices
+  | CloudflareEnvironment
+  | Credentials
+  | HttpClient.HttpClient
+> =>
+  zoneSelector("cloudflare", (hostname) =>
+    Effect.gen(function* () {
+      const environment = yield* CloudflareEnvironment;
+      const { accountId } = yield* environment;
+      for (const name of zoneNameCandidates(hostname)) {
+        const matches = yield* findZonesByName({ accountId, name });
+        if (matches.length > 1) {
+          return yield* Effect.fail(
+            new DnsError({
+              reason: "ambiguous-zone",
+              message: `Multiple Cloudflare zones match '${name}' in account '${accountId}'.`,
+            }),
+          );
+        }
+        const match = matches[0];
+        if (match) return cloudflareZone(match.id, match.name);
+      }
+      return yield* Effect.fail(
+        new DnsError({
+          reason: "zone-not-found",
+          message: `No Cloudflare-managed zone found for '${hostname}'.`,
+        }),
+      );
+    }).pipe(
+      Effect.mapError((error) =>
+        error instanceof DnsError
+          ? error
+          : new DnsError({
+              reason: "discovery-failed",
+              message: `Cloudflare zone discovery failed: ${String(error)}`,
+            }),
+      ),
+    ),
+  );
+
+/** Short alias matching the provider-scoped DNS helper convention. */
+export const dns = cloudflareDns;
 
 /** Encode identity components without lossy punctuation replacement. */
 const encodeIdentity = (value: string): string =>

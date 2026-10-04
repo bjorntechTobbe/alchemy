@@ -31,12 +31,28 @@ export {
 export { Record, RecordProvider } from "./Record.ts";
 export { Records, RecordsProvider, type RecordsBinding } from "./Records.ts";
 export {
+  dns,
+  route53Dns,
+  route53DnsFrom,
   route53DnsAdapter,
   route53Zone,
   Route53DNSAdapter,
   Route53Zone,
+  type Route53ZoneLookup,
   type Route53ZoneIdentity,
 } from "./Adapter.ts";
+export {
+  AmbiguousHostedZone,
+  findPublicHostedZone,
+  findPublicHostedZoneFrom,
+  findPublicHostedZoneId,
+  findPublicHostedZoneIdFrom,
+  hostedZoneNameCandidates,
+  normalizeHostedZoneName,
+  resolveHostedZoneId,
+  type HostedZoneListByName,
+  type PublicHostedZone,
+} from "./HostedZoneLookup.ts";
 export { TestDNSAnswer, type TestDNSAnswerRequest } from "./TestDNSAnswer.ts";
 export { TestDNSAnswerHttp } from "./TestDNSAnswerHttp.ts";
 export {

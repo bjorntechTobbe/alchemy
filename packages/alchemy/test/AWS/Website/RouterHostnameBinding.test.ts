@@ -141,6 +141,75 @@ describe(
     );
 
     test(
+      "attached StaticSite dns false does not bind the Router record set",
+      Effect.gen(function* () {
+        const compiled = yield* compileStack(
+          Effect.gen(function* () {
+            const router = yield* AWS.Website.Router("Router", {
+              domain: {
+                name: "router.example.com",
+                aliases: ["*.example.com"],
+                hostedZoneId: "Z1234567890ABC",
+              },
+            });
+            yield* AWS.Website.StaticSite("NoDnsSite", {
+              path: fixtureDir,
+              domain: {
+                name: "docs.example.com",
+                router,
+                dns: false,
+              },
+            });
+            return {};
+          }),
+        );
+
+        expect(
+          (compiled.bindings["Router/SiteAliasRecords"] ?? []).some(
+            (row) => row.sid === "AWS.Website.Site(NoDnsSite)",
+          ),
+        ).toBe(false);
+        expect(
+          (compiled.bindings["Router/Certificate"] ?? []).some(
+            (row) => row.sid === "AWS.Website.Site(NoDnsSite)",
+          ),
+        ).toBe(false);
+      }),
+    );
+
+    test(
+      "dns:false uncovered attachment retains its certificate SAN binding",
+      Effect.gen(function* () {
+        const compiled = yield* compileStack(
+          Effect.gen(function* () {
+            const router = yield* AWS.Website.Router("Router", {
+              domain: {
+                name: "router.example.com",
+                aliases: ["*.example.com"],
+                hostedZoneId: "Z1234567890ABC",
+              },
+            });
+            yield* AWS.Website.StaticSite("NoDnsSite", {
+              path: fixtureDir,
+              domain: {
+                name: "docs.other.example",
+                router,
+                dns: false,
+              },
+            });
+            return {};
+          }),
+        );
+        const certificateRow = (
+          compiled.bindings["Router/Certificate"] ?? []
+        ).find((row) => row.sid === "AWS.Website.Site(NoDnsSite)");
+        expect(certificateRow?.data.subjectAlternativeNames).toEqual([
+          "docs.other.example",
+        ]);
+      }),
+    );
+
+    test(
       "removing the attached site removes its binding rows",
       Effect.gen(function* () {
         const compiled = yield* compileStack(

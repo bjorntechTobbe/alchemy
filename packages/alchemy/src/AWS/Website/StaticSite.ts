@@ -42,6 +42,8 @@ import { asRouterDomain, registerDevRouterRoute } from "./DevRouterRoute.ts";
 import {
   normalizeWebsiteDomain,
   createWebsiteDns,
+  resolveWebsiteDns,
+  websiteDnsZoneContains,
   websiteCertificateCovers,
   type StaticSiteBuildProps,
   type WebsiteAssetsConfig,
@@ -581,27 +583,72 @@ const makeKvSiteImpl = Effect.fn("AWS.Website.KvSite")(function* (
       ...(routerDomain.redirects ?? []),
     ];
     const bindTargets = routerRef.bindTargets;
+    const explicitZone =
+      typeof routerDomain.dns === "object" && concreteHostnames[0]
+        ? (yield* resolveWebsiteDns({
+            selection: routerDomain.dns,
+            hostname: concreteHostnames[0],
+          })).zone
+        : undefined;
+    const rootRecords =
+      routerDomain.dns !== false &&
+      !explicitZone &&
+      bindTargets?.applicationRecords
+        ? concreteHostnames.map(
+            (hostname) =>
+              bindTargets.applicationRecords![
+                hostname.trim().replace(/\.+$/, "").toLowerCase()
+              ],
+          )
+        : [];
+    const reusesRootRecords =
+      rootRecords.length === concreteHostnames.length &&
+      rootRecords.every((record) => record !== undefined);
     if (bindTargets && concreteHostnames.length > 0) {
       if (bindTargets.distribution && isResource(bindTargets.distribution)) {
         yield* bindTargets.distribution.bind`AWS.Website.Site(${fqn})`({
           aliases: concreteHostnames,
         });
       }
-      if (bindTargets.certificate && isResource(bindTargets.certificate)) {
+      // A dns:false attachment does not create ACM validation records. When
+      // the Router already covers one of its hostnames, do not add that
+      // hostname as a redundant SAN either. ACM still requires every exact
+      // requested SAN to validate, even when a Router wildcard already
+      // covers it. Uncovered hostnames retain the SAN binding so callers can
+      // provide the certificate coverage through the Router.
+      const coveredHostnames = routerRef.coveredHostnames;
+      const certificateHostnames =
+        routerDomain.dns === false && coveredHostnames
+          ? concreteHostnames.filter(
+              (hostname) =>
+                !coveredHostnames.some((owner) =>
+                  websiteCertificateCovers(owner, hostname),
+                ),
+            )
+          : concreteHostnames;
+      if (
+        bindTargets.certificate &&
+        isResource(bindTargets.certificate) &&
+        certificateHostnames.length > 0
+      ) {
         yield* bindTargets.certificate.bind`AWS.Website.Site(${fqn})`({
-          subjectAlternativeNames: concreteHostnames,
+          subjectAlternativeNames: certificateHostnames,
         });
       }
-      if (bindTargets.records && isResource(bindTargets.records)) {
+      if (
+        routerDomain.dns !== false &&
+        bindTargets.records &&
+        isResource(bindTargets.records)
+      ) {
         yield* bindTargets.records.bind`AWS.Website.Site(${fqn})`({
           names: concreteHostnames,
         });
       }
     }
     const inheritedZone =
-      bindTargets?.dnsZone ??
-      (typeof routerDomain.dns === "object" ? routerDomain.dns : undefined) ??
-      routerRef.dnsZone;
+      routerDomain.dns !== false
+        ? (explicitZone ?? bindTargets?.dnsZone ?? routerRef.dnsZone)
+        : undefined;
     const inheritedTarget = bindTargets?.target ?? routerRef.target;
     const inheritedTargetMetadata =
       bindTargets?.targetMetadata ?? routerRef.targetMetadata;
@@ -628,17 +675,19 @@ const makeKvSiteImpl = Effect.fn("AWS.Website.KvSite")(function* (
           `Router does not cover attached hostname(s): ${uncovered.join(", ")}. Add an exact alias or wildcard to the owning Router.`,
         );
       }
-      yield* createWebsiteDns({
-        zone: bound,
-        names: concreteHostnames,
-        certificate:
-          bindTargets?.certificate && isResource(bindTargets.certificate)
-            ? bindTargets.certificate
-            : undefined,
-        target: inheritedTarget,
-        targetMetadata: inheritedTargetMetadata,
-        idPrefix: "RouterAttachment",
-      });
+      if (!reusesRootRecords) {
+        yield* createWebsiteDns({
+          zone: bound,
+          names: concreteHostnames,
+          certificate:
+            bindTargets?.certificate && isResource(bindTargets.certificate)
+              ? bindTargets.certificate
+              : undefined,
+          target: inheritedTarget,
+          targetMetadata: inheritedTargetMetadata,
+          idPrefix: "RouterAttachment",
+        });
+      }
     }
     // Host-matched attachment: the site's own hostnames (the router's
     // CloudFront URL never serves it — KV host-match). Path-only
@@ -654,11 +703,30 @@ const makeKvSiteImpl = Effect.fn("AWS.Website.KvSite")(function* (
       : [Output.interpolate`${routerRef.url}${routerPathPrefix ?? ""}`];
   } else {
     const domain = standaloneDomain;
-    const dnsZone: ZoneDescriptor | undefined =
+    const dnsSelection =
       domain && typeof domain.dns === "object" ? domain.dns : undefined;
-    if (dnsZone && domain?.hostedZoneId) {
+    if (dnsSelection && domain?.hostedZoneId) {
       return yield* Effect.die(
         "A website domain cannot set both hostedZoneId and an explicit DNS zone descriptor.",
+      );
+    }
+    const dnsZone: ZoneDescriptor | undefined = dnsSelection
+      ? (yield* resolveWebsiteDns({
+          selection: dnsSelection,
+          hostname: domain!.name,
+        })).zone
+      : undefined;
+    if (
+      dnsZone &&
+      canonicalHostnames(domain!).some(
+        (hostname) => !websiteDnsZoneContains(dnsZone, hostname),
+      )
+    ) {
+      return yield* Effect.fail(
+        new DnsError({
+          reason: "invalid-zone",
+          message: "A Website hostname is outside the selected DNS zone.",
+        }),
       );
     }
     if (

@@ -6,10 +6,11 @@ sidebar:
 ---
 
 Alchemy's DNS composition layer lets a site select an authoritative zone
-managed by Route 53, Cloudflare, Google Cloud DNS, or Hetzner. The zone is
-selected explicitly. Alchemy does not infer the registrar or authoritative
-provider from a hostname. This keeps platform DNS flexible without promising
-the complete platform coverage described by [SST custom domains](https://sst.dev/docs/custom-domains/).
+managed by Route 53, Cloudflare, Google Cloud DNS, or Hetzner. The provider is
+selected explicitly, while it can discover the matching zone by hostname when
+requested. Alchemy never guesses the provider from a hostname. This keeps
+platform DNS flexible while allowing each provider's native capabilities to
+remain explicit.
 
 ## Register the selected adapters
 
@@ -126,6 +127,24 @@ const site = yield* AWS.Website.StaticSite("Site", {
 The descriptor does not resolve the native zone during initialization, and a
 whole `Output<ZoneDescriptor>` cannot be used to defer provider selection.
 
+For hostname-based discovery, pass a provider-scoped selector. Discovery runs
+when the DNS consumer binds the hostname and chooses the longest matching zone;
+ambiguous or missing matches fail instead of selecting an arbitrary zone:
+
+```typescript
+const site = yield* AWS.Website.StaticSite("Site", {
+  path: "./dist",
+  domain: {
+    name: "www.example.com",
+    dns: Cloudflare.DNS.dns(),
+  },
+});
+```
+
+The equivalent selectors are `AWS.Route53.dns()`, `GCP.DNS.dns()`, and
+`Hetzner.dns()`. Use an explicit `route53Zone`, `cloudflareZone`, `gcpZone`,
+or `hetznerZone` when the zone is already known or discovery should be bypassed.
+
 `domain: { name }` without `dns` preserves the existing AWS behavior: the
 website uses Route 53, including its normal hosted-zone selection and record
 policy. `dns: false` disables application DNS records. With an explicit
@@ -213,6 +232,27 @@ HTTPS listener. `cert` supplies an existing certificate ARN instead. With
 Manual DNS remains supported by supplying `cert` and managing the records
 outside Alchemy. Shared-listener ECS services do not own the load balancer's
 domain, certificate, or DNS.
+
+## API Gateway custom domains
+
+`AWS.ApiGateway.CustomDomain` composes a regional REST custom domain, an API
+mapping, ACM DNS validation, and the application CNAME.
+`AWS.ApiGatewayV2.CustomDomain` provides the same composition for HTTP and
+WebSocket APIs:
+
+```typescript
+const domain = yield* AWS.ApiGatewayV2.CustomDomain("ApiDomain", {
+  domainName: "api.example.com",
+  api,
+  stage,
+  dns: Cloudflare.DNS.dns(),
+});
+```
+
+Set `certificateArn` with `dns: false` to use an existing issued certificate
+and manage DNS outside Alchemy. An explicit DNS selector or zone creates ACM
+validation records and the application CNAME in that authority. The custom
+domain waits on certificate validation before creating the API Gateway domain.
 
 ## Deployment flow and provider behavior
 

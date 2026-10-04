@@ -1,4 +1,9 @@
+import type { Credentials } from "@distilled.cloud/aws/Credentials";
+import * as route53 from "@distilled.cloud/aws/route-53";
 import * as Effect from "effect/Effect";
+import type * as HttpClient from "effect/http/HttpClient";
+import type { HttpClientError } from "effect/http/HttpClientError";
+import type { PlatformError } from "effect/PlatformError";
 import {
   DnsError,
   type DnsAdapter,
@@ -7,6 +12,8 @@ import {
   type ZoneDescriptor,
   type ZoneInputDescriptor,
   type ZoneIdentity,
+  type ZoneSelector,
+  zoneSelector,
 } from "../../DNS/Contract.ts";
 import type { Input } from "../../Input.ts";
 import type { InputProps } from "../../Input.ts";
@@ -15,6 +22,11 @@ import type { ResourceLike } from "../../Resource.ts";
 import type { DnsRecordHandle } from "../../DNS/Contract.ts";
 import { Record, type RecordProps } from "./Record.ts";
 import { Records, type RecordsProps } from "./Records.ts";
+import {
+  AmbiguousHostedZone,
+  findPublicHostedZone,
+  type PublicHostedZone,
+} from "./HostedZoneLookup.ts";
 
 export interface Route53ZoneIdentity extends ZoneIdentity {
   readonly kind: "route53";
@@ -48,6 +60,62 @@ export function route53Zone(
     },
   };
 }
+
+export type Route53ZoneLookup<R> = (
+  hostname: string,
+) => Effect.Effect<
+  PublicHostedZone | undefined,
+  | route53.ListHostedZonesByNameError
+  | AmbiguousHostedZone
+  | Error
+  | HttpClientError
+  | PlatformError,
+  R
+>;
+
+const makeRoute53Dns = <R>(lookup: Route53ZoneLookup<R>) =>
+  zoneSelector("route53", (hostname) =>
+    lookup(hostname).pipe(
+      Effect.flatMap((match) =>
+        match === undefined
+          ? Effect.fail(
+              new DnsError({
+                reason: "zone-not-found",
+                message:
+                  `No public Route 53 hosted zone contains '${hostname}'. ` +
+                  "Create the zone first or pass an explicit route53Zone.",
+              }),
+            )
+          : Effect.succeed(route53Zone(match.id, match.name)),
+      ),
+      Effect.mapError((error) =>
+        error instanceof DnsError
+          ? error
+          : error instanceof AmbiguousHostedZone
+            ? new DnsError({
+                reason: "ambiguous-zone",
+                message: error.message,
+              })
+            : new DnsError({
+                reason: "discovery-failed",
+                message: `Route 53 zone discovery failed: ${String(error)}`,
+              }),
+      ),
+    ),
+  );
+
+/** Testable/provider-scoped constructor for a Route 53 hostname selector. */
+export const route53DnsFrom = <R>(lookup: Route53ZoneLookup<R>) =>
+  makeRoute53Dns(lookup);
+
+/** Select the longest matching public Route 53 zone using ambient AWS auth. */
+export const route53Dns = (): ZoneSelector<
+  "route53",
+  DnsConstructionServices | Credentials | HttpClient.HttpClient
+> => makeRoute53Dns(findPublicHostedZone);
+
+/** Short provider-scoped alias. */
+export const dns = route53Dns;
 /** Encode identity components without lossy punctuation replacement. */
 const encodeIdentity = (value: string): string =>
   [...value]

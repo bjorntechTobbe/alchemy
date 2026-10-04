@@ -3,6 +3,7 @@ import { cloudflareDnsAdapter, cloudflareZone } from "@/Cloudflare/DNS/Adapter";
 import { gcpDnsAdapter, gcpZone } from "@/GCP/DNS/Adapter";
 import { hetznerDnsAdapter, hetznerZone } from "@/Hetzner/Adapter";
 import { adapterLayer } from "@/DNS";
+import { zoneSelector } from "@/DNS";
 import * as Stack from "@/Stack";
 import * as Output from "@/Output";
 import { inMemoryState } from "@/State";
@@ -78,6 +79,33 @@ describe(
               Output.isOutput(resource.Props.name),
             ),
           ).toBe(true);
+        }),
+      ),
+    );
+
+    test(
+      "discovers a Cloudflare zone for the SSR custom domain",
+      compile(
+        Effect.gen(function* () {
+          yield* AWS.Website.SsrSite("DiscoveredCloudflareSsr", {
+            server: { type: "url", url: "https://origin.example.net" },
+            domain: {
+              name: "discovered.example.com",
+              dns: zoneSelector("cloudflare", () =>
+                Effect.succeed(
+                  cloudflareZone("discovered-zone", "example.com"),
+                ),
+              ),
+            },
+          });
+        }),
+      ).pipe(
+        Effect.provide(adapterLayer(cloudflareDnsAdapter)),
+        Effect.map((resources) => {
+          const records = dnsResources(resources);
+          expect(records).toHaveLength(2);
+          expect(records[0]!.Props.zoneId).toBe("discovered-zone");
+          expect(records[1]!.Props.zoneId).toBe("discovered-zone");
         }),
       ),
     );
@@ -172,6 +200,35 @@ describe(
     );
 
     test(
+      "does not inherit same-stack Router DNS when an attached SsrSite opts out",
+      compile(
+        Effect.gen(function* () {
+          const router = yield* AWS.Website.Router("NoDnsRouter", {
+            domain: {
+              name: "example.com",
+              dns: cloudflareZone("cf-zone", "example.com"),
+            },
+          });
+          yield* AWS.Website.SsrSite("NoDnsSite", {
+            server: { type: "url", url: "https://origin.example.net" },
+            cdn: false,
+            domain: { router, name: "docs.example.com", dns: false },
+          });
+        }),
+      ).pipe(
+        Effect.provide(adapterLayer(cloudflareDnsAdapter)),
+        Effect.map((resources) => {
+          expect(dnsResources(resources).length).toBeGreaterThan(0);
+          expect(
+            Object.keys(resources).some((key) =>
+              key.includes("NoDnsSite/RouterAttachment"),
+            ),
+          ).toBe(false);
+        }),
+      ),
+    );
+
+    test(
       "applies one-label X509 wildcard coverage to SsrSite attachments",
       Effect.gen(function* () {
         const accepted = yield* compile(
@@ -201,6 +258,28 @@ describe(
         expect(dnsResources(accepted)).toHaveLength(1);
         expect(dnsResources(exact)).toHaveLength(1);
       }),
+    );
+
+    test(
+      "does not inherit serialized Router DNS when an attached SsrSite opts out",
+      compile(
+        Effect.gen(function* () {
+          yield* AWS.Website.SsrSite("CrossStackNoDns", {
+            server: { type: "url", url: "https://origin.example.net" },
+            cdn: false,
+            domain: {
+              router: serializedRouter(["*.example.com"]),
+              name: "api.example.com",
+              dns: false,
+            },
+          });
+        }),
+      ).pipe(
+        Effect.provide(adapterLayer(cloudflareDnsAdapter)),
+        Effect.map((resources) =>
+          expect(dnsResources(resources)).toHaveLength(0),
+        ),
+      ),
     );
 
     test(

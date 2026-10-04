@@ -18,6 +18,12 @@ export {
   type DomainNameProps,
 } from "./DomainName.ts";
 export {
+  CustomDomain,
+  type ApiGatewayDns,
+  type CustomDomainProps,
+  type CustomDomainResult,
+} from "./CustomDomain.ts";
+export {
   GatewayResponse,
   GatewayResponseProvider,
   type GatewayResponseProps,

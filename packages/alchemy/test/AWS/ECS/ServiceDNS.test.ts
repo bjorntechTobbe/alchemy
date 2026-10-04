@@ -13,6 +13,7 @@ import { inMemoryState } from "@/State";
 import { Stage } from "@/Stage";
 import * as Test from "@/Test/Alchemy";
 import { route53DnsAdapter, route53Zone } from "@/AWS/Route53/Adapter.ts";
+import { zoneSelector } from "@/DNS/Contract.ts";
 import { expect, describe } from "alchemy-test";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -225,6 +226,49 @@ describe(
     );
 
     test(
+      "resolves a provider DNS selector once and persists only its zone identity",
+      Effect.gen(function* () {
+        let resolutions = 0;
+        const discovered = zoneSelector("cloudflare", (hostname) =>
+          Effect.sync(() => {
+            resolutions += 1;
+            expect(hostname).toBe("api.example.com");
+            return cloudflareZone("cf-discovered", "example.com");
+          }),
+        );
+        const resources = yield* compile(
+          Effect.gen(function* () {
+            yield* Service("DiscoveredDomain", {
+              ...base,
+              loadBalancer: {
+                domain: {
+                  name: "api.example.com",
+                  aliases: ["www.example.com"],
+                  cert: "arn:aws:acm:us-west-2:123:certificate/existing",
+                  dns: discovered,
+                },
+              },
+            });
+          }),
+        ).pipe(Effect.provide(adapterLayer(cloudflareDnsAdapter)));
+
+        expect(resolutions).toBe(1);
+        const records = Object.values(resources).filter(
+          (resource: any) => resource.Type === "Cloudflare.DNS.Record",
+        );
+        expect(records).toHaveLength(2);
+        for (const record of records as any[]) {
+          expect(record.Props.zoneId).toBe("cf-discovered");
+          expect(record.Props.content).toBeDefined();
+          expect(outputSources(record.Props.content)).toContain(
+            "DiscoveredDomain/LoadBalancer",
+          );
+        }
+        expect(JSON.stringify(resources)).not.toContain("resolve");
+      }),
+    );
+
+    test(
       "manual DNS mode requires a supplied certificate and creates no DNS resources",
       compile(
         Effect.gen(function* () {
@@ -311,6 +355,56 @@ describe(
         Effect.flip,
         Effect.map((error) =>
           expect(String(error)).toContain("requires `cert`"),
+        ),
+      ),
+    );
+
+    test(
+      "rejects an alias outside a discovered provider zone",
+      compile(
+        Effect.gen(function* () {
+          yield* Service("InvalidDiscoveredAlias", {
+            ...base,
+            loadBalancer: {
+              domain: {
+                name: "api.example.com",
+                aliases: ["api.other.example"],
+                cert: "arn:aws:acm:us-west-2:123:certificate/existing",
+                dns: zoneSelector("cloudflare", () =>
+                  Effect.succeed(cloudflareZone("cf-zone", "example.com")),
+                ),
+              },
+            },
+          });
+        }),
+      ).pipe(
+        Effect.provide(adapterLayer(cloudflareDnsAdapter)),
+        Effect.flip,
+        Effect.map((error) => expect(String(error)).toContain("outside")),
+      ),
+    );
+
+    test(
+      "reports a missing adapter for a discovered provider zone",
+      compile(
+        Effect.gen(function* () {
+          yield* Service("MissingDiscoveredAdapter", {
+            ...base,
+            loadBalancer: {
+              domain: {
+                name: "api.example.com",
+                cert: "arn:aws:acm:us-west-2:123:certificate/existing",
+                dns: zoneSelector("cloudflare", () =>
+                  Effect.succeed(cloudflareZone("cf-zone", "example.com")),
+                ),
+              },
+            },
+          });
+        }),
+      ).pipe(
+        Effect.flip,
+        Effect.map((error) =>
+          expect(String(error)).toContain("No DNS resolver"),
         ),
       ),
     );

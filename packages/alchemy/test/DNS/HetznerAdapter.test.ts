@@ -8,7 +8,9 @@ import {
 } from "@/Hetzner/Adapter";
 import type { RecordSet as NativeRecordSet } from "@/Hetzner/RecordSet";
 import * as Test from "@/Test/Alchemy";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Output from "@/Output";
 import { expect } from "alchemy-test";
@@ -113,6 +115,30 @@ test.provider("constructs CNAME targets and rejects apex CNAME", (stack) =>
         .pipe(Effect.flip);
       expect(error.reason).toBe("unsupported");
       expect(error.message).toContain("zone apex");
+    }),
+  ),
+);
+
+test.provider("rejects deferred undotted apex CNAME names", (stack) =>
+  stack.plan(
+    Effect.gen(function* () {
+      const bound = yield* DNS.bind(
+        hetznerZone(Effect.succeed(42), Effect.succeed("example.com.")),
+      ).pipe(Effect.provide(DNS.adapterLayer(hetznerDnsAdapter)));
+      const result = yield* bound
+        .hostnameTarget({
+          name: Effect.succeed("EXAMPLE.COM"),
+          target: "validation.example.net.",
+        })
+        .pipe(Effect.exit);
+      expect(Exit.isFailure(result)).toBe(true);
+      if (Exit.isFailure(result)) {
+        const error =
+          result.cause.reasons.find(Cause.isFailReason)?.error ??
+          result.cause.reasons.find(Cause.isDieReason)?.defect;
+        expect(error).toBeInstanceOf(DNS.DnsError);
+        expect((error as DNS.DnsError).reason).toBe("unsupported");
+      }
     }),
   ),
 );
@@ -224,4 +250,57 @@ test.provider("preserves explicit ids for deferred names", (stack) =>
       }),
     ),
   ),
+);
+
+test.provider(
+  "validates deferred names before relative RRSet qualification",
+  (stack) =>
+    Effect.gen(function* () {
+      const outside = yield* stack
+        .plan(
+          Effect.gen(function* () {
+            const deferredZone = hetznerZone(
+              Effect.succeed(42),
+              Effect.succeed("example.com."),
+            );
+            const bound = yield* DNS.bind(deferredZone).pipe(
+              Effect.provide(DNS.adapterLayer(hetznerDnsAdapter)),
+            );
+            yield* bound.record({
+              id: "OutsideRecord",
+              name: Effect.succeed("other.net."),
+              type: "A",
+              values: ["192.0.2.10"],
+            });
+          }),
+        )
+        .pipe(Effect.exit);
+      expect(Exit.isFailure(outside)).toBe(true);
+      if (Exit.isFailure(outside)) {
+        const defect = outside.cause.reasons.find(Cause.isDieReason)?.defect;
+        expect(defect).toBeInstanceOf(DNS.DnsError);
+        expect((defect as DNS.DnsError).reason).toBe("invalid-zone");
+      }
+
+      yield* stack.plan(
+        Effect.gen(function* () {
+          const deferredZone = hetznerZone(
+            Effect.succeed(42),
+            Effect.succeed("example.com."),
+          );
+          const bound = yield* DNS.bind(deferredZone).pipe(
+            Effect.provide(DNS.adapterLayer(hetznerDnsAdapter)),
+          );
+          const valid = yield* bound.record({
+            id: "ValidRecord",
+            name: Effect.succeed("api.example.com."),
+            type: "A",
+            values: ["192.0.2.10"],
+          });
+          const native = valid.resource as NativeRecordSet;
+          const name = native.Props.name;
+          expect(yield* Output.evaluate(name, {})).toBe("api");
+        }),
+      );
+    }),
 );

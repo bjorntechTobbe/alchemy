@@ -27,6 +27,8 @@ import { AssetDeployment } from "./AssetDeployment.ts";
 import {
   normalizeWebsiteDomain,
   createWebsiteDns,
+  resolveWebsiteDns,
+  websiteDnsZoneContains,
   websiteCertificateCovers,
   type WebsiteDomainProps,
   type WebsiteRouterDomainProps,
@@ -343,8 +345,40 @@ export const SsrSite = (id: string, props: SsrSiteProps) =>
         ...(routerDomain.aliases ?? []).filter((name) => !name.includes("*")),
         ...(routerDomain.redirects ?? []),
       ];
-      const inheritedZone = routerRef.bindTargets?.dnsZone ?? routerRef.dnsZone;
+      const explicitZone =
+        typeof routerDomain.dns === "object" && names[0]
+          ? (yield* resolveWebsiteDns({
+              selection: routerDomain.dns,
+              hostname: names[0],
+            })).zone
+          : undefined;
+      const inheritedZone =
+        routerDomain.dns !== false
+          ? (explicitZone ??
+            routerRef.bindTargets?.dnsZone ??
+            routerRef.dnsZone)
+          : undefined;
       const inheritedTarget = routerRef.bindTargets?.target ?? routerRef.target;
+      const rootRecords =
+        !explicitZone &&
+        routerDomain.dns !== false &&
+        routerRef.bindTargets?.applicationRecords
+          ? names.map(
+              (hostname) =>
+                routerRef.bindTargets!.applicationRecords![
+                  hostname.trim().replace(/\.+$/, "").toLowerCase()
+                ],
+            )
+          : [];
+      const reusesRootRecords =
+        rootRecords.length === names.length &&
+        rootRecords.every((record) => record !== undefined);
+      const reusedRootRecords = reusesRootRecords
+        ? rootRecords.filter(
+            (record): record is NonNullable<typeof record> =>
+              record !== undefined,
+          )
+        : [];
       if (names.length > 0 && inheritedZone && inheritedTarget) {
         const resolver = yield* Effect.serviceOption(Resolver);
         if (resolver._tag === "None") {
@@ -368,14 +402,16 @@ export const SsrSite = (id: string, props: SsrSiteProps) =>
             `Router does not cover attached hostname(s): ${uncovered.join(", ")}. Add an exact alias or wildcard to the owning Router.`,
           );
         }
-        yield* createWebsiteDns({
-          zone: bound,
-          names,
-          target: inheritedTarget,
-          targetMetadata:
-            routerRef.bindTargets?.targetMetadata ?? routerRef.targetMetadata,
-          idPrefix: "RouterAttachment",
-        });
+        if (!reusesRootRecords) {
+          yield* createWebsiteDns({
+            zone: bound,
+            names,
+            target: inheritedTarget,
+            targetMetadata:
+              routerRef.bindTargets?.targetMetadata ?? routerRef.targetMetadata,
+            idPrefix: "RouterAttachment",
+          });
+        }
       }
       return {
         assetBucket,
@@ -383,7 +419,7 @@ export const SsrSite = (id: string, props: SsrSiteProps) =>
         assetOriginAccessControl: assetOac,
         certificate: undefined,
         distribution: undefined,
-        records: [],
+        records: reusedRootRecords,
         invalidation: undefined,
         routeTargets,
         url: undefined,
@@ -414,11 +450,32 @@ export const SsrSite = (id: string, props: SsrSiteProps) =>
       );
     }
 
-    const dnsZone: ZoneDescriptor | undefined =
+    const dnsSelection =
       domain && typeof domain.dns === "object" ? domain.dns : undefined;
-    if (dnsZone && domain?.hostedZoneId) {
+    if (dnsSelection && domain?.hostedZoneId) {
       return yield* Effect.die(
         "A website domain cannot set both hostedZoneId and an explicit DNS zone descriptor.",
+      );
+    }
+    const dnsZone: ZoneDescriptor | undefined = dnsSelection
+      ? (yield* resolveWebsiteDns({
+          selection: dnsSelection,
+          hostname: domain!.name,
+        })).zone
+      : undefined;
+    if (
+      dnsZone &&
+      [
+        domain!.name,
+        ...(domain!.aliases ?? []),
+        ...(domain!.redirects ?? []),
+      ].some((hostname) => !websiteDnsZoneContains(dnsZone, hostname))
+    ) {
+      return yield* Effect.fail(
+        new DnsError({
+          reason: "invalid-zone",
+          message: "A Website hostname is outside the selected DNS zone.",
+        }),
       );
     }
     const boundDns = dnsZone

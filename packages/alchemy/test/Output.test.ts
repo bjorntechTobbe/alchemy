@@ -946,6 +946,21 @@ describe("Output.asOutput", { tags: ["unit", "local"] }, () => {
     ),
   );
 
+  it("only accepts infallible Effects while preserving requirements", () => {
+    const requiredEffect = Effect.succeed(123) as Effect.Effect<
+      number,
+      never,
+      "required-context"
+    >;
+    const requiredOutput: Output.Output<number, "required-context"> =
+      Output.asOutput(requiredEffect);
+    expect(Output.isOutput(requiredOutput)).toBe(true);
+
+    const failingEffect = Effect.fail("boom");
+    // @ts-expect-error Outputs cannot carry an arbitrary failure channel.
+    Output.fromEffect(failingEffect);
+  });
+
   it.effect("wraps a Config and resolves it during evaluation", () =>
     provideState(
       Effect.gen(function* () {

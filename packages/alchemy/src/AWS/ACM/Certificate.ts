@@ -614,7 +614,9 @@ export const CertificateProvider = () =>
               acm
                 .requestCertificate({
                   DomainName: news.domainName,
-                  SubjectAlternativeNames: news.subjectAlternativeNames,
+                  SubjectAlternativeNames: news.subjectAlternativeNames?.length
+                    ? news.subjectAlternativeNames
+                    : undefined,
                   ValidationMethod:
                     news.validationMethod ?? defaultValidationMethod,
                   KeyAlgorithm: news.keyAlgorithm,
