@@ -3,6 +3,12 @@ export {
   AccountConfigurationProvider,
 } from "./AccountConfiguration.ts";
 export { Certificate, CertificateProvider } from "./Certificate.ts";
+export {
+  CertificateValidation,
+  CertificateValidationProvider,
+  CertificateValidationFailed,
+  CertificateValidationTimedOut,
+} from "./CertificateValidation.ts";
 export * from "./DescribeCertificate.ts";
 export * from "./DescribeCertificateHttp.ts";
 export * from "./ExpiryEventSource.ts";

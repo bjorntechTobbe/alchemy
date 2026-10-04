@@ -22,6 +22,10 @@ import type { PolicyStatement } from "../IAM/Policy.ts";
 import { Record as Route53Record } from "../Route53/Record.ts";
 import { Records as Route53Records } from "../Route53/Records.ts";
 import type { Bucket } from "../S3/Bucket.ts";
+import { bind as bindDns, DnsError, Resolver } from "../../DNS/Contract.ts";
+import type { ZoneDescriptor } from "../../DNS/Contract.ts";
+import { createAcmDnsValidation } from "../ACM/DnsValidation.ts";
+import { createWebsiteDns } from "./shared.ts";
 import { buildHostRedirectInjection, CF_ROUTER_INJECTION } from "./cfcode.ts";
 import { normalizeWebsiteDomain, type RouterProps } from "./shared.ts";
 
@@ -96,6 +100,30 @@ export const Router = Effect.fn("AWS.Website.Router")(
       );
     }
 
+    const dnsZone: ZoneDescriptor | undefined =
+      domain && typeof domain.dns === "object" ? domain.dns : undefined;
+    if (dnsZone && domain?.hostedZoneId) {
+      return yield* Effect.die(
+        "A website domain cannot set both hostedZoneId and an explicit DNS zone descriptor.",
+      );
+    }
+    const boundDns = dnsZone
+      ? yield* Effect.serviceOption(Resolver).pipe(
+          Effect.flatMap((resolver) =>
+            resolver._tag === "None"
+              ? Effect.fail(
+                  new DnsError({
+                    reason: "missing-adapter",
+                    message: `No DNS resolver is registered for explicit zone type '${dnsZone.type}'. Provide DNS.adapterLayer(...) alongside the native provider layers.`,
+                  }),
+                )
+              : bindDns(dnsZone).pipe(
+                  Effect.provideService(Resolver, resolver.value),
+                ),
+          ),
+        )
+      : undefined;
+
     // The managed certificate (when the Router owns one) doubles as a bind
     // target for attached-site hostnames — keep the resource handle distinct
     // from the viewer-certificate value, which may be a user-provided ARN.
@@ -107,13 +135,27 @@ export const Router = Effect.fn("AWS.Website.Router")(
               ...(domain.aliases ?? []),
               ...(domain.redirects ?? []),
             ],
-            hostedZoneId: domain.hostedZoneId,
+            hostedZoneId: dnsZone ? undefined : domain.hostedZoneId,
+            validation: dnsZone ? "external" : undefined,
             tags: props.tags,
           })
         : undefined;
     const certificate =
       managedCertificate ??
       (domain?.cert ? { certificateArn: domain.cert } : undefined);
+    const externalValidation =
+      managedCertificate && boundDns
+        ? yield* createAcmDnsValidation({
+            zone: boundDns,
+            identifiers: [
+              domain!.name,
+              ...(domain!.aliases ?? []),
+              ...(domain!.redirects ?? []),
+            ],
+            certificate: managedCertificate,
+            idPrefix: "Certificate",
+          })
+        : undefined;
 
     const stack = yield* Stack;
     const stage = yield* Stage;
@@ -294,7 +336,9 @@ export const Router = Effect.fn("AWS.Website.Router")(
       },
       viewerCertificate: certificate
         ? {
-            acmCertificateArn: (certificate as any).certificateArn,
+            acmCertificateArn: externalValidation
+              ? externalValidation.validation.certificateArn
+              : (certificate as any).certificateArn,
             sslSupportMethod: "sni-only",
             minimumProtocolVersion: "TLSv1.2_2021",
           }
@@ -325,35 +369,47 @@ export const Router = Effect.fn("AWS.Website.Router")(
     });
 
     const records =
-      domain && domain.dns !== false
-        ? yield* Effect.forEach(
-            [
+      domain && dnsZone && boundDns
+        ? (yield* createWebsiteDns({
+            zone: boundDns,
+            names: [
               domain.name,
               ...(domain.aliases ?? []),
               ...(domain.redirects ?? []),
             ],
-            (name, index) =>
-              Route53Record(`AliasRecord${index + 1}`, {
-                // Optional — the Record provider infers the most specific
-                // public zone containing `name` when omitted.
-                hostedZoneId: domain.hostedZoneId,
-                name,
-                type: "A",
-                aliasTarget: {
-                  hostedZoneId: distribution.hostedZoneId,
-                  dnsName: distribution.domainName,
-                },
-              }),
-            { concurrency: "unbounded" },
-          )
-        : [];
+            target: distribution.domainName,
+            targetMetadata: { aliasHostedZoneId: distribution.hostedZoneId },
+            idPrefix: "Application",
+          })).records
+        : domain && domain.dns !== false
+          ? yield* Effect.forEach(
+              [
+                domain.name,
+                ...(domain.aliases ?? []),
+                ...(domain.redirects ?? []),
+              ],
+              (name, index) =>
+                Route53Record(`AliasRecord${index + 1}`, {
+                  // Optional — the Record provider infers the most specific
+                  // public zone containing `name` when omitted.
+                  hostedZoneId: domain.hostedZoneId,
+                  name,
+                  type: "A",
+                  aliasTarget: {
+                    hostedZoneId: distribution.hostedZoneId,
+                    dnsName: distribution.domainName,
+                  },
+                }),
+              { concurrency: "unbounded" },
+            )
+          : [];
 
     // Bind target for attached-site hostnames: a record set (initially
     // empty) that same-stack sites bind their concrete hostnames onto, each
     // becoming an A-alias record pointing at this distribution (see
     // `WebsiteRouterBindTargets`).
     const siteRecords =
-      domain && domain.dns !== false
+      domain && domain.dns !== false && !dnsZone
         ? yield* Route53Records("SiteAliasRecords", {
             // Optional — the Records provider infers the zone from the
             // first bound hostname when omitted.
@@ -423,8 +479,20 @@ export const Router = Effect.fn("AWS.Website.Router")(
             distribution,
             certificate: managedCertificate,
             records: siteRecords,
+            dnsZone,
+            target: distribution.domainName,
+            targetMetadata: { aliasHostedZoneId: distribution.hostedZoneId },
           }
         : undefined,
+      // These are plain serializable values intentionally. They let a
+      // cross-stack attachment inherit the Router's DNS authority and
+      // CloudFront target without importing same-stack Resource handles.
+      dnsZone,
+      coveredHostnames: domain
+        ? [domain.name, ...(domain.aliases ?? []), ...(domain.redirects ?? [])]
+        : undefined,
+      target: distribution.domainName,
+      targetMetadata: { aliasHostedZoneId: distribution.hostedZoneId },
       /**
        * The most significant URL the Router serves at — always `urls[0]`.
        */

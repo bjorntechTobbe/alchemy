@@ -1,5 +1,6 @@
 export * from "./actions.ts";
 export * from "./AuthProvider.ts";
+export * from "./Adapter.ts";
 export * from "./Catalog.ts";
 export * from "./Certificate.ts";
 export * from "./Credentials.ts";

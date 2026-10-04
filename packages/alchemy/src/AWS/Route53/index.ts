@@ -30,6 +30,13 @@ export {
 } from "./QueryLoggingConfig.ts";
 export { Record, RecordProvider } from "./Record.ts";
 export { Records, RecordsProvider, type RecordsBinding } from "./Records.ts";
+export {
+  route53DnsAdapter,
+  route53Zone,
+  Route53DNSAdapter,
+  Route53Zone,
+  type Route53ZoneIdentity,
+} from "./Adapter.ts";
 export { TestDNSAnswer, type TestDNSAnswerRequest } from "./TestDNSAnswer.ts";
 export { TestDNSAnswerHttp } from "./TestDNSAnswerHttp.ts";
 export {

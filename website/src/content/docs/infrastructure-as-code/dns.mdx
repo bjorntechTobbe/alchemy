@@ -1,0 +1,293 @@
+---
+title: Cross-provider DNS
+description: Use explicit DNS adapters across Route 53, Cloudflare, Google Cloud DNS, and Hetzner.
+sidebar:
+  order: 7
+---
+
+Alchemy's DNS composition layer lets a site select an authoritative zone
+managed by Route 53, Cloudflare, Google Cloud DNS, or Hetzner. The zone is
+selected explicitly. Alchemy does not infer the registrar or authoritative
+provider from a hostname. This keeps platform DNS flexible without promising
+the complete platform coverage described by [SST custom domains](https://sst.dev/docs/custom-domains/).
+
+## Register the selected adapters
+
+Register one aggregate resolver layer alongside the normal native provider
+layers. `Layer.mergeAll` is the Stack registration mechanism:
+
+```typescript
+import * as Alchemy from "alchemy";
+import * as AWS from "alchemy/AWS";
+import * as Cloudflare from "alchemy/Cloudflare";
+import * as DNS from "alchemy/DNS";
+import * as GCP from "alchemy/GCP";
+import * as Hetzner from "alchemy/Hetzner";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+
+const providers = Layer.mergeAll(
+  AWS.providers(),
+  Cloudflare.providers(),
+  GCP.providers(),
+  Hetzner.providers(),
+  DNS.adapterLayer(
+    AWS.Route53.route53DnsAdapter,
+    Cloudflare.DNS.cloudflareDnsAdapter,
+    GCP.DNS.gcpDnsAdapter,
+    Hetzner.hetznerDnsAdapter,
+  ),
+);
+
+export default Alchemy.Stack(
+  "CrossProviderWebsite",
+  { providers, state: Cloudflare.state() },
+  Effect.gen(function* () {
+    return {};
+  }),
+);
+```
+
+The resolver layer must contain every selected adapter in one call. Separate
+`DNS.adapterLayer` layers provide the same `DNS.Resolver` service, so one
+overwrites the other instead of merging. `AWS.providers()` and
+`Cloudflare.providers()`, `GCP.providers()`, and `Hetzner.providers()` install
+the native resource providers and credential requirements; they do not
+auto-discover DNS adapters. The adapter layer is not a replacement for the
+native provider layer for the selected zone.
+
+| Provider | Zone descriptor | Native mapping | TTL and target notes |
+| --- | --- | --- | --- |
+| Route 53 | `AWS.Route53.route53Zone(id, name)` | Route 53 records and record sets | Numeric TTL; provider alias semantics remain available on native resources |
+| Cloudflare | `Cloudflare.DNS.cloudflareZone(id, name)` | One DNS-only `Cloudflare.DNS.Record` per value | Numeric TTL or `"auto"`; native apex flattening is Cloudflare-specific |
+| Google Cloud DNS | `GCP.DNS.gcpZone(id, name)` | `GCP.DNS.ResourceRecordSet` | Numeric TTL; CNAME hostname targets must be subdomains |
+| Hetzner | `Hetzner.hetznerZone(id, name)` | `Hetzner.RecordSet` | Numeric TTL; multi-value records are supported and CNAME targets must be subdomains |
+
+## Select an authoritative zone
+
+Plain `ZoneDescriptor` values are serializable data. They contain only an
+explicit provider, zone ID, and zone name. Construction-only
+`ZoneInputDescriptor` values additionally allow those identity fields to be
+native `Input`s. Neither form contains credentials, SDK clients, or callbacks:
+
+```typescript
+const cloudflareZone = Cloudflare.DNS.cloudflareZone(
+  "023e105f4ecef8ad9ca31a8372d0c353",
+  "example.com",
+);
+
+const gcpZone = GCP.DNS.gcpZone("example-managed-zone", "example.com");
+const hetznerZone = Hetzner.hetznerZone(123456, "example.com");
+```
+
+Pass the descriptor to the AWS website domain. This example uses the real
+`AWS.Website.StaticSite` resource and Cloudflare's DNS-only adapter:
+
+```typescript
+const site = yield* AWS.Website.StaticSite("Site", {
+  path: "./dist",
+  domain: {
+    name: "www.example.com",
+    dns: cloudflareZone,
+  },
+});
+```
+
+Use `AWS.Route53.route53Zone(hostedZoneId, name)` when Route 53 is the
+authoritative zone instead. The hosted zone ID must be supplied explicitly;
+there is no registrar lookup or hostname-based cross-provider inference.
+
+Use `GCP.DNS.gcpZone(managedZone, name)` for an existing Google Cloud DNS
+managed zone, or `Hetzner.hetznerZone(zoneId, name)` for an existing Hetzner
+zone. The Google Cloud project is taken from the configured native GCP
+provider, and the Hetzner account is scoped by its configured provider token.
+Credentials and SDK clients do not belong in a zone descriptor. The same rule
+applies to Route 53 and Cloudflare tokens.
+
+Provider selection is known while composing the stack, while the descriptor's
+`id` and `name` may be native `Input` values. For example, a GCP managed zone
+can supply its stable zone name and DNS name directly:
+
+```typescript
+const managedZone = yield* GCP.DNS.ManagedZone("Public", {
+  dnsName: "example.com.",
+});
+const gcpZoneFromResource = GCP.DNS.gcpZone(
+  managedZone.zoneName,
+  managedZone.dnsName,
+);
+
+const site = yield* AWS.Website.StaticSite("Site", {
+  path: "./dist",
+  domain: { name: "www.example.com", dns: gcpZoneFromResource },
+});
+```
+
+The descriptor does not resolve the native zone during initialization, and a
+whole `Output<ZoneDescriptor>` cannot be used to defer provider selection.
+
+`domain: { name }` without `dns` preserves the existing AWS behavior: the
+website uses Route 53, including its normal hosted-zone selection and record
+policy. `dns: false` disables application DNS records. With an explicit
+`hostedZoneId`, `dns: false` can still use Route 53 for legacy ACM validation;
+it does not create the application records. A pre-issued `cert` skips ACM
+request, validation-record creation, and the issuance waiter, but the selected
+DNS adapter still creates the application DNS record unless `dns: false` is
+set.
+
+Do not combine an explicit `dns` descriptor with `hostedZoneId`; these select
+different DNS paths and are rejected by the website consumers that support
+both options. `dns: false` disables application DNS and requires `cert` when
+there is no legacy Route 53 validation path. A supplied `cert` skips ACM
+creation and validation, but an explicit DNS descriptor still creates the
+application records.
+
+## Website and service consumers
+
+`StaticSite` and `SsrSite` accept the same standalone domain shape. The
+descriptor selects both application records and external ACM validation:
+
+```typescript
+const site = yield* AWS.Website.SsrSite("App", {
+  server: { type: "url", url: "https://origin.example.com" },
+  domain: {
+    name: "www.example.com",
+    aliases: ["app.example.com"],
+    dns: gcpZone,
+  },
+});
+```
+
+`Router` owns its distribution, certificate, and DNS target when it has a
+domain. A same-stack attached site can add a concrete exact hostname or alias
+with `domain: { name, router }`; the Router passes its DNS authority and
+CloudFront target to the site, which adds the alias, certificate SAN, and
+application record. Wildcard host patterns do not create concrete DNS or
+certificate entries by themselves.
+
+An attached `StaticSite` or `SsrSite` inherits the Router's zone and target;
+`dns: false` is the per-site opt-out, while an explicit per-site zone
+descriptor is rejected early. Set the descriptor on the owned Router instead.
+This attached-site policy is separate from the owned Router domain's own DNS
+configuration.
+
+```typescript
+const router = yield* AWS.Website.Router("Router", {
+  domain: { name: "example.com", dns: cloudflareZone },
+});
+
+const docs = yield* AWS.Website.StaticSite("Docs", {
+  path: "./docs",
+  domain: { name: "docs.example.com", router },
+});
+```
+
+Cross-stack Router references carry saved DNS authority and target attributes,
+not same-stack resource bindings. The owning Router must already cover every
+attached hostname with an exact name or matching wildcard alias. A wildcard
+such as `*.example.com` covers one label, such as `docs.example.com`, but not
+`a.b.example.com`. An uncovered exact or wildcard attachment fails rather than
+creating an alias outside the Router's ownership.
+
+`AWS.ECS.Service` uses `ServiceDomainConfig` for an owned load balancer. Its
+`dns` accepts `false` or a zone descriptor, and `aliases` become additional
+load-balancer targets and certificate names:
+
+```typescript
+const service = yield* AWS.ECS.Service("Api", {
+  loadBalancer: {
+    domain: {
+      name: "api.example.com",
+      aliases: ["www.api.example.com"],
+      dns: hetznerZone,
+    },
+  },
+  // task, load balancer, and service options...
+});
+```
+
+With an explicit descriptor, ECS creates the ACM certificate in the service's
+region and validates it through the selected DNS adapter before attaching the
+HTTPS listener. `cert` supplies an existing certificate ARN instead. With
+`dns: false`, `cert` is required and no application records are created.
+Manual DNS remains supported by supplying `cert` and managing the records
+outside Alchemy. Shared-listener ECS services do not own the load balancer's
+domain, certificate, or DNS.
+
+## Deployment flow and provider behavior
+
+For a new website certificate, deployment requests ACM in CloudFront's
+`us-east-1` region, creates the native DNS validation records through the
+selected adapter, waits for ACM issuance, and then waits for the CloudFront
+distribution dependency before creating application hostname records. For an
+ECS service, ACM is requested in the service's region and the same selected
+adapter validates it before the regional listener is attached. DNS only
+supplies records. It does not by itself solve platform hostname routing,
+CloudFront or load-balancer alias attachment, or TLS certificate binding.
+
+The Route 53 adapter preserves Route 53 record-set and alias semantics. Its
+default policy refuses foreign records; adoption or replacement remains subject
+to the standard engine ownership policy. The Cloudflare adapter creates one
+DNS-only record per native resource and always sends `proxied: false`, which is
+required for validation and application hostname records. Cloudflare's native
+apex CNAME flattening remains a Cloudflare DNS behavior, not a promise that
+every DNS provider supports apex CNAMEs. Legacy Route 53 website and ECS
+records retain their existing dualstack A/AAAA behavior; the generic adapter
+does not promise A+AAAA or ALIAS support for every provider.
+
+Adapters accept deferred record names when a stable explicit resource `id` is
+provided. Without that `id`, generated native resource IDs require concrete
+zone identity and record name values. The DNS name remains an `Input`, and the
+returned handle exposes the deployed native `recordName` output:
+
+```ts
+const validation = yield* zone.record({
+  id: "CertificateValidationRecord",
+  name: certificateRecordName,
+  type: "CNAME",
+  values: [certificateRecordValue],
+});
+```
+
+Concrete names receive deterministic generated IDs. Deferred names without an
+`id` are rejected because they cannot produce a stable resource identity.
+
+## TTLs, targets, and provider limits
+
+Cloudflare supports `ttl: "auto"`. Route 53, Google Cloud DNS, and Hetzner
+require a numeric TTL, for example `ttl: 300`; they do not implement automatic
+TTL selection. Google Cloud DNS and Hetzner map multi-value records to their
+native RRset resources. Cloudflare maps one value to each native record.
+
+Hostname targets are CNAME records. Google Cloud DNS and Hetzner reject a
+CNAME at the zone apex, so use a subdomain such as `www.example.com`. If a
+platform requires an apex alias that the selected provider cannot represent,
+configure that record manually or use the provider's native advanced resource
+when its semantics are available. DNS adapters do not add provider-specific
+apex flattening or alias behavior. `hostnameTarget()` normalizes generated
+CNAME target values to absolute names ending in `.`, which is required by
+Google Cloud DNS and prevents an undotted value from being treated as a
+relative name by Hetzner. Already-dotted values remain unchanged, and deferred
+targets are mapped once without dropping their dependencies. This also handles
+the usually-undotted AWS CloudFront and ALB target outputs.
+
+`record()` leaves `values` as caller-native RDATA. Direct CNAME records must
+use the provider's expected target format, and TXT quoting remains the
+caller's responsibility; the adapter does not auto-quote or provide universal
+platform features. See the [Google Cloud DNS record resource
+reference](https://cloud.google.com/dns/docs/reference/json-record), [Hetzner
+CNAME record documentation](https://docs.hetzner.com/networking/dns/record-types/cname-record/),
+and [Hetzner TXT record documentation](https://docs.hetzner.com/networking/dns/record-types/txt-record/).
+
+The adapter is an opt-in composition convenience, not a replacement for the
+native resources. Use `GCP.DNS.ResourceRecordSet`, `Hetzner.RecordSet`,
+`Cloudflare.DNS.Record`, or the Route 53 record resources directly when a
+provider-specific routing policy, alias, weighted record, or other advanced
+feature is required. The adapter only covers the common record and hostname
+target interface.
+
+StaticSite, SsrSite, Router, and owned ECS service domains now consume the
+generic descriptors described here. Direct `BoundZone.record` and
+`hostnameTarget` calls should use a stable explicit logical `id` when the
+native zone identity or record name is deferred; the adapters otherwise derive
+IDs only from concrete identity and name values.

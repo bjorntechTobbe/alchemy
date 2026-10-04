@@ -6,6 +6,8 @@ import * as Output from "../../Output.ts";
 import { Certificate } from "../ACM/Certificate.ts";
 import { Distribution } from "../CloudFront/Distribution.ts";
 import { Invalidation } from "../CloudFront/Invalidation.ts";
+import { KvEntries } from "../CloudFront/KvEntries.ts";
+import { KvRoutesUpdate } from "../CloudFront/KvRoutesUpdate.ts";
 import {
   MANAGED_ALL_VIEWER_EXCEPT_HOST_HEADER_POLICY_ID,
   MANAGED_CACHING_DISABLED_POLICY_ID,
@@ -17,10 +19,17 @@ import type { PolicyStatement } from "../IAM/Policy.ts";
 import { Function } from "../Lambda/Function.ts";
 import { Record as Route53Record } from "../Route53/Record.ts";
 import { Bucket } from "../S3/Bucket.ts";
+import { bind as bindDns, DnsError, Resolver } from "../../DNS/Contract.ts";
+import type { ZoneDescriptor } from "../../DNS/Contract.ts";
+import { createAcmDnsValidation } from "../ACM/DnsValidation.ts";
 import type { AssetFileOption } from "./AssetDeployment.ts";
 import { AssetDeployment } from "./AssetDeployment.ts";
 import {
   normalizeWebsiteDomain,
+  createWebsiteDns,
+  websiteCertificateCovers,
+  type WebsiteDomainProps,
+  type WebsiteRouterDomainProps,
   type SsrSiteRouteTargets,
   type WebsiteInvalidationProps,
   type WebsiteStandaloneDomainProps,
@@ -79,7 +88,7 @@ export interface SsrSiteProps {
    * Optional custom domain managed through Route 53. A string is shorthand
    * for `{ name }`; `null` explicitly clears a previously set domain.
    */
-  domain?: string | WebsiteStandaloneDomainProps | null;
+  domain?: string | WebsiteDomainProps | null;
   /**
    * Optional static asset bundle to serve from S3.
    */
@@ -231,7 +240,18 @@ const serverOriginOf = (server: SsrSiteServerOrigin): Input<string> =>
  */
 export const SsrSite = (id: string, props: SsrSiteProps) =>
   Effect.gen(function* () {
-    const domain = normalizeWebsiteDomain(props.domain);
+    const normalizedDomain = normalizeWebsiteDomain(props.domain);
+    const routerDomain = normalizedDomain?.router
+      ? (normalizedDomain as WebsiteRouterDomainProps)
+      : undefined;
+    const domain = routerDomain
+      ? undefined
+      : (normalizedDomain as WebsiteStandaloneDomainProps | undefined);
+    if (routerDomain && typeof routerDomain.dns === "object") {
+      return yield* Effect.die(
+        'Router-attached sites inherit the Router DNS authority; explicit per-site "dns" zone descriptors are not supported. Use "dns: false" to opt out.',
+      );
+    }
     const assetPattern = props.assets?.pathPattern ?? "/_assets/*";
     const serverUrl = serverUrlOf(props.server);
     const serverOriginHost = serverOriginOf(props.server);
@@ -281,6 +301,96 @@ export const SsrSite = (id: string, props: SsrSiteProps) =>
           : undefined,
     };
 
+    if (routerDomain) {
+      if (props.cdn !== false) {
+        return yield* Effect.die(
+          'SsrSite domains with "router" require "cdn: false".',
+        );
+      }
+      const routerRef = routerDomain.router;
+      const routeId = id.replace(/[^A-Za-z0-9_-]/g, "-");
+      const host = Output.map(
+        Output.asOutput(serverUrl),
+        (url) => new URL(url).host,
+      );
+      yield* KvEntries("RouterRouteMetadata", {
+        store: routerRef.kvStoreArn,
+        namespace: routerRef.kvNamespace as any,
+        entries: {
+          [`${routeId}:metadata`]: Output.map(host, (value) =>
+            JSON.stringify({
+              servers: [[value, 0, 0]],
+              origin: {
+                protocol:
+                  props.server.originProtocolPolicy === "http-only"
+                    ? "http"
+                    : "https",
+              },
+            }),
+          ),
+        },
+      });
+      yield* KvRoutesUpdate("RouterRoute", {
+        store: routerRef.kvStoreArn,
+        namespace: routerRef.kvNamespace as any,
+        key: "routes",
+        entry: `url,${routeId},,${routerDomain.path ?? "/"}`,
+      });
+      const names = [
+        ...(routerDomain.name && !routerDomain.name.includes("*")
+          ? [routerDomain.name]
+          : []),
+        ...(routerDomain.aliases ?? []).filter((name) => !name.includes("*")),
+        ...(routerDomain.redirects ?? []),
+      ];
+      const inheritedZone = routerRef.bindTargets?.dnsZone ?? routerRef.dnsZone;
+      const inheritedTarget = routerRef.bindTargets?.target ?? routerRef.target;
+      if (names.length > 0 && inheritedZone && inheritedTarget) {
+        const resolver = yield* Effect.serviceOption(Resolver);
+        if (resolver._tag === "None") {
+          return yield* Effect.fail(
+            new DnsError({
+              reason: "missing-adapter",
+              message: `No DNS resolver is registered for explicit zone type '${inheritedZone.type}'. Provide DNS.adapterLayer(...) alongside the native provider layers.`,
+            }),
+          );
+        }
+        const bound = yield* bindDns(inheritedZone).pipe(
+          Effect.provideService(Resolver, resolver.value),
+        );
+        const covered = routerRef.coveredHostnames ?? [];
+        const uncovered = names.filter(
+          (name) =>
+            !covered.some((owner) => websiteCertificateCovers(owner, name)),
+        );
+        if (routerRef.coveredHostnames && uncovered.length > 0) {
+          return yield* Effect.die(
+            `Router does not cover attached hostname(s): ${uncovered.join(", ")}. Add an exact alias or wildcard to the owning Router.`,
+          );
+        }
+        yield* createWebsiteDns({
+          zone: bound,
+          names,
+          target: inheritedTarget,
+          targetMetadata:
+            routerRef.bindTargets?.targetMetadata ?? routerRef.targetMetadata,
+          idPrefix: "RouterAttachment",
+        });
+      }
+      return {
+        assetBucket,
+        assetFiles,
+        assetOriginAccessControl: assetOac,
+        certificate: undefined,
+        distribution: undefined,
+        records: [],
+        invalidation: undefined,
+        routeTargets,
+        url: undefined,
+        urls: [] as Input<string>[],
+      };
+    }
+
     if (props.cdn === false) {
       return {
         assetBucket,
@@ -304,12 +414,62 @@ export const SsrSite = (id: string, props: SsrSiteProps) =>
       );
     }
 
+    const dnsZone: ZoneDescriptor | undefined =
+      domain && typeof domain.dns === "object" ? domain.dns : undefined;
+    if (dnsZone && domain?.hostedZoneId) {
+      return yield* Effect.die(
+        "A website domain cannot set both hostedZoneId and an explicit DNS zone descriptor.",
+      );
+    }
+    const boundDns = dnsZone
+      ? yield* Effect.serviceOption(Resolver).pipe(
+          Effect.flatMap((resolver) =>
+            resolver._tag === "None"
+              ? Effect.fail(
+                  new DnsError({
+                    reason: "missing-adapter",
+                    message: `No DNS resolver is registered for explicit zone type '${dnsZone.type}'. Provide DNS.adapterLayer(...) alongside the native provider layers.`,
+                  }),
+                )
+              : bindDns(dnsZone).pipe(
+                  Effect.provideService(Resolver, resolver.value),
+                ),
+          ),
+        )
+      : undefined;
+
+    const managedCertificate =
+      domain && !domain.cert && dnsZone
+        ? yield* Certificate("Certificate", {
+            domainName: domain.name,
+            subjectAlternativeNames: [
+              ...(domain.aliases ?? []),
+              ...(domain.redirects ?? []),
+            ],
+            validation: "external",
+            tags: props.tags,
+          })
+        : undefined;
+    const externalValidation =
+      managedCertificate && boundDns
+        ? yield* createAcmDnsValidation({
+            zone: boundDns,
+            identifiers: [
+              domain!.name,
+              ...(domain!.aliases ?? []),
+              ...(domain!.redirects ?? []),
+            ],
+            certificate: managedCertificate,
+            idPrefix: "Certificate",
+          })
+        : undefined;
     const certificate =
       !domain || domain.cert
         ? domain?.cert
           ? { certificateArn: domain.cert }
           : undefined
-        : yield* Certificate("Certificate", {
+        : (managedCertificate ??
+          (yield* Certificate("Certificate", {
             domainName: domain.name,
             subjectAlternativeNames: [
               ...(domain.aliases ?? []),
@@ -317,7 +477,7 @@ export const SsrSite = (id: string, props: SsrSiteProps) =>
             ],
             hostedZoneId: domain.hostedZoneId,
             tags: props.tags,
-          });
+          })));
 
     const distribution = yield* Distribution("Distribution", {
       aliases: domain ? [domain.name, ...(domain.aliases ?? [])] : undefined,
@@ -376,7 +536,9 @@ export const SsrSite = (id: string, props: SsrSiteProps) =>
           : undefined,
       viewerCertificate: certificate
         ? {
-            acmCertificateArn: (certificate as any).certificateArn,
+            acmCertificateArn: externalValidation
+              ? externalValidation.validation.certificateArn
+              : (certificate as any).certificateArn,
             sslSupportMethod: "sni-only",
             minimumProtocolVersion: "TLSv1.2_2021",
           }
@@ -405,28 +567,40 @@ export const SsrSite = (id: string, props: SsrSiteProps) =>
     }
 
     const records =
-      domain && domain.dns !== false
-        ? yield* Effect.forEach(
-            [
+      domain && dnsZone && boundDns
+        ? (yield* createWebsiteDns({
+            zone: boundDns,
+            names: [
               domain.name,
               ...(domain.aliases ?? []),
               ...(domain.redirects ?? []),
             ],
-            (name, index) =>
-              Route53Record(`AliasRecord${index + 1}`, {
-                // Optional — the Record provider infers the most specific
-                // public zone containing `name` when omitted.
-                hostedZoneId: domain.hostedZoneId,
-                name,
-                type: "A",
-                aliasTarget: {
-                  hostedZoneId: distribution.hostedZoneId,
-                  dnsName: distribution.domainName,
-                },
-              }),
-            { concurrency: "unbounded" },
-          )
-        : [];
+            target: distribution.domainName,
+            targetMetadata: { aliasHostedZoneId: distribution.hostedZoneId },
+            idPrefix: "Application",
+          })).records
+        : domain && domain.dns !== false
+          ? yield* Effect.forEach(
+              [
+                domain.name,
+                ...(domain.aliases ?? []),
+                ...(domain.redirects ?? []),
+              ],
+              (name, index) =>
+                Route53Record(`AliasRecord${index + 1}`, {
+                  // Optional — the Record provider infers the most specific
+                  // public zone containing `name` when omitted.
+                  hostedZoneId: domain.hostedZoneId,
+                  name,
+                  type: "A",
+                  aliasTarget: {
+                    hostedZoneId: distribution.hostedZoneId,
+                    dnsName: distribution.domainName,
+                  },
+                }),
+              { concurrency: "unbounded" },
+            )
+          : [];
 
     const invalidation =
       props.invalidate === false || !assetFiles

@@ -1,9 +1,24 @@
+import * as Effect from "effect/Effect";
 import type { Input } from "../../Input.ts";
 import type { Certificate } from "../ACM/Certificate.ts";
+import {
+  createAcmDnsValidation,
+  type AcmDnsValidationResult,
+} from "../ACM/DnsValidation.ts";
 import type { Distribution } from "../CloudFront/Distribution.ts";
 import type { Records } from "../Route53/Records.ts";
 import type { AssetFileOption } from "./AssetDeployment.ts";
 import type { Bucket } from "../S3/Bucket.ts";
+import type {
+  ZoneDescriptor,
+  ZoneInputDescriptor,
+} from "../../DNS/Contract.ts";
+import {
+  bind as bindDns,
+  type BoundZone,
+  type DnsRecordHandle,
+} from "../../DNS/Contract.ts";
+import { createHostnameTargets } from "../../DNS/HostnameTargets.ts";
 
 /**
  * Same-stack resources a Router-attached site binds its concrete hostnames
@@ -35,6 +50,11 @@ export interface WebsiteRouterBindTargets {
    * its zone from the first bound hostname.
    */
   records?: Records;
+  /** DNS authority and CloudFront target metadata inherited by attached sites. */
+  /** Construction-only zone input; not persisted in Router attributes. */
+  dnsZone?: ZoneInputDescriptor;
+  target?: Input<string>;
+  targetMetadata?: Readonly<Record<string, Input<string>>>;
 }
 
 /**
@@ -53,7 +73,87 @@ export interface WebsiteRouterRef {
    * attached site then falls back to KV host-matching only.
    */
   bindTargets?: WebsiteRouterBindTargets | undefined;
+  /** Serializable DNS authority inherited by cross-stack attachments. */
+  dnsZone?: ZoneDescriptor;
+  /** Hostnames covered by the Router owner configuration. */
+  coveredHostnames?: ReadonlyArray<string>;
+  /** CloudFront target metadata used by native hostname-target adapters. */
+  target?: Input<string>;
+  targetMetadata?: Readonly<Record<string, Input<string>>>;
 }
+
+/**
+ * Test whether an owner certificate name covers one concrete hostname.
+ * X509 wildcards match exactly one label, unlike a suffix string test.
+ * @internal
+ */
+export const websiteCertificateCovers = (
+  owner: string,
+  hostname: string,
+): boolean => {
+  const normalize = (value: string) =>
+    value.trim().replace(/\.+$/, "").toLowerCase();
+  const covered = normalize(owner);
+  const requested = normalize(hostname);
+  if (covered === requested) return true;
+  if (!covered.startsWith("*.")) return false;
+  const suffix = covered.slice(2);
+  const labels = requested.split(".");
+  const suffixLabels = suffix.split(".");
+  return (
+    labels.length === suffixLabels.length + 1 &&
+    labels.slice(1).join(".") === suffix
+  );
+};
+
+/**
+ * Build the provider-neutral DNS part of a Website custom domain. Certificate
+ * validation and application records are deliberately separate resources so
+ * external providers can converge either side independently.
+ * @internal
+ */
+export const createWebsiteDns = (args: {
+  readonly zone: BoundZone;
+  readonly names: ReadonlyArray<Input<string>>;
+  readonly certificate?: Certificate;
+  readonly target: Input<string>;
+  readonly targetMetadata?: Readonly<Record<string, Input<string>>>;
+  readonly idPrefix: string;
+}): Effect.Effect<
+  {
+    readonly records: ReadonlyArray<DnsRecordHandle>;
+    readonly validation?: AcmDnsValidationResult["validation"];
+  },
+  import("../../DNS/Contract.ts").DnsError,
+  import("../../DNS/Contract.ts").DnsConstructionServices
+> =>
+  Effect.gen(function* () {
+    const validation = args.certificate
+      ? yield* createAcmDnsValidation({
+          certificate: args.certificate,
+          identifiers: args.names,
+          zone: args.zone,
+          idPrefix: `${args.idPrefix}CertificateValidation`,
+        })
+      : undefined;
+    const records = yield* createHostnameTargets({
+      zone: args.zone,
+      names: args.names,
+      target: args.target,
+      targetMetadata: args.targetMetadata,
+      idPrefix: `${args.idPrefix}HostnameTarget`,
+    });
+    return { records, validation: validation?.validation };
+  });
+
+/** @internal */
+export const bindWebsiteDns = (
+  zone: ZoneInputDescriptor,
+): Effect.Effect<
+  BoundZone,
+  import("../../DNS/Contract.ts").DnsError,
+  import("../../DNS/Contract.ts").Resolver
+> => bindDns(zone);
 
 /**
  * A standalone custom domain: the site (or Router) owns its own CloudFront
@@ -100,7 +200,7 @@ export interface WebsiteStandaloneDomainProps {
   /**
    * Disable Route 53 automation. When set, no DNS records are created.
    */
-  dns?: false;
+  dns?: false | ZoneDescriptor;
   /**
    * Never set on a standalone domain — attach to a Router by setting
    * {@link WebsiteRouterDomainProps.router}.
@@ -119,6 +219,8 @@ export interface WebsiteStandaloneDomainProps {
  * distribution, matched by host pattern and path prefix.
  */
 export interface WebsiteRouterDomainProps {
+  /** Router-attached sites inherit the Router DNS authority; use `false` to opt out. */
+  dns?: false;
   /**
    * Host pattern this site is served for on the Router — an exact hostname
    * (`"docs.example.com"`) or a wildcard pattern (`"*.example.com"`). When

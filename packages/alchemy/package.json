@@ -53,6 +53,7 @@
     "./Construct": "./src/Construct/index.ts",
     "./Bundle": "./src/Bundle/index.ts",
     "./Docker": "./src/Docker/index.ts",
+    "./DNS": "./src/DNS/index.ts",
     "./Doppler": "./src/Doppler/index.ts",
     "./Git": "./src/Git/index.ts",
     "./Git/Hasher": "./src/Git/Hasher/index.ts",
@@ -181,6 +182,11 @@
         "types": "./lib/Docker/index.d.ts",
         "bun": "./src/Docker/index.ts",
         "default": "./lib/Docker/index.js"
+      },
+      "./DNS": {
+        "types": "./lib/DNS/index.d.ts",
+        "bun": "./src/DNS/index.ts",
+        "default": "./lib/DNS/index.js"
       },
       "./Doppler": {
         "types": "./lib/Doppler/index.d.ts",

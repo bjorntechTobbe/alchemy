@@ -32,6 +32,16 @@ export interface CertificateProps {
    */
   validationMethod?: acm.ValidationMethod;
   /**
+   * DNS validation ownership. The default (`"route53"`) preserves the
+   * managed Route 53 behavior. `"external"` requests the certificate and
+   * returns its validation records without discovering a hosted zone,
+   * writing DNS, or waiting for issuance. `hostedZoneId` must be omitted in
+   * external mode; use {@link CertificateValidation} after an external DNS
+   * record resource has been declared.
+   * @default "route53"
+   */
+  validation?: "route53" | "external";
+  /**
    * Route 53 hosted zone used to auto-create DNS validation records.
    *
    * With `validationMethod: "DNS"` the certificate provider upserts the
@@ -124,6 +134,8 @@ export interface Certificate extends Resource<
      * Requested validation method.
      */
     validationMethod: acm.ValidationMethod | undefined;
+    /** DNS validation ownership mode. */
+    validation: "route53" | "external";
     /**
      * Requested key algorithm.
      */
@@ -177,10 +189,14 @@ const resolveEffectiveSans = (
           .subjectAlternativeNames ?? [])
       : ((binding as CertificateBinding).subjectAlternativeNames ?? []),
   );
-  if (bound.length === 0) {
-    return declared;
-  }
-  return [...new Set([...(declared ?? []), ...bound])];
+  const normalize = (name: string) => {
+    const trimmed = name.trim();
+    return trimmed.endsWith(".")
+      ? trimmed.slice(0, -1).toLowerCase()
+      : trimmed.toLowerCase();
+  };
+  const values = [...(declared ?? []), ...bound].map(normalize);
+  return values.length === 0 ? declared : [...new Set(values)].sort();
 };
 
 /**
@@ -503,6 +519,7 @@ export const CertificateProvider = () =>
             ) ||
             (olds.validationMethod ?? defaultValidationMethod) !==
               (news.validationMethod ?? defaultValidationMethod) ||
+            (olds.validation ?? "route53") !== (news.validation ?? "route53") ||
             // An undefined side means "inferred" — only two explicit,
             // differing zones are a replacement.
             (olds.hostedZoneId !== undefined &&
@@ -563,6 +580,16 @@ export const CertificateProvider = () =>
               bindings,
             ),
           };
+          if (
+            news.validation === "external" &&
+            news.hostedZoneId !== undefined
+          ) {
+            return yield* Effect.fail(
+              new Error(
+                'Certificate validation mode "external" cannot be combined with hostedZoneId.',
+              ),
+            );
+          }
           const internalTags = yield* createInternalTags(id);
           const desiredTags = { ...internalTags, ...news.tags };
 
@@ -641,14 +668,20 @@ export const CertificateProvider = () =>
             (news.validationMethod ?? defaultValidationMethod) === "DNS" &&
             certificate.Status !== "ISSUED"
           ) {
-            const validationZoneId =
-              news.hostedZoneId ??
-              (yield* findPublicHostedZoneId(news.domainName));
-            if (validationZoneId !== undefined) {
-              const withRecords =
-                yield* waitForValidationRecords(certificateArn);
-              yield* upsertValidationRecords(validationZoneId, withRecords);
-              certificate = yield* waitForIssued(certificateArn);
+            // External validation is deliberately request-only. In
+            // particular, do not infer a Route 53 zone in this branch.
+            if (news.validation === "external") {
+              certificate = yield* waitForValidationRecords(certificateArn);
+            } else {
+              const validationZoneId =
+                news.hostedZoneId ??
+                (yield* findPublicHostedZoneId(news.domainName));
+              if (validationZoneId !== undefined) {
+                const withRecords =
+                  yield* waitForValidationRecords(certificateArn);
+                yield* upsertValidationRecords(validationZoneId, withRecords);
+                certificate = yield* waitForIssued(certificateArn);
+              }
             }
           }
 
@@ -814,6 +847,7 @@ const toAttrs = (
   status: detail.Status,
   domainValidationOptions: detail.DomainValidationOptions ?? [],
   validationMethod: props.validationMethod ?? defaultValidationMethod,
+  validation: props.validation ?? "route53",
   keyAlgorithm: detail.KeyAlgorithm ?? props.keyAlgorithm,
   hostedZoneId: props.hostedZoneId
     ? normalizeHostedZoneId(props.hostedZoneId)

@@ -260,6 +260,7 @@ export const providers = () =>
         Account.Region,
         ACM.AccountConfiguration,
         ACM.Certificate,
+        ACM.CertificateValidation,
         ACMPCA.CertificateAuthority,
         ACMPCA.CertificateAuthorityPolicy,
         ACMPCA.Permission,
@@ -1009,6 +1010,9 @@ export const providers = () =>
             ACM.AccountConfigurationProvider(),
           ),
           flociDual(ACM.Certificate, () => ACM.CertificateProvider()),
+          flociDual(ACM.CertificateValidation, () =>
+            ACM.CertificateValidationProvider(),
+          ),
           AMP.AlertManagerDefinitionProvider(),
           AMP.AnomalyDetectorProvider(),
           AMP.LoggingConfigurationProvider(),

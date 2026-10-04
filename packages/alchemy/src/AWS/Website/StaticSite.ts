@@ -1,4 +1,7 @@
 import * as Effect from "effect/Effect";
+import { ConfigError } from "effect/Config";
+import * as ConfigProvider from "effect/ConfigProvider";
+import * as Option from "effect/Option";
 import type * as Redacted from "effect/Redacted";
 import { createHash } from "node:crypto";
 import { AlchemyContext } from "../../AlchemyContext.ts";
@@ -12,6 +15,10 @@ import { isResource } from "../../Resource.ts";
 import { Stack } from "../../Stack.ts";
 import { Stage } from "../../Stage.ts";
 import { Certificate } from "../ACM/Certificate.ts";
+import {
+  CertificateValidation,
+  type CertificateValidation as CertificateValidationResource,
+} from "../ACM/CertificateValidation.ts";
 import { CachePolicy } from "../CloudFront/CachePolicy.ts";
 import { Distribution } from "../CloudFront/Distribution.ts";
 import { Function as CloudFrontFunction } from "../CloudFront/Function.ts";
@@ -27,11 +34,15 @@ import { OriginAccessControl } from "../CloudFront/OriginAccessControl.ts";
 import type { PolicyStatement } from "../IAM/Policy.ts";
 import { Record as Route53Record } from "../Route53/Record.ts";
 import { Bucket } from "../S3/Bucket.ts";
+import { bind as bindDns, DnsError, Resolver } from "../../DNS/Contract.ts";
+import type { ZoneDescriptor } from "../../DNS/Contract.ts";
 import { AssetDeployment } from "./AssetDeployment.ts";
 import { buildHostRedirectInjection, CF_ROUTER_INJECTION } from "./cfcode.ts";
 import { asRouterDomain, registerDevRouterRoute } from "./DevRouterRoute.ts";
 import {
   normalizeWebsiteDomain,
+  createWebsiteDns,
+  websiteCertificateCovers,
   type StaticSiteBuildProps,
   type WebsiteAssetsConfig,
   type WebsiteDomainProps,
@@ -40,6 +51,8 @@ import {
   type WebsiteRouterDomainProps,
   type WebsiteStandaloneDomainProps,
 } from "./shared.ts";
+import { selectAcmValidationRecord } from "./DomainDNS.ts";
+import { sha256 } from "../../Util/sha256.ts";
 
 export interface StaticSiteProps {
   /**
@@ -291,7 +304,19 @@ export const StaticSite = (id: string, props: StaticSiteProps) =>
       };
     }
 
-    return yield* makeKvSite(id, props);
+    // Keep the public Website boundary on Stack's ConfigError channel. The
+    // implementation remains DnsError-typed so direct generic DNS users keep
+    // precise diagnostics, while Website consumers do not inherit that
+    // provider-specific error from the internal helper.
+    return yield* makeKvSiteImpl(id, props).pipe(
+      Effect.catchTag("DnsError", (error) =>
+        Effect.fail(
+          new ConfigError(
+            new ConfigProvider.SourceError({ message: error.message }),
+          ),
+        ),
+      ),
+    );
   }).pipe(Namespace.push(id));
 
 /**
@@ -318,13 +343,40 @@ export interface KvSiteServerOptions {
   };
 }
 
+const canonicalHostnames = (domain: WebsiteStandaloneDomainProps): string[] => {
+  const seen = new Set<string>();
+  return [
+    domain.name,
+    ...(domain.aliases ?? []),
+    ...(domain.redirects ?? []),
+  ].filter((name) => {
+    // Wildcard and concrete hostnames are distinct DNS records. Keep the
+    // wildcard label in the deduplication key; stripping it here causes
+    // `example.com` and `*.example.com` to collapse into one hostname.
+    const key = name.replace(/\.$/, "").toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+const validationRecordId = (hostname: string): Effect.Effect<string> => {
+  const normalized = hostname.replace(/\.$/, "").toLowerCase();
+  const readable = normalized
+    .replace(/^\*\./, "wildcard-")
+    .replace(/[^a-z0-9_-]/g, "-");
+  return Effect.map(
+    sha256(normalized),
+    (hash) => `CertificateValidationRecord-${readable}-${hash.slice(0, 12)}`,
+  );
+};
+
 /**
  * Shared implementation behind `StaticSite` and the SSR framework
  * composites (`AWS.Website.Nuxt`, ...): S3 + CloudFront + KV-manifest edge
  * routing, optionally with a dynamic server origin for misses.
  * @internal
  */
-export const makeKvSite = Effect.fn("AWS.Website.KvSite")(function* (
+const makeKvSiteImpl = Effect.fn("AWS.Website.KvSite")(function* (
   id: string,
   props: StaticSiteProps,
   server?: KvSiteServerOptions,
@@ -352,6 +404,11 @@ export const makeKvSite = Effect.fn("AWS.Website.KvSite")(function* (
   if (routerDomain && props.edge) {
     return yield* Effect.die(
       `Cannot provide both "edge" and "domain.router". Use the "edge" prop on the Router component.`,
+    );
+  }
+  if (routerDomain && typeof routerDomain.dns === "object") {
+    return yield* Effect.die(
+      'Router-attached sites inherit the Router DNS authority; explicit per-site "dns" zone descriptors are not supported. Use "dns: false" to opt out.',
     );
   }
   if (routerDomain && props.cloudfrontUrl !== undefined) {
@@ -541,6 +598,48 @@ export const makeKvSite = Effect.fn("AWS.Website.KvSite")(function* (
         });
       }
     }
+    const inheritedZone =
+      bindTargets?.dnsZone ??
+      (typeof routerDomain.dns === "object" ? routerDomain.dns : undefined) ??
+      routerRef.dnsZone;
+    const inheritedTarget = bindTargets?.target ?? routerRef.target;
+    const inheritedTargetMetadata =
+      bindTargets?.targetMetadata ?? routerRef.targetMetadata;
+    if (concreteHostnames.length > 0 && inheritedZone && inheritedTarget) {
+      const resolver = yield* Effect.serviceOption(Resolver);
+      if (resolver._tag === "None") {
+        return yield* Effect.fail(
+          new DnsError({
+            reason: "missing-adapter",
+            message: `No DNS resolver is registered for explicit zone type '${inheritedZone.type}'. Provide DNS.adapterLayer(...) alongside the native provider layers.`,
+          }),
+        );
+      }
+      const bound = yield* bindDns(inheritedZone).pipe(
+        Effect.provideService(Resolver, resolver.value),
+      );
+      const covered = routerRef.coveredHostnames ?? [];
+      const uncovered = concreteHostnames.filter(
+        (hostname) =>
+          !covered.some((owner) => websiteCertificateCovers(owner, hostname)),
+      );
+      if (routerRef.coveredHostnames && uncovered.length > 0) {
+        return yield* Effect.die(
+          `Router does not cover attached hostname(s): ${uncovered.join(", ")}. Add an exact alias or wildcard to the owning Router.`,
+        );
+      }
+      yield* createWebsiteDns({
+        zone: bound,
+        names: concreteHostnames,
+        certificate:
+          bindTargets?.certificate && isResource(bindTargets.certificate)
+            ? bindTargets.certificate
+            : undefined,
+        target: inheritedTarget,
+        targetMetadata: inheritedTargetMetadata,
+        idPrefix: "RouterAttachment",
+      });
+    }
     // Host-matched attachment: the site's own hostnames (the router's
     // CloudFront URL never serves it — KV host-match). Path-only
     // attachment: derived from the router's primary URL, inheriting the
@@ -555,6 +654,13 @@ export const makeKvSite = Effect.fn("AWS.Website.KvSite")(function* (
       : [Output.interpolate`${routerRef.url}${routerPathPrefix ?? ""}`];
   } else {
     const domain = standaloneDomain;
+    const dnsZone: ZoneDescriptor | undefined =
+      domain && typeof domain.dns === "object" ? domain.dns : undefined;
+    if (dnsZone && domain?.hostedZoneId) {
+      return yield* Effect.die(
+        "A website domain cannot set both hostedZoneId and an explicit DNS zone descriptor.",
+      );
+    }
     if (
       domain &&
       !domain.cert &&
@@ -566,20 +672,96 @@ export const makeKvSite = Effect.fn("AWS.Website.KvSite")(function* (
       );
     }
 
-    const certificate =
-      !domain || domain.cert
-        ? domain?.cert
-          ? { certificateArn: domain.cert }
-          : undefined
-        : yield* Certificate("Certificate", {
+    const managedCertificate =
+      domain && !domain.cert && dnsZone
+        ? yield* Certificate("Certificate", {
             domainName: domain.name,
             subjectAlternativeNames: [
               ...(domain.aliases ?? []),
               ...(domain.redirects ?? []),
             ],
-            hostedZoneId: domain.hostedZoneId,
+            validation: "external",
             tags: props.tags,
-          });
+          })
+        : undefined;
+    const certificate =
+      !domain || domain.cert
+        ? domain?.cert
+          ? { certificateArn: domain.cert }
+          : undefined
+        : (managedCertificate ??
+          (yield* Certificate("Certificate", {
+            domainName: domain.name,
+            subjectAlternativeNames: [
+              ...(domain.aliases ?? []),
+              ...(domain.redirects ?? []),
+            ],
+            hostedZoneId: dnsZone ? undefined : domain.hostedZoneId,
+            validation: "route53",
+            tags: props.tags,
+          })));
+
+    // Explicit DNS adapters own both ACM validation and application DNS.
+    // Validation record names and values are projected from the native ACM
+    // attributes, preserving the certificate -> DNS -> waiter graph.
+    // DNS is an opt-in Website dependency. `serviceOption` deliberately does
+    // not add Resolver to StaticSite's construction requirements, preserving
+    // the normal AWS provider-only path. Once an explicit descriptor selects
+    // the DNS path, bind with the resolver that was actually registered in the
+    // ambient construction context.
+    const dnsHandles = dnsZone
+      ? yield* Option.match(yield* Effect.serviceOption(Resolver), {
+          onNone: () =>
+            Effect.fail(
+              new DnsError({
+                reason: "missing-adapter",
+                message: `No DNS resolver is registered for explicit zone type '${dnsZone.type}'. Provide DNS.adapterLayer(...) alongside the native provider layers.`,
+              }),
+            ),
+          onSome: (resolver) =>
+            bindDns(dnsZone).pipe(Effect.provideService(Resolver, resolver)),
+        })
+      : undefined;
+    let externalValidation: CertificateValidationResource | undefined;
+    if (dnsZone && domain && managedCertificate) {
+      const validationNames = canonicalHostnames(domain).filter(
+        (hostname, index, all) =>
+          all.findIndex(
+            (candidate) =>
+              candidate
+                .replace(/^\*\./, "")
+                .replace(/\.$/, "")
+                .toLowerCase() ===
+              hostname.replace(/^\*\./, "").replace(/\.$/, "").toLowerCase(),
+          ) === index,
+      );
+      const validation = yield* Effect.forEach(
+        validationNames,
+        (hostname) =>
+          Effect.gen(function* () {
+            const option = Output.map(
+              managedCertificate.domainValidationOptions,
+              (options) => selectAcmValidationRecord(options, hostname),
+            );
+            return yield* dnsHandles!.record({
+              id: yield* validationRecordId(hostname),
+              name: Output.map(option, (record) => record.Name),
+              type: "CNAME",
+              values: [Output.map(option, (record) => record.Value)],
+            });
+          }),
+        { concurrency: "unbounded" },
+      );
+      externalValidation = yield* CertificateValidation(
+        "CertificateValidation",
+        {
+          certificateArn: managedCertificate.certificateArn,
+          validationRecordFqdns: Output.all(
+            ...validation.map((record) => record.recordName),
+          ).as<string[]>(),
+        },
+      );
+    }
 
     const kvStore = yield* KeyValueStore("KvStore", {});
     kvStoreArn = kvStore.keyValueStoreArn;
@@ -727,7 +909,9 @@ export const makeKvSite = Effect.fn("AWS.Website.KvSite")(function* (
       customErrorResponses,
       viewerCertificate: certificate
         ? {
-            acmCertificateArn: certificate.certificateArn,
+            acmCertificateArn: externalValidation
+              ? externalValidation.certificateArn
+              : certificate.certificateArn,
             sslSupportMethod: "sni-only",
             minimumProtocolVersion: "TLSv1.2_2021",
           }
@@ -738,9 +922,9 @@ export const makeKvSite = Effect.fn("AWS.Website.KvSite")(function* (
     const dist = distribution;
     distributionId = dist.distributionId;
 
-    if (domain && domain.dns !== false) {
+    if (domain && domain.dns !== false && !dnsZone) {
       yield* Effect.forEach(
-        [domain.name, ...(domain.aliases ?? []), ...(domain.redirects ?? [])],
+        canonicalHostnames(domain),
         (name, index) =>
           Route53Record(`AliasRecord${index + 1}`, {
             // Optional — the Record provider infers the most specific
@@ -755,6 +939,16 @@ export const makeKvSite = Effect.fn("AWS.Website.KvSite")(function* (
           }),
         { concurrency: "unbounded" },
       );
+    }
+    if (domain && dnsZone && dnsHandles) {
+      const bound = dnsHandles;
+      yield* createWebsiteDns({
+        zone: bound,
+        names: canonicalHostnames(domain),
+        target: dist.domainName,
+        targetMetadata: { aliasHostedZoneId: dist.hostedZoneId },
+        idPrefix: "Application",
+      });
     }
 
     // Precedence: the canonical domain, then aliases in declaration
@@ -842,6 +1036,18 @@ export const makeKvSite = Effect.fn("AWS.Website.KvSite")(function* (
     urls,
   };
 });
+
+/** Website boundary translates construction errors into the Stack config channel. */
+export const makeKvSite = (...args: Parameters<typeof makeKvSiteImpl>) =>
+  makeKvSiteImpl(...args).pipe(
+    Effect.catchTag("DnsError", (error) =>
+      Effect.fail(
+        new ConfigError(
+          new ConfigProvider.SourceError({ message: error.message }),
+        ),
+      ),
+    ),
+  );
 
 /**
  * Derive the CloudFront KV routing entries from the *uploaded* file list

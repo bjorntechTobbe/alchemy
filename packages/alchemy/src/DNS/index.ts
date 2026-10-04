@@ -1,0 +1,26 @@
+export {
+  adapterLayer,
+  bind,
+  BoundZone,
+  DnsError,
+  Resolver,
+  validateZone,
+  type CommonRecordType,
+  type DnsAdapter,
+  type DnsCapabilities,
+  type DnsConstructionServices,
+  type DnsRecordHandle,
+  type DnsResolver,
+  type OwnershipMode,
+  type RecordRequest,
+  type Ttl,
+  type ZoneDescriptor,
+  type ZoneInputDescriptor,
+  type InputZoneDescriptor,
+  type ZoneLike,
+  type ZoneIdentity,
+} from "./Contract.ts";
+export {
+  createHostnameTargets,
+  type HostnameTargetsProps,
+} from "./HostnameTargets.ts";

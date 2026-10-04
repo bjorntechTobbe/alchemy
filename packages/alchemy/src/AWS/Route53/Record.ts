@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Schedule from "effect/Schedule";
 import * as Stream from "effect/Stream";
 import { isResolved } from "../../Diff.ts";
+import { Unowned } from "../../AdoptPolicy.ts";
 import type { Input } from "../../Input.ts";
 import * as Provider from "../../Provider.ts";
 import { Resource } from "../../Resource.ts";
@@ -231,8 +232,9 @@ export interface Record extends Resource<
 /**
  * A Route 53 DNS record set.
  *
- * `Record` manages a single Route 53 record set using `UPSERT` for create and
- * update operations, and waits for Route 53 change propagation before
+ * `Record` manages a single Route 53 record set using conditional `CREATE`
+ * for an unowned first create and `UPSERT` for an owned update, and waits for
+ * Route 53 change propagation before
  * returning.
  * ### Creating Records
  * **Example:** A Record Alias To CloudFront
@@ -341,7 +343,7 @@ export const normalizeHostedZoneId = (hostedZoneId: string) =>
 
 /** @internal shared with `Records.ts` — not exported from the barrel. */
 export const normalizeName = (name: string) =>
-  name.endsWith(".") ? name : `${name}.`;
+  `${name.replace(/\.$/, "")}.`.toLowerCase();
 
 /** @internal shared with `Records.ts` — not exported from the barrel. */
 export const toAliasTarget = (
@@ -529,30 +531,56 @@ export const RecordProvider = () =>
         hostedZoneId: string,
         props: Pick<RecordProps, "name" | "type" | "setIdentifier">,
       ) {
-        const response = yield* route53
-          .listResourceRecordSets({
-            HostedZoneId: normalizeHostedZoneId(hostedZoneId),
-            StartRecordName: normalizeName(props.name),
-            StartRecordType: props.type,
-            MaxItems: 100,
-          })
-          .pipe(
-            Effect.catchTag("NoSuchHostedZone", () =>
-              Effect.succeed(undefined),
-            ),
+        let request: route53.ListResourceRecordSetsRequest = {
+          HostedZoneId: normalizeHostedZoneId(hostedZoneId),
+          StartRecordName: normalizeName(props.name),
+          StartRecordType: props.type,
+          MaxItems: 100,
+        };
+        const seenCursors = new Set<string>();
+        while (true) {
+          const response = yield* route53
+            .listResourceRecordSets(request)
+            .pipe(
+              Effect.catchTag("NoSuchHostedZone", () =>
+                Effect.succeed(undefined),
+              ),
+            );
+          const found = (response?.ResourceRecordSets ?? []).find(
+            (recordSet) =>
+              normalizeName(recordSet.Name) === normalizeName(props.name) &&
+              recordSet.Type === props.type &&
+              (recordSet.SetIdentifier ?? undefined) === props.setIdentifier,
           );
-
-        return (response?.ResourceRecordSets ?? []).find(
-          (recordSet) =>
-            recordSet.Name === normalizeName(props.name) &&
-            recordSet.Type === props.type &&
-            (recordSet.SetIdentifier ?? undefined) === props.setIdentifier,
-        );
+          if (found) return found;
+          if (!response?.IsTruncated || response.NextRecordName === undefined) {
+            return undefined;
+          }
+          const cursor = [
+            response.NextRecordName,
+            response.NextRecordType ?? "",
+            response.NextRecordIdentifier ?? "",
+          ].join("\u0000");
+          if (seenCursors.has(cursor)) {
+            return yield* Effect.fail(
+              new Error("Route53 record-set pagination repeated a cursor"),
+            );
+          }
+          seenCursors.add(cursor);
+          request = {
+            HostedZoneId: normalizeHostedZoneId(hostedZoneId),
+            StartRecordName: response.NextRecordName,
+            StartRecordType: response.NextRecordType,
+            StartRecordIdentifier: response.NextRecordIdentifier,
+            MaxItems: 100,
+          };
+        }
       });
 
-      const upsertRecord = Effect.fn(function* (
+      const changeRecord = Effect.fn(function* (
         hostedZoneId: string,
         props: RecordProps,
+        action: "CREATE" | "UPSERT",
       ) {
         const response = yield* route53.changeResourceRecordSets({
           HostedZoneId: normalizeHostedZoneId(hostedZoneId),
@@ -560,7 +588,7 @@ export const RecordProvider = () =>
             Comment: "Alchemy Route53 record upsert",
             Changes: [
               {
-                Action: "UPSERT",
+                Action: action,
                 ResourceRecordSet: toRecordSet({
                   ...props,
                   ttl: durationToSeconds(props.ttl),
@@ -662,8 +690,7 @@ export const RecordProvider = () =>
           ) {
             // Output-valued props don't survive a `creating`-state round-trip
             // — without the record's identity we can't look it up. Report
-            // "not found" so the engine re-drives the create (the UPSERT in
-            // reconcile converges on any half-created record).
+            // "not found" so the engine re-drives the create.
             return undefined;
           }
           const recordSet = yield* findRecord(hostedZoneId, {
@@ -676,7 +703,11 @@ export const RecordProvider = () =>
             return undefined;
           }
 
-          return toAttrs(recordSet, hostedZoneId);
+          const attrs = toAttrs(recordSet, hostedZoneId);
+          // Route 53 has no ownership marker. An initial hit is deliberately
+          // unowned; only persisted output proves ownership. `adopt(true)` is
+          // the explicit engine escape hatch.
+          return output === undefined ? Unowned(attrs) : attrs;
         }),
         reconcile: Effect.fn(function* ({ news, output, session }) {
           // Resolve the zone: explicit prop, else the zone this resource
@@ -687,11 +718,14 @@ export const RecordProvider = () =>
             news.name,
           );
 
-          // Route 53 `changeResourceRecordSets` with `UPSERT` is naturally
-          // reconciler-friendly: it creates the record if missing and
-          // overwrites it if present. There's no separate ensure/sync split
-          // — one call converges to the desired record set.
-          yield* upsertRecord(hostedZoneId, news);
+          // CREATE guards against taking over an RRset that appeared between
+          // read and reconcile. Route 53 has no ETag, so this is bounded TOCTOU
+          // protection. A conflict is surfaced, never retried as UPSERT.
+          yield* changeRecord(
+            hostedZoneId,
+            news,
+            output === undefined ? "CREATE" : "UPSERT",
+          );
 
           // Re-read so the returned attributes reflect the actual current
           // record (including server-applied defaults).
@@ -699,7 +733,7 @@ export const RecordProvider = () =>
 
           if (!recordSet) {
             return yield* Effect.die(
-              new Error("Route53 record was not found after upsert"),
+              new Error("Route53 record was not found after change"),
             );
           }
 
@@ -743,7 +777,13 @@ export const RecordProvider = () =>
                 waitForChange(response.ChangeInfo.Id),
               ),
               Effect.catchTag("NoSuchHostedZone", () => Effect.void),
-              Effect.catchTag("InvalidChangeBatch", () => Effect.void),
+              Effect.catchTag("InvalidChangeBatch", (error) =>
+                /not found|does not exist|already absent/i.test(
+                  error.message ?? error.messages?.join(" ") ?? "",
+                )
+                  ? Effect.void
+                  : Effect.fail(error),
+              ),
             );
         }),
       };

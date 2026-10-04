@@ -15,6 +15,7 @@ export {
   type ServiceShape as BindingServiceShape,
 } from "./Binding.ts";
 export * from "./Destroy.ts";
+export * as DNS from "./DNS/index.ts";
 export * from "./Diff.ts";
 export * from "./Input.ts";
 export * from "./InstanceId.ts";

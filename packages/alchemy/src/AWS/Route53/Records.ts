@@ -3,6 +3,7 @@ import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Schedule from "effect/Schedule";
 import { isResolved } from "../../Diff.ts";
+import { OwnedBySomeoneElse, Unowned } from "../../AdoptPolicy.ts";
 import * as Provider from "../../Provider.ts";
 import { Resource, type ResourceBinding } from "../../Resource.ts";
 import { durationToSeconds } from "../IAM/common.ts";
@@ -195,26 +196,50 @@ export const RecordsProvider = () =>
         name: string,
         type: route53.RRType,
       ) {
-        const response = yield* route53
-          .listResourceRecordSets({
-            HostedZoneId: normalizeHostedZoneId(hostedZoneId),
-            StartRecordName: normalizeName(name),
-            StartRecordType: type,
-            MaxItems: 10,
-          })
-          .pipe(
-            Effect.catchTag("NoSuchHostedZone", () =>
-              Effect.succeed(undefined),
-            ),
+        let request: route53.ListResourceRecordSetsRequest = {
+          HostedZoneId: normalizeHostedZoneId(hostedZoneId),
+          StartRecordName: normalizeName(name),
+          StartRecordType: type,
+          MaxItems: 10,
+        };
+        const seenCursors = new Set<string>();
+        while (true) {
+          const response = yield* route53
+            .listResourceRecordSets(request)
+            .pipe(
+              Effect.catchTag("NoSuchHostedZone", () =>
+                Effect.succeed(undefined),
+              ),
+            );
+          const found = (response?.ResourceRecordSets ?? []).find(
+            (recordSet) =>
+              normalizeName(recordSet.Name) === normalizeName(name) &&
+              recordSet.Type === type &&
+              recordSet.SetIdentifier === undefined,
           );
-
-        return (response?.ResourceRecordSets ?? []).find(
-          (recordSet) =>
-            recordSet.Name.toLowerCase() ===
-              normalizeName(name).toLowerCase() &&
-            recordSet.Type === type &&
-            recordSet.SetIdentifier === undefined,
-        );
+          if (found) return found;
+          if (!response?.IsTruncated || response.NextRecordName === undefined) {
+            return undefined;
+          }
+          const cursor = [
+            response.NextRecordName,
+            response.NextRecordType ?? "",
+            response.NextRecordIdentifier ?? "",
+          ].join("\u0000");
+          if (seenCursors.has(cursor)) {
+            return yield* Effect.fail(
+              new Error("Route53 record-set pagination repeated a cursor"),
+            );
+          }
+          seenCursors.add(cursor);
+          request = {
+            HostedZoneId: normalizeHostedZoneId(hostedZoneId),
+            StartRecordName: response.NextRecordName,
+            StartRecordType: response.NextRecordType,
+            StartRecordIdentifier: response.NextRecordIdentifier,
+            MaxItems: 10,
+          };
+        }
       });
 
       const desiredRecordSet = (news: RecordsProps, name: string) =>
@@ -263,11 +288,15 @@ export const RecordsProvider = () =>
         hostedZoneId: string,
         type: route53.RRType,
         names: string[],
+        expected: route53.ResourceRecordSet,
       ) {
         const changes: route53.Change[] = [];
         for (const name of names) {
           const live = yield* findRecord(hostedZoneId, name, type);
-          if (live) {
+          // Never delete a foreign/drifted RRset merely because its name was
+          // once in this resource. Route 53 DELETE is exact, so require the
+          // stored managed payload to still match first.
+          if (live && matchesDesired(live, expected)) {
             changes.push({ Action: "DELETE", ResourceRecordSet: live });
           }
         }
@@ -285,7 +314,13 @@ export const RecordsProvider = () =>
           .pipe(
             Effect.flatMap((response) => waitForChange(response.ChangeInfo.Id)),
             Effect.catchTag("NoSuchHostedZone", () => Effect.void),
-            Effect.catchTag("InvalidChangeBatch", () => Effect.void),
+            Effect.catchTag("InvalidChangeBatch", (error) =>
+              /not found|does not exist|already absent/i.test(
+                error.message ?? error.messages?.join(" ") ?? "",
+              )
+                ? Effect.void
+                : Effect.fail(error),
+            ),
           );
       });
 
@@ -309,12 +344,32 @@ export const RecordsProvider = () =>
             return { action: "replace" } as const;
           }
         }),
-        read: Effect.fn(function* ({ output }) {
+        read: Effect.fn(function* ({ output, olds }) {
           if (output === undefined) {
-            // Without the previously-managed name set there is no identity
-            // to look up — report "not found" so the engine re-drives the
-            // reconcile (upserts converge on any half-created records).
-            return undefined;
+            // Route 53 has no ownership marker. Probe declared names and
+            // report an existing RRset as unowned. `adopt(true)` is the
+            // explicit escape hatch for taking it over.
+            const zone = olds?.hostedZoneId;
+            const names = olds?.names ?? [];
+            if (zone === undefined || names.length === 0) return undefined;
+            const found: string[] = [];
+            let sample: route53.ResourceRecordSet | undefined;
+            for (const name of names) {
+              const live = yield* findRecord(zone, name, olds.type);
+              if (live) {
+                found.push(name);
+                sample ??= live;
+              }
+            }
+            if (sample === undefined) return undefined;
+            return Unowned({
+              hostedZoneId: normalizeHostedZoneId(zone),
+              type: olds.type,
+              names: found.map(normalizeName),
+              ttl: sample.TTL,
+              records: sample.ResourceRecords?.map((record) => record.Value),
+              aliasTarget: toAliasTarget(sample.AliasTarget),
+            });
           }
           if (output.hostedZoneId === undefined) {
             // An empty set that never resolved a zone — nothing to observe.
@@ -377,13 +432,44 @@ export const RecordsProvider = () =>
             (name) => !desiredKeys.has(normalizeName(name).toLowerCase()),
           );
 
+          // A Records output proves ownership only for the names that were
+          // persisted in that output.  In particular, adding a name to an
+          // already-owned set must not silently adopt an existing RRset.  Do
+          // this complete preflight before constructing a change batch so a
+          // conflict cannot partially update an older member of the set.
+          const previousKeys = new Set(
+            previous.map((name) => normalizeName(name).toLowerCase()),
+          );
+          for (const name of desired) {
+            if (previousKeys.has(normalizeName(name).toLowerCase())) continue;
+            const live = yield* findRecord(hostedZoneId, name, news.type);
+            if (live !== undefined) {
+              return yield* Effect.fail(
+                new OwnedBySomeoneElse({
+                  message: `Route 53 record set ${normalizeName(name)} already exists and is not owned by this Records resource`,
+                  resourceType: "AWS.Route53.Records",
+                  physicalName: normalizeName(name),
+                }),
+              );
+            }
+          }
+
           // Sync — observe each desired name and upsert only the delta.
           const changes: route53.Change[] = [];
           for (const name of desired) {
             const target = desiredRecordSet(news, name);
             const live = yield* findRecord(hostedZoneId, name, news.type);
             if (!live || !matchesDesired(live, target)) {
-              changes.push({ Action: "UPSERT", ResourceRecordSet: target });
+              changes.push({
+                Action: output?.names.some(
+                  (managedName) =>
+                    normalizeName(managedName).toLowerCase() ===
+                    normalizeName(name).toLowerCase(),
+                )
+                  ? "UPSERT"
+                  : "CREATE",
+                ResourceRecordSet: target,
+              });
             }
           }
           if (changes.length > 0) {
@@ -398,7 +484,18 @@ export const RecordsProvider = () =>
           }
 
           // Garbage-collect names that left the set.
-          yield* deleteNames(hostedZoneId, news.type, stale);
+          yield* deleteNames(
+            hostedZoneId,
+            news.type,
+            stale,
+            toRecordSet({
+              name: stale[0] ?? desired[0] ?? "",
+              type: news.type,
+              records: output?.records,
+              aliasTarget: output?.aliasTarget,
+              ttl: output?.ttl,
+            }),
+          );
 
           yield* session.note(
             `${news.type} × ${desired.length} record(s)` +
@@ -423,7 +520,18 @@ export const RecordsProvider = () =>
             // The set never resolved a zone — it never created records.
             return;
           }
-          yield* deleteNames(output.hostedZoneId, output.type, output.names);
+          yield* deleteNames(
+            output.hostedZoneId,
+            output.type,
+            output.names,
+            toRecordSet({
+              name: output.names[0] ?? "",
+              type: output.type,
+              records: output.records,
+              aliasTarget: output.aliasTarget,
+              ttl: output.ttl,
+            }),
+          );
         }),
       };
     }),

@@ -946,6 +946,22 @@ describe("Output.asOutput", { tags: ["unit", "local"] }, () => {
     ),
   );
 
+  it.effect("wraps a Config and resolves it during evaluation", () =>
+    provideState(
+      Effect.gen(function* () {
+        const output = Output.asOutput(Config.String("OUTPUT_TEST_VALUE"));
+        const value = yield* Output.evaluate(output, {}).pipe(
+          Effect.provide(
+            ConfigProvider.layer(
+              ConfigProvider.fromUnknown({ OUTPUT_TEST_VALUE: "configured" }),
+            ),
+          ),
+        );
+        expect(value).toBe("configured");
+      }),
+    ),
+  );
+
   it("returns the same Output if already an Output", () => {
     const o = Output.literal("x");
     expect(Output.asOutput(o)).toBe(o);

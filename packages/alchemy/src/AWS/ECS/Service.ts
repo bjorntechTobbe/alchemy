@@ -24,6 +24,7 @@ import { Stack } from "../../Stack.ts";
 import { createInternalTags, diffTags } from "../../Tags.ts";
 import { toMillis, toSeconds, toWireSeconds } from "../../Util/Duration.ts";
 import { Certificate } from "../ACM/Certificate.ts";
+import { createAcmDnsValidation } from "../ACM/DnsValidation.ts";
 import { ScalableTarget } from "../ApplicationAutoScaling/ScalableTarget.ts";
 import { ScalingPolicy } from "../ApplicationAutoScaling/ScalingPolicy.ts";
 import { Service as CloudMapService } from "../CloudMap/Service.ts";
@@ -53,6 +54,13 @@ import {
 import { AWSEnvironment, type AccountID } from "../Environment.ts";
 import type { RegionID } from "../Region.ts";
 import type { Providers } from "../Providers.ts";
+import {
+  bind as bindDns,
+  DnsError,
+  Resolver,
+  type ZoneDescriptor,
+} from "../../DNS/Contract.ts";
+import { createHostnameTargets } from "../../DNS/HostnameTargets.ts";
 import type { ClusterArn } from "./Cluster.ts";
 import {
   attachTaskBindings,
@@ -170,16 +178,23 @@ export interface ServiceDomainConfig {
   name: string;
   /**
    * Additional domain names aliased to the load balancer. Each alias gets
-   * its own Route 53 alias records and (when the certificate is composed) a
+   * its own native DNS target and (when the certificate is composed) a
    * subject alternative name on the ACM certificate.
    */
   aliases?: string[];
   /**
    * ARN of an existing ACM certificate (in the service's region) for the
    * HTTPS/TLS listener. When omitted, a DNS-validated `AWS.ACM.Certificate`
-   * is composed in the matching Route 53 hosted zone.
+   * is composed. Explicit {@link dns} descriptors use external validation
+   * through that DNS authority; legacy input uses Route 53 inference.
    */
   cert?: string;
+  /**
+   * DNS authority used for application records and ACM validation. When set,
+   * records are composed through the generic DNS adapter selected by the
+   * descriptor. `false` disables application DNS and requires `cert`.
+   */
+  dns?: false | ZoneDescriptor;
 }
 
 /**
@@ -219,13 +234,15 @@ export interface ServiceLoadBalancerConfig {
   /**
    * Owned-only: point a custom domain at the composed load balancer.
    *
-   * A matching Route 53 hosted zone must exist (looked up by walking the
-   * domain's labels); alias A + AAAA records are composed for the domain and
-   * every alias. Unless {@link ServiceDomainConfig.cert} supplies an
-   * existing certificate ARN, a DNS-validated `AWS.ACM.Certificate` is
-   * composed in the service's region and attached to the HTTPS listener
-   * (the default listener becomes `443/https`). The service `url` prefers
-   * the domain.
+   * Legacy string/object input uses a matching public Route 53 hosted zone
+   * (looked up by walking the domain's labels); alias A + AAAA records are
+   * composed for the domain and every alias. With
+   * {@link ServiceDomainConfig.dns}, records use the selected native DNS
+   * adapter and a composed certificate uses external DNS validation. Unless
+   * {@link ServiceDomainConfig.cert} supplies an existing certificate ARN, a
+   * DNS-validated `AWS.ACM.Certificate` is composed in the service's region
+   * and attached to the HTTPS listener (the default listener becomes
+   * `443/https`). The service `url` prefers the domain.
    */
   domain?: string | ServiceDomainConfig;
   /**
@@ -343,6 +360,15 @@ export class NetworkListenerRuleUnsupported extends Data.TaggedError(
 /** No public Route 53 hosted zone matches the requested `domain`. */
 export class ServiceHostedZoneNotFound extends Data.TaggedError(
   "ServiceHostedZoneNotFound",
+)<{
+  readonly serviceId: string;
+  readonly domainName: string;
+  readonly message: string;
+}> {}
+
+/** A DNS-disabled domain must use a certificate supplied by the caller. */
+export class ServiceDomainCertificateRequired extends Data.TaggedError(
+  "ServiceDomainCertificateRequired",
 )<{
   readonly serviceId: string;
   readonly domainName: string;
@@ -1803,22 +1829,76 @@ const composeManagedIngress = (
     const domainNames =
       domain !== undefined ? [domain.name, ...(domain.aliases ?? [])] : [];
     const domainZones = new Map<string, string>();
+    const dnsZone =
+      domain !== undefined && typeof domain.dns === "object"
+        ? domain.dns
+        : undefined;
+    let boundDnsZone: import("../../DNS/Contract.ts").BoundZone | undefined;
     if (domain !== undefined) {
-      for (const name of domainNames) {
-        const zoneId = yield* findPublicHostedZoneId(name);
-        if (zoneId === undefined) {
-          return yield* Effect.fail(
-            new ServiceHostedZoneNotFound({
-              serviceId: id,
-              domainName: name,
-              message: `AWS.ECS.Service "${id}": no public Route 53 hosted zone contains '${name}' — create the hosted zone first (alias records land in it)`,
-            }),
-          );
+      if (dnsZone !== undefined) {
+        boundDnsZone = yield* Option.match(
+          yield* Effect.serviceOption(Resolver),
+          {
+            onNone: () =>
+              Effect.fail(
+                new DnsError({
+                  reason: "missing-adapter",
+                  message: `No DNS resolver is registered for explicit zone type '${dnsZone.type}'. Provide DNS.adapterLayer(...) alongside the native provider layers.`,
+                }),
+              ),
+            onSome: (resolver) =>
+              bindDns(dnsZone).pipe(Effect.provideService(Resolver, resolver)),
+          },
+        );
+      } else if (domain.dns !== false) {
+        for (const name of domainNames) {
+          const zoneId = yield* findPublicHostedZoneId(name);
+          if (zoneId === undefined) {
+            return yield* Effect.fail(
+              new ServiceHostedZoneNotFound({
+                serviceId: id,
+                domainName: name,
+                message: `AWS.ECS.Service "${id}": no public Route 53 hosted zone contains '${name}' — create the hosted zone first (alias records land in it)`,
+              }),
+            );
+          }
+          domainZones.set(name, zoneId);
         }
-        domainZones.set(name, zoneId);
       }
       if (domain.cert !== undefined) {
         certificateArn = domain.cert;
+      } else if (domain.dns === false) {
+        return yield* Effect.fail(
+          new ServiceDomainCertificateRequired({
+            serviceId: id,
+            domainName: domain.name,
+            message: `AWS.ECS.Service "${id}": a domain with \`dns: false\` requires \`cert\``,
+          }),
+        );
+      } else if (dnsZone !== undefined) {
+        // Explicit DNS authorities cannot be used by the ACM provider's
+        // Route 53 validator. Request an in-region certificate and compose
+        // its validation records through the same authority as application
+        // records, keeping both dependencies in the resource graph.
+        const { region } = yield* AWSEnvironment.current;
+        const certificate = yield* Certificate("Certificate", {
+          domainName: domain.name,
+          subjectAlternativeNames: domain.aliases,
+          validation: "external",
+          region,
+          tags: props.tags,
+        });
+        const externalValidation = yield* createAcmDnsValidation({
+          certificate,
+          identifiers: domainNames,
+          zone: boundDnsZone!,
+          idPrefix: "Certificate",
+        });
+        // Point the listener at the waiter output, not directly at ACM, so
+        // the graph cannot attach an HTTPS listener before external DNS
+        // validation has issued the regional certificate.
+        certificateArn = externalValidation.validation
+          .certificateArn as unknown as string;
       } else {
         // DNS-validated certificate in the service's own region (an ALB/NLB
         // listener requires an in-region certificate).
@@ -2198,22 +2278,34 @@ const composeManagedIngress = (
       }
     }
 
-    // ── domain: alias records pointing at the owned load balancer ───────
-    if (domain !== undefined && alb !== undefined) {
-      for (const name of domainNames) {
-        const zoneId = domainZones.get(name)!;
-        const sanitizedName = name.replaceAll(/[^a-zA-Z0-9-]/g, "-");
-        for (const recordType of ["A", "AAAA"] as const) {
-          yield* Route53Record(`Domain-${sanitizedName}-${recordType}`, {
-            hostedZoneId: zoneId,
-            name,
-            type: recordType,
-            aliasTarget: {
-              hostedZoneId: alb.canonicalHostedZoneId,
-              dnsName: alb.dnsName,
-              evaluateTargetHealth: false,
-            },
-          });
+    // ── domain: records pointing at the owned load balancer ────────────
+    if (domain !== undefined && alb !== undefined && domain.dns !== false) {
+      if (boundDnsZone !== undefined) {
+        yield* createHostnameTargets({
+          zone: boundDnsZone,
+          names: domainNames,
+          target: alb.dnsName,
+          targetMetadata: {
+            aliasHostedZoneId: alb.canonicalHostedZoneId,
+          },
+          idPrefix: "Domain",
+        });
+      } else {
+        for (const name of domainNames) {
+          const zoneId = domainZones.get(name)!;
+          const sanitizedName = name.replaceAll(/[^a-zA-Z0-9-]/g, "-");
+          for (const recordType of ["A", "AAAA"] as const) {
+            yield* Route53Record(`Domain-${sanitizedName}-${recordType}`, {
+              hostedZoneId: zoneId,
+              name,
+              type: recordType,
+              aliasTarget: {
+                hostedZoneId: alb.canonicalHostedZoneId,
+                dnsName: alb.dnsName,
+                evaluateTargetHealth: false,
+              },
+            });
+          }
         }
       }
     }
